@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import SecondSelection from "./pages/SecondSelection";
 import Results from "./pages/Results";
+import VideoOutput from "./pages/VideoOutput";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,6 +21,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/level2" element={<SecondSelection />} />
           <Route path="/results" element={<Results />} />
+          <Route path="/video-output" element={<VideoOutput />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

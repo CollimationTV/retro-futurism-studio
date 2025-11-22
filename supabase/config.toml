@@ -1,1 +1,4 @@
 project_id = "vbagwnxydqlysdvucvkv"
+
+[functions.generate-sora-video]
+verify_jwt = false
