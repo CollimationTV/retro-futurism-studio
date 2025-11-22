@@ -50,42 +50,45 @@ export const PerHeadsetImageGrid = ({
     setHeadsetSelections(newSelections);
   }, [connectedHeadsets]);
 
-  // Handle mental commands
+  // Auto-cycle focus through images
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHeadsetSelections(prev => {
+        const newSelections = new Map(prev);
+        newSelections.forEach((selection, headsetId) => {
+          // Only cycle if image not yet selected
+          if (selection.imageId === null) {
+            newSelections.set(headsetId, {
+              ...selection,
+              focusedIndex: (selection.focusedIndex + 1) % images.length
+            });
+          }
+        });
+        return newSelections;
+      });
+    }, 1500); // Cycle every 1.5 seconds
+
+    return () => clearInterval(interval);
+  }, [images.length]);
+
+  // Handle PUSH command for selection only
   useEffect(() => {
     if (!mentalCommand) return;
+    if (mentalCommand.com !== 'push') return;
 
-    const { com, headsetId } = mentalCommand;
+    const { headsetId } = mentalCommand;
     const currentSelection = headsetSelections.get(headsetId);
-    if (!currentSelection) return;
+    if (!currentSelection || currentSelection.imageId !== null) return;
 
     const newSelections = new Map(headsetSelections);
-    const selection = { ...currentSelection };
-
-    switch (com) {
-      case 'right':
-        selection.focusedIndex = (selection.focusedIndex + 1) % images.length;
-        break;
-      case 'left':
-        selection.focusedIndex = (selection.focusedIndex - 1 + images.length) % images.length;
-        break;
-      case 'push':
-      case 'pull':
-        if (selection.imageId === null) {
-          selection.imageId = images[selection.focusedIndex].id;
-          setTriggerParticle(images[selection.focusedIndex].id);
-        }
-        break;
-      case 'lift':
-        selection.focusedIndex = Math.max(0, selection.focusedIndex - 3);
-        break;
-      case 'drop':
-        selection.focusedIndex = Math.min(images.length - 1, selection.focusedIndex + 3);
-        break;
-    }
-
-    newSelections.set(headsetId, selection);
+    newSelections.set(headsetId, {
+      ...currentSelection,
+      imageId: images[currentSelection.focusedIndex].id
+    });
+    
+    setTriggerParticle(images[currentSelection.focusedIndex].id);
     setHeadsetSelections(newSelections);
-  }, [mentalCommand, images]);
+  }, [mentalCommand, images, headsetSelections]);
 
   // Check if all selections are complete
   useEffect(() => {
@@ -175,7 +178,7 @@ export const PerHeadsetImageGrid = ({
             <div className="flex items-center gap-2">
               <Focus className="h-5 w-5 text-primary" />
               <span className="text-sm font-mono">
-                Command: <span className="text-primary font-bold">{mentalCommand?.com || 'NEUTRAL'}</span>
+                Use <span className="text-primary font-bold">PUSH</span> to select focused image
               </span>
             </div>
             <div className="h-4 w-px bg-border" />
