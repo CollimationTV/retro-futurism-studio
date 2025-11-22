@@ -50,43 +50,60 @@ export const PerHeadsetImageGrid = ({
     setHeadsetSelections(newSelections);
   }, [connectedHeadsets]);
 
-  // Auto-cycle focus through images
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setHeadsetSelections(prev => {
-        const newSelections = new Map(prev);
-        newSelections.forEach((selection, headsetId) => {
-          // Only cycle if image not yet selected
-          if (selection.imageId === null) {
-            newSelections.set(headsetId, {
-              ...selection,
-              focusedIndex: (selection.focusedIndex + 1) % images.length
-            });
-          }
-        });
-        return newSelections;
-      });
-    }, 1500); // Cycle every 1.5 seconds
-
-    return () => clearInterval(interval);
-  }, [images.length]);
-
-  // Handle PUSH command for selection only
+  // Handle mental commands for navigation and selection
   useEffect(() => {
     if (!mentalCommand) return;
-    if (mentalCommand.com !== 'push') return;
 
-    const { headsetId } = mentalCommand;
+    const { headsetId, com } = mentalCommand;
     const currentSelection = headsetSelections.get(headsetId);
-    if (!currentSelection || currentSelection.imageId !== null) return;
+    if (!currentSelection) return;
+
+    // Don't allow navigation if already selected
+    if (currentSelection.imageId !== null && com !== 'push') return;
 
     const newSelections = new Map(headsetSelections);
-    newSelections.set(headsetId, {
-      ...currentSelection,
-      imageId: images[currentSelection.focusedIndex].id
-    });
+    const current = currentSelection.focusedIndex;
+
+    switch (com) {
+      case 'right':
+        newSelections.set(headsetId, {
+          ...currentSelection,
+          focusedIndex: (current + 1) % images.length
+        });
+        break;
+
+      case 'left':
+        newSelections.set(headsetId, {
+          ...currentSelection,
+          focusedIndex: (current - 1 + images.length) % images.length
+        });
+        break;
+
+      case 'drop':
+        newSelections.set(headsetId, {
+          ...currentSelection,
+          focusedIndex: Math.min(images.length - 1, current + 3)
+        });
+        break;
+
+      case 'lift':
+        newSelections.set(headsetId, {
+          ...currentSelection,
+          focusedIndex: Math.max(0, current - 3)
+        });
+        break;
+
+      case 'push':
+        if (currentSelection.imageId === null) {
+          newSelections.set(headsetId, {
+            ...currentSelection,
+            imageId: images[currentSelection.focusedIndex].id
+          });
+          setTriggerParticle(images[currentSelection.focusedIndex].id);
+        }
+        break;
+    }
     
-    setTriggerParticle(images[currentSelection.focusedIndex].id);
     setHeadsetSelections(newSelections);
   }, [mentalCommand, images, headsetSelections]);
 
