@@ -37,8 +37,7 @@ export const PerHeadsetImageGrid = ({
   const [lastCommandReceived, setLastCommandReceived] = useState<{ com: string; pow: number; headsetId: string } | null>(null);
   const [pushFlash, setPushFlash] = useState(false);
   const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
-  const [motionDebounce, setMotionDebounce] = useState<Map<string, { direction: string; startTime: number; lastIndex: number }>>(new Map());
-  const [navigationCooldown, setNavigationCooldown] = useState<Map<string, number>>(new Map());
+  const [neutralState, setNeutralState] = useState<Map<string, boolean>>(new Map()); // Track if headset is in neutral zone
 
   // Initialize headset selections
   useEffect(() => {
@@ -57,7 +56,7 @@ export const PerHeadsetImageGrid = ({
     setHeadsetSelections(newSelections);
   }, [connectedHeadsets]);
 
-  // Handle head turning (gyroscope) for navigation with debouncing
+  // Handle head turning (gyroscope) for DISCRETE tilt-step navigation
   useEffect(() => {
     if (!motionEvent) return;
     const { gyroX, gyroY, headsetId } = motionEvent;
@@ -67,82 +66,66 @@ export const PerHeadsetImageGrid = ({
 
     // FREEZE navigation if this headset is actively pushing
     if (pushProgress.has(headsetId)) {
-      // Clear any debounce state since we're frozen
-      setMotionDebounce(prev => {
-        const next = new Map(prev);
-        next.delete(headsetId);
-        return next;
-      });
+      // Reset to neutral when frozen
+      setNeutralState(prev => new Map(prev).set(headsetId, true));
       return;
     }
 
-    // Check cooldown - prevent rapid navigation
-    const cooldownTime = navigationCooldown.get(headsetId);
-    const now = Date.now();
-    if (cooldownTime && now - cooldownTime < 1000) {
-      // Still in cooldown period (1 second after last navigation)
-      return;
-    }
-
-    // Threshold for detecting intentional head movement
-    const TURN_THRESHOLD = 0.3; // Increased from 0.2 to reduce sensitivity
-    const DEBOUNCE_MS = 500; // Require 500ms of sustained movement
+    // Thresholds for discrete tilt-step navigation
+    const NEUTRAL_ZONE = 0.15; // Dead zone - must be below this to be "neutral"
+    const TILT_THRESHOLD = 0.5; // Must exceed this to trigger a move
     
-    let direction = '';
+    const isInNeutral = Math.abs(gyroX) < NEUTRAL_ZONE && Math.abs(gyroY) < NEUTRAL_ZONE;
+    const wasInNeutral = neutralState.get(headsetId) ?? true; // Default to neutral on first event
+
+    if (isInNeutral) {
+      // Update neutral state
+      if (!wasInNeutral) {
+        setNeutralState(prev => new Map(prev).set(headsetId, true));
+      }
+      return; // In neutral zone, no navigation
+    }
+
+    // NOT in neutral zone - check if we can navigate
+    if (!wasInNeutral) {
+      // Already moved, waiting for return to neutral
+      return;
+    }
+
+    // Was in neutral, now tilted beyond threshold - execute ONE move
     let newIndex = currentSelection.focusedIndex;
+    let moved = false;
 
     // Determine direction based on strongest signal
-    if (Math.abs(gyroY) > TURN_THRESHOLD || Math.abs(gyroX) > TURN_THRESHOLD) {
+    if (Math.abs(gyroY) > TILT_THRESHOLD || Math.abs(gyroX) > TILT_THRESHOLD) {
       if (Math.abs(gyroY) > Math.abs(gyroX)) {
-        direction = gyroY > 0 ? 'right' : 'left';
+        // Horizontal navigation (left/right)
         newIndex = gyroY > 0 
           ? (currentSelection.focusedIndex + 1) % images.length
           : (currentSelection.focusedIndex - 1 + images.length) % images.length;
+        moved = true;
       } else {
-        direction = gyroX > 0 ? 'down' : 'up';
+        // Vertical navigation (up/down)
         newIndex = gyroX > 0
           ? (currentSelection.focusedIndex + 3) % images.length
           : (currentSelection.focusedIndex - 3 + images.length) % images.length;
+        moved = true;
       }
-
-      // Check debounce state
-      const debounceState = motionDebounce.get(headsetId);
-      
-      if (!debounceState || debounceState.direction !== direction || debounceState.lastIndex !== currentSelection.focusedIndex) {
-        // New direction or new starting position - reset timer
-        setMotionDebounce(prev => new Map(prev).set(headsetId, {
-          direction,
-          startTime: now,
-          lastIndex: currentSelection.focusedIndex
-        }));
-      } else if (now - debounceState.startTime >= DEBOUNCE_MS) {
-        // Sustained movement for required duration - execute navigation
-        const newSelections = new Map(headsetSelections);
-        newSelections.set(headsetId, {
-          ...currentSelection,
-          focusedIndex: newIndex
-        });
-        setHeadsetSelections(newSelections);
-        
-        // Set cooldown to prevent immediate re-navigation
-        setNavigationCooldown(prev => new Map(prev).set(headsetId, now));
-        
-        // Reset debounce after successful navigation
-        setMotionDebounce(prev => {
-          const next = new Map(prev);
-          next.delete(headsetId);
-          return next;
-        });
-      }
-    } else {
-      // Below threshold - clear debounce
-      setMotionDebounce(prev => {
-        const next = new Map(prev);
-        next.delete(headsetId);
-        return next;
-      });
     }
-  }, [motionEvent, images.length, headsetSelections, motionDebounce, navigationCooldown, pushProgress]);
+
+    if (moved) {
+      // Execute the move
+      const newSelections = new Map(headsetSelections);
+      newSelections.set(headsetId, {
+        ...currentSelection,
+        focusedIndex: newIndex
+      });
+      setHeadsetSelections(newSelections);
+      
+      // Mark as NOT neutral - must return to neutral before next move
+      setNeutralState(prev => new Map(prev).set(headsetId, false));
+    }
+  }, [motionEvent, images.length, headsetSelections, neutralState, pushProgress]);
 
   // Track all mental commands for visual feedback
   useEffect(() => {
