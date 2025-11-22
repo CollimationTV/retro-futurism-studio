@@ -4,8 +4,8 @@ import { Hero } from "@/components/Hero";
 import { ImageGrid } from "@/components/ImageGrid";
 import { StatusPanel } from "@/components/StatusPanel";
 import { Features } from "@/components/Features";
-import { CortexConnection } from "@/components/CortexConnection";
-import { MentalCommandEvent } from "@/lib/cortexClient";
+import { MultiHeadsetConnection } from "@/components/MultiHeadsetConnection";
+import { MentalCommandEvent } from "@/lib/multiHeadsetCortexClient";
 
 const Index = () => {
   const [mentalCommand, setMentalCommand] = useState<MentalCommandEvent | null>(null);
@@ -20,8 +20,8 @@ const Index = () => {
       <Hero />
       
       <section className="py-12 px-6">
-        <div className="container mx-auto max-w-2xl">
-          <CortexConnection onMentalCommand={handleMentalCommand} />
+        <div className="container mx-auto max-w-4xl">
+          <MultiHeadsetConnection onMentalCommand={handleMentalCommand} />
         </div>
       </section>
       

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Brain, Check } from "lucide-react";
-import { MentalCommandEvent } from "@/lib/cortexClient";
+import { MentalCommandEvent } from "@/lib/multiHeadsetCortexClient";
 
 // Generate 9 placeholder images in 16:9 format
 const images = Array.from({ length: 9 }, (_, i) => ({
