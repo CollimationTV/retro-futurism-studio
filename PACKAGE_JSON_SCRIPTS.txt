@@ -1,0 +1,29 @@
+ADD THESE SCRIPTS TO YOUR package.json
+==========================================
+
+Open package.json and add these three lines to the "scripts" section:
+
+  "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:8080 && NODE_ENV=development electron electron.cjs\"",
+  "electron:build": "npm run build && electron-builder --config electron-builder.json",
+  "electron:build:win": "npm run build && electron-builder --win --config electron-builder.json"
+
+Your scripts section should look something like this:
+
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:8080 && NODE_ENV=development electron electron.cjs\"",
+    "electron:build": "npm run build && electron-builder --config electron-builder.json",
+    "electron:build:win": "npm run build && electron-builder --win --config electron-builder.json"
+  }
+}
+
+QUICK START:
+============
+1. Add the scripts above to package.json
+2. Run: npm install
+3. Test: npm run electron:dev
+4. Build: npm run electron:build:win
+5. Find your .exe in the dist-electron folder!
