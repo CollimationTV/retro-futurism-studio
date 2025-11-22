@@ -14,6 +14,16 @@ serve(async (req) => {
   }
 
   try {
+    console.log('📥 Received request to generate-sora-video');
+    
+    if (!openAIApiKey) {
+      console.error('❌ OPENAI_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ error: 'OpenAI API key is not configured. Please add your OPENAI_API_KEY in the backend settings.' }), 
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { metadata } = await req.json();
 
     if (!metadata || !Array.isArray(metadata) || metadata.length === 0) {
@@ -31,38 +41,111 @@ serve(async (req) => {
 
     console.log('📝 Sora prompt:', prompt);
 
-    // Call OpenAI Sora API to generate video
-    const response = await fetch('https://api.openai.com/v1/video/generations', {
+    // Step 1: Start video generation job
+    const createResponse = await fetch('https://api.openai.com/v1/videos', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sora-2025-02-01',
+        model: 'sora-2',
         prompt: prompt,
-        duration: 5, // 5 second video
-        resolution: '1920x1080',
-        quality: 'high',
+        size: '1280x720',
+        seconds: 5,
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Sora API error:', response.status, errorText);
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error('❌ Sora API create error:', createResponse.status, errorText);
       return new Response(
-        JSON.stringify({ error: `Sora API error: ${response.status}`, details: errorText }), 
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: `Sora API error: ${createResponse.status}`, 
+          details: errorText,
+          message: 'Failed to start video generation. Please check your OpenAI API key has Sora access enabled.'
+        }), 
+        { status: createResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data = await response.json();
-    console.log('✅ Sora video generated successfully');
+    const createData = await createResponse.json();
+    const videoId = createData.id;
+    console.log('🎥 Video job started with ID:', videoId);
+
+    // Step 2: Poll for completion (with timeout)
+    const maxAttempts = 60; // 5 minutes max (5 second intervals)
+    let attempts = 0;
+    let videoUrl = null;
+
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+      attempts++;
+
+      const statusResponse = await fetch(`https://api.openai.com/v1/videos/${videoId}`, {
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+        },
+      });
+
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        console.error('❌ Status check error:', statusResponse.status, errorText);
+        continue;
+      }
+
+      const statusData = await statusResponse.json();
+      console.log(`📊 Status check ${attempts}/${maxAttempts}:`, statusData.status);
+
+      if (statusData.status === 'completed') {
+        // Step 3: Fetch the video content
+        const contentResponse = await fetch(`https://api.openai.com/v1/videos/${videoId}/content`, {
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+          },
+        });
+
+        if (!contentResponse.ok) {
+          console.error('❌ Failed to fetch video content');
+          throw new Error('Failed to fetch video content');
+        }
+
+        // Get video as blob and convert to base64
+        const videoBlob = await contentResponse.blob();
+        const arrayBuffer = await videoBlob.arrayBuffer();
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        videoUrl = `data:video/mp4;base64,${base64}`;
+        
+        console.log('✅ Video generation completed and fetched');
+        break;
+      } else if (statusData.status === 'failed' || statusData.status === 'cancelled') {
+        console.error('❌ Video generation failed:', statusData);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Video generation failed', 
+            details: statusData 
+          }), 
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    if (!videoUrl) {
+      console.error('❌ Video generation timed out');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Video generation timed out', 
+          message: 'The video is taking longer than expected. Please try again.'
+        }), 
+        { status: 408, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        videoUrl: data.data?.[0]?.url || null,
+        videoUrl: videoUrl,
+        videoId: videoId,
         metadata: metadata 
       }), 
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -71,7 +154,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('❌ Error in generate-sora-video function:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), 
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        message: 'An unexpected error occurred during video generation.'
+      }), 
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
