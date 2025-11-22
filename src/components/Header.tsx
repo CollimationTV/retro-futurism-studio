@@ -11,8 +11,8 @@ export const Header = () => {
               <Zap className="absolute -top-1 -right-1 h-4 w-4 text-accent" />
             </div>
             <h1 className="text-2xl font-bold tracking-wider" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              <span className="neon-glow">NEURO</span>
-              <span className="neon-glow-magenta">VISION</span>
+              <span className="neon-glow">BRAVE NEW </span>
+              <span className="neon-glow-magenta">EARTH</span>
             </h1>
           </div>
           
