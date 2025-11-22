@@ -1,11 +1,21 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { Header } from "@/components/Header";
+import { Hero } from "@/components/Hero";
+import { ImageGrid } from "@/components/ImageGrid";
+import { StatusPanel } from "@/components/StatusPanel";
+import { Features } from "@/components/Features";
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="min-h-screen">
+      <Header />
+      <Hero />
+      <StatusPanel />
+      <ImageGrid />
+      <Features />
+      
+      {/* Scan line effect */}
+      <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+        <div className="absolute w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent animate-scan-line" />
       </div>
     </div>
   );
