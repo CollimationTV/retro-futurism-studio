@@ -37,6 +37,7 @@ export const PerHeadsetImageGrid = ({
   const [lastCommandReceived, setLastCommandReceived] = useState<{ com: string; pow: number; headsetId: string } | null>(null);
   const [pushFlash, setPushFlash] = useState(false);
   const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
+  const [motionDebounce, setMotionDebounce] = useState<Map<string, { direction: string; startTime: number; lastIndex: number }>>(new Map());
 
   // Initialize headset selections
   useEffect(() => {
@@ -55,7 +56,7 @@ export const PerHeadsetImageGrid = ({
     setHeadsetSelections(newSelections);
   }, [connectedHeadsets]);
 
-  // Handle head turning (gyroscope) for navigation
+  // Handle head turning (gyroscope) for navigation with debouncing
   useEffect(() => {
     if (!motionEvent) return;
     const { gyroX, gyroY, headsetId } = motionEvent;
@@ -64,40 +65,62 @@ export const PerHeadsetImageGrid = ({
     if (!currentSelection || currentSelection.imageId !== null) return;
 
     // Threshold for detecting intentional head movement
-    const TURN_THRESHOLD = 0.15;
+    const TURN_THRESHOLD = 0.2;
+    const DEBOUNCE_MS = 500; // Require 500ms of sustained movement
     
-    const newSelections = new Map(headsetSelections);
+    const now = Date.now();
+    let direction = '';
     let newIndex = currentSelection.focusedIndex;
 
-    // Left/Right (gyroY) OR Up/Down (gyroX)
+    // Determine direction based on strongest signal
     if (Math.abs(gyroY) > TURN_THRESHOLD || Math.abs(gyroX) > TURN_THRESHOLD) {
       if (Math.abs(gyroY) > Math.abs(gyroX)) {
-        // Horizontal movement is stronger
-        if (gyroY > 0) {
-          // Turning right
-          newIndex = (currentSelection.focusedIndex + 1) % images.length;
-        } else {
-          // Turning left
-          newIndex = (currentSelection.focusedIndex - 1 + images.length) % images.length;
-        }
+        direction = gyroY > 0 ? 'right' : 'left';
+        newIndex = gyroY > 0 
+          ? (currentSelection.focusedIndex + 1) % images.length
+          : (currentSelection.focusedIndex - 1 + images.length) % images.length;
       } else {
-        // Vertical movement is stronger
-        if (gyroX > 0) {
-          // Tilting down
-          newIndex = (currentSelection.focusedIndex + 3) % images.length; // Move down a row
-        } else {
-          // Tilting up
-          newIndex = (currentSelection.focusedIndex - 3 + images.length) % images.length; // Move up a row
-        }
+        direction = gyroX > 0 ? 'down' : 'up';
+        newIndex = gyroX > 0
+          ? (currentSelection.focusedIndex + 3) % images.length
+          : (currentSelection.focusedIndex - 3 + images.length) % images.length;
       }
 
-      newSelections.set(headsetId, {
-        ...currentSelection,
-        focusedIndex: newIndex
+      // Check debounce state
+      const debounceState = motionDebounce.get(headsetId);
+      
+      if (!debounceState || debounceState.direction !== direction || debounceState.lastIndex !== currentSelection.focusedIndex) {
+        // New direction or new starting position - reset timer
+        setMotionDebounce(prev => new Map(prev).set(headsetId, {
+          direction,
+          startTime: now,
+          lastIndex: currentSelection.focusedIndex
+        }));
+      } else if (now - debounceState.startTime >= DEBOUNCE_MS) {
+        // Sustained movement for required duration - execute navigation
+        const newSelections = new Map(headsetSelections);
+        newSelections.set(headsetId, {
+          ...currentSelection,
+          focusedIndex: newIndex
+        });
+        setHeadsetSelections(newSelections);
+        
+        // Reset debounce after successful navigation
+        setMotionDebounce(prev => {
+          const next = new Map(prev);
+          next.delete(headsetId);
+          return next;
+        });
+      }
+    } else {
+      // Below threshold - clear debounce
+      setMotionDebounce(prev => {
+        const next = new Map(prev);
+        next.delete(headsetId);
+        return next;
       });
-      setHeadsetSelections(newSelections);
     }
-  }, [motionEvent, images.length, headsetSelections]);
+  }, [motionEvent, images.length, headsetSelections, motionDebounce]);
 
   // Track all mental commands for visual feedback
   useEffect(() => {
