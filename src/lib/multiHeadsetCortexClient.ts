@@ -16,6 +16,17 @@ export interface MentalCommandEvent {
   headsetId: string; // Which headset this command came from
 }
 
+export interface MotionEvent {
+  gyroX: number; // Rotation around X axis
+  gyroY: number; // Rotation around Y axis (head turning left/right)
+  gyroZ: number; // Rotation around Z axis
+  accX: number;  // Acceleration X
+  accY: number;  // Acceleration Y
+  accZ: number;  // Acceleration Z
+  time: number;
+  headsetId: string;
+}
+
 export interface HeadsetInfo {
   id: string;
   status: string;
@@ -47,6 +58,7 @@ export class MultiHeadsetCortexClient {
   
   private callbacks: Map<number, (response: any) => void> = new Map();
   public onMentalCommand: ((event: MentalCommandEvent) => void) | null = null;
+  public onMotion: ((event: MotionEvent) => void) | null = null;
   public onConnectionStatus: ((status: string) => void) | null = null;
   public onHeadsetStatus: ((headsetId: string, status: string) => void) | null = null;
   public onError: ((error: string) => void) | null = null;
@@ -113,6 +125,31 @@ export class MultiHeadsetCortexClient {
         headsetId: headsetId
       };
       this.onMentalCommand?.(event);
+    }
+
+    // Handle motion sensor data stream
+    if (message.mot !== undefined && Array.isArray(message.mot)) {
+      const headsetId = message.sid ? this.getHeadsetIdBySessionId(message.sid) : 'unknown';
+      
+      // mot array format: [Q0, Q1, Q2, Q3, accX, accY, accZ, magX, magY, magZ]
+      // We'll focus on gyro data which comes from quaternions
+      const [q0, q1, q2, q3, accX, accY, accZ] = message.mot;
+      
+      // Convert quaternion to Euler angles for easier interpretation
+      // Focus on Y-axis rotation (yaw) for left/right head turning
+      const gyroY = 2 * (q0 * q2 + q1 * q3);
+      
+      const event: MotionEvent = {
+        gyroX: 2 * (q0 * q1 - q2 * q3),
+        gyroY: gyroY,
+        gyroZ: 2 * (q0 * q3 + q1 * q2),
+        accX: accX || 0,
+        accY: accY || 0,
+        accZ: accZ || 0,
+        time: message.time,
+        headsetId: headsetId
+      };
+      this.onMotion?.(event);
     }
 
     // Handle warnings and errors
@@ -254,7 +291,7 @@ export class MultiHeadsetCortexClient {
   }
 
   /**
-   * Subscribe to mental commands for a specific headset session
+   * Subscribe to mental commands and motion data for a specific headset session
    */
   async subscribeMentalCommands(headsetId: string): Promise<void> {
     if (!this.authToken) {
@@ -269,10 +306,10 @@ export class MultiHeadsetCortexClient {
     const result = await this.sendRequest('subscribe', {
       cortexToken: this.authToken,
       session: session.sessionId,
-      streams: ['com'] // Mental commands stream
+      streams: ['com', 'mot'] // Mental commands + motion sensor streams
     });
 
-    console.log(`✅ Subscribed to mental commands for headset ${headsetId}:`, result);
+    console.log(`✅ Subscribed to mental commands and motion for headset ${headsetId}:`, result);
   }
 
   /**

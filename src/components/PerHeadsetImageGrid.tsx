@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Focus, Sparkles, Activity } from "lucide-react";
-import { MentalCommandEvent } from "@/lib/multiHeadsetCortexClient";
+import { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { ImageData } from "@/data/imageData";
 import { ParticleDissolve } from "./ParticleDissolve";
 
@@ -15,6 +15,7 @@ interface HeadsetSelection {
 interface PerHeadsetImageGridProps {
   images: ImageData[];
   mentalCommand?: MentalCommandEvent | null;
+  motionEvent?: MotionEvent | null;
   connectedHeadsets: string[];
   onAllSelected: (selections: Map<string, number>) => void;
   title: string;
@@ -24,6 +25,7 @@ interface PerHeadsetImageGridProps {
 export const PerHeadsetImageGrid = ({
   images,
   mentalCommand,
+  motionEvent,
   connectedHeadsets,
   onAllSelected,
   title,
@@ -53,23 +55,28 @@ export const PerHeadsetImageGrid = ({
     setHeadsetSelections(newSelections);
   }, [connectedHeadsets]);
 
-  // Handle LEFT/RIGHT commands for navigation
+  // Handle head turning (gyroscope) for navigation
   useEffect(() => {
-    if (!mentalCommand) return;
-    const { com, headsetId } = mentalCommand;
+    if (!motionEvent) return;
+    const { gyroY, headsetId } = motionEvent;
     
-    if (com !== 'left' && com !== 'right') return;
-
     const currentSelection = headsetSelections.get(headsetId);
     if (!currentSelection || currentSelection.imageId !== null) return;
 
+    // Threshold for detecting intentional head turn (tune this value)
+    const TURN_THRESHOLD = 0.15;
+    
     const newSelections = new Map(headsetSelections);
     let newIndex = currentSelection.focusedIndex;
 
-    if (com === 'right') {
+    if (gyroY > TURN_THRESHOLD) {
+      // Turning right
       newIndex = (currentSelection.focusedIndex + 1) % images.length;
-    } else if (com === 'left') {
+    } else if (gyroY < -TURN_THRESHOLD) {
+      // Turning left
       newIndex = (currentSelection.focusedIndex - 1 + images.length) % images.length;
+    } else {
+      return; // No significant motion
     }
 
     newSelections.set(headsetId, {
@@ -77,7 +84,7 @@ export const PerHeadsetImageGrid = ({
       focusedIndex: newIndex
     });
     setHeadsetSelections(newSelections);
-  }, [mentalCommand, images.length, headsetSelections]);
+  }, [motionEvent, images.length, headsetSelections]);
 
   // Track all mental commands for visual feedback
   useEffect(() => {
@@ -263,7 +270,7 @@ export const PerHeadsetImageGrid = ({
               <div className="flex items-center gap-2">
                 <Focus className="h-5 w-5 text-primary" />
                 <span className="text-sm font-mono">
-                  Turn head LEFT/RIGHT to navigate • Hold <span className="text-primary font-bold">PUSH</span> for 3s to select
+                  Turn your head physically to navigate • Hold <span className="text-primary font-bold">PUSH</span> for 3s to select
                 </span>
               </div>
               <div className="h-4 w-px bg-border" />

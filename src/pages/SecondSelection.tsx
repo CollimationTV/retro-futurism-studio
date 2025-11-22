@@ -70,6 +70,7 @@ const SecondSelection = () => {
       <PerHeadsetImageGrid
         images={level2Images}
         mentalCommand={mentalCommand}
+        motionEvent={null}
         connectedHeadsets={connectedHeadsets || []}
         onAllSelected={handleAllSelected}
         title="Select Your Image - Level 2"
