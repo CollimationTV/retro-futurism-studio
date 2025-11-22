@@ -113,8 +113,18 @@ serve(async (req) => {
         // Get video as blob and convert to base64
         const videoBlob = await contentResponse.blob();
         const arrayBuffer = await videoBlob.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-        videoUrl = `data:video/mp4;base64,${base64}`;
+        
+        // Convert to base64 in chunks to avoid stack overflow
+        const uint8Array = new Uint8Array(arrayBuffer);
+        let base64 = '';
+        const chunkSize = 0x8000; // Process 32KB at a time
+        
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, i + chunkSize);
+          base64 += String.fromCharCode.apply(null, Array.from(chunk));
+        }
+        
+        videoUrl = `data:video/mp4;base64,${btoa(base64)}`;
         
         console.log('✅ Video generation completed and fetched');
         break;
