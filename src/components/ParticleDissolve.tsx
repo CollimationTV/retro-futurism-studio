@@ -21,23 +21,24 @@ export const ParticleDissolve = ({ trigger, onComplete }: ParticleDissolveProps)
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
-    if (!trigger) return;
+    if (!trigger || isAnimating) return;
 
+    console.log('🎆 Particle effect triggered!');
     setIsAnimating(true);
     
-    // Create particles from center
+    // Create more particles for better visibility
     const newParticles: Particle[] = [];
-    const particleCount = 40;
+    const particleCount = 60; // Increased from 40
     
     for (let i = 0; i < particleCount; i++) {
       const angle = (Math.PI * 2 * i) / particleCount;
-      const speed = 2 + Math.random() * 3;
+      const speed = 3 + Math.random() * 4; // Faster and more varied
       
       newParticles.push({
         id: i,
         x: 50,
         y: 50,
-        size: 2 + Math.random() * 4,
+        size: 3 + Math.random() * 6, // Larger particles
         speedX: Math.cos(angle) * speed,
         speedY: Math.sin(angle) * speed,
         opacity: 1,
@@ -48,7 +49,7 @@ export const ParticleDissolve = ({ trigger, onComplete }: ParticleDissolveProps)
     setParticles(newParticles);
 
     // Animate particles
-    const animationDuration = 800;
+    const animationDuration = 1200; // Longer animation
     const startTime = Date.now();
     
     const animate = () => {
@@ -60,8 +61,8 @@ export const ParticleDissolve = ({ trigger, onComplete }: ParticleDissolveProps)
           ...p,
           x: p.x + p.speedX,
           y: p.y + p.speedY,
-          opacity: 1 - progress,
-          speedY: p.speedY + 0.1, // Add gravity
+          opacity: Math.max(0, 1 - progress),
+          speedY: p.speedY + 0.15, // Stronger gravity
         }))
       );
       
@@ -75,16 +76,16 @@ export const ParticleDissolve = ({ trigger, onComplete }: ParticleDissolveProps)
     };
     
     requestAnimationFrame(animate);
-  }, [trigger, onComplete]);
+  }, [trigger]);
 
   if (!isAnimating && particles.length === 0) return null;
 
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
       {particles.map(particle => (
         <div
           key={particle.id}
-          className="absolute rounded-full blur-[1px]"
+          className="absolute rounded-full"
           style={{
             left: `${particle.x}%`,
             top: `${particle.y}%`,
@@ -93,18 +94,19 @@ export const ParticleDissolve = ({ trigger, onComplete }: ParticleDissolveProps)
             backgroundColor: particle.color,
             opacity: particle.opacity,
             transform: 'translate(-50%, -50%)',
-            transition: 'none',
+            boxShadow: `0 0 ${particle.size * 2}px ${particle.color}`,
+            filter: 'blur(0.5px)',
           }}
         />
       ))}
       
-      {/* Radial glow effect */}
+      {/* Enhanced radial flash effect */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 animate-pulse"
         style={{
-          background: `radial-gradient(circle at center, hsl(var(--primary) / 0.3) 0%, transparent 70%)`,
+          background: `radial-gradient(circle at center, hsl(var(--primary) / 0.5) 0%, transparent 60%)`,
           opacity: isAnimating ? 1 : 0,
-          transition: 'opacity 0.3s ease-out',
+          transition: 'opacity 0.5s ease-out',
         }}
       />
     </div>
