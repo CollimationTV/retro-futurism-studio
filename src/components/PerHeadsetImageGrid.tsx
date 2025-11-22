@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Focus, Sparkles } from "lucide-react";
+import { CheckCircle2, Focus, Sparkles, Activity } from "lucide-react";
 import { MentalCommandEvent } from "@/lib/multiHeadsetCortexClient";
 import { ImageData } from "@/data/imageData";
 import { ParticleDissolve } from "./ParticleDissolve";
@@ -32,6 +32,8 @@ export const PerHeadsetImageGrid = ({
   const [headsetSelections, setHeadsetSelections] = useState<Map<string, HeadsetSelection>>(new Map());
   const [triggerParticle, setTriggerParticle] = useState<number | null>(null);
   const [allSelectionsComplete, setAllSelectionsComplete] = useState(false);
+  const [lastCommandReceived, setLastCommandReceived] = useState<{ com: string; pow: number; headsetId: string } | null>(null);
+  const [pushFlash, setPushFlash] = useState(false);
 
   // Initialize headset selections
   useEffect(() => {
@@ -71,6 +73,24 @@ export const PerHeadsetImageGrid = ({
     return () => clearInterval(interval);
   }, [images.length]);
 
+  // Track all mental commands for visual feedback
+  useEffect(() => {
+    if (!mentalCommand) return;
+    
+    console.log('Mental command received:', mentalCommand);
+    setLastCommandReceived({
+      com: mentalCommand.com,
+      pow: mentalCommand.pow,
+      headsetId: mentalCommand.headsetId
+    });
+
+    // Flash effect for PUSH commands
+    if (mentalCommand.com === 'push') {
+      setPushFlash(true);
+      setTimeout(() => setPushFlash(false), 300);
+    }
+  }, [mentalCommand]);
+
   // Handle PUSH command for selection only
   useEffect(() => {
     if (!mentalCommand) return;
@@ -78,15 +98,24 @@ export const PerHeadsetImageGrid = ({
 
     const { headsetId } = mentalCommand;
     const currentSelection = headsetSelections.get(headsetId);
-    if (!currentSelection || currentSelection.imageId !== null) return;
+    
+    console.log('PUSH command from', headsetId, 'currentSelection:', currentSelection);
+    
+    if (!currentSelection || currentSelection.imageId !== null) {
+      console.log('Selection blocked - already selected or no current selection');
+      return;
+    }
+
+    const focusedImageId = images[currentSelection.focusedIndex].id;
+    console.log('Selecting image:', focusedImageId);
 
     const newSelections = new Map(headsetSelections);
     newSelections.set(headsetId, {
       ...currentSelection,
-      imageId: images[currentSelection.focusedIndex].id
+      imageId: focusedImageId
     });
     
-    setTriggerParticle(images[currentSelection.focusedIndex].id);
+    setTriggerParticle(focusedImageId);
     setHeadsetSelections(newSelections);
   }, [mentalCommand, images, headsetSelections]);
 
@@ -174,20 +203,34 @@ export const PerHeadsetImageGrid = ({
           </h2>
           <p className="text-muted-foreground mb-4">{description}</p>
           
-          <div className="flex items-center justify-center gap-6 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
-            <div className="flex items-center gap-2">
-              <Focus className="h-5 w-5 text-primary" />
-              <span className="text-sm font-mono">
-                Use <span className="text-primary font-bold">PUSH</span> to select focused image
-              </span>
+          <div className="flex flex-col gap-3">
+            <div className={`flex items-center justify-center gap-6 p-4 rounded-lg border ${pushFlash ? 'border-primary bg-primary/20 scale-105' : 'border-primary/30 bg-card/50'} backdrop-blur-sm transition-all duration-300`}>
+              <div className="flex items-center gap-2">
+                <Focus className="h-5 w-5 text-primary" />
+                <span className="text-sm font-mono">
+                  Use <span className="text-primary font-bold">PUSH</span> to select focused image
+                </span>
+              </div>
+              <div className="h-4 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <span className="text-sm font-mono">
+                  Selected: <span className="text-primary font-bold">{selectedCount}/{connectedHeadsets.length}</span>
+                </span>
+              </div>
             </div>
-            <div className="h-4 w-px bg-border" />
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-primary" />
-              <span className="text-sm font-mono">
-                Selected: <span className="text-primary font-bold">{selectedCount}/{connectedHeadsets.length}</span>
-              </span>
-            </div>
+
+            {/* Real-time command indicator */}
+            {lastCommandReceived && (
+              <div className="flex items-center justify-center gap-3 p-3 rounded-lg border border-accent/50 bg-accent/10 backdrop-blur-sm animate-fade-in">
+                <Activity className="h-4 w-4 text-accent" />
+                <span className="text-xs font-mono text-accent">
+                  LAST COMMAND: <span className="font-bold uppercase">{lastCommandReceived.com}</span>
+                  {' '}({Math.round(lastCommandReceived.pow * 100)}%)
+                  {' '}from {lastCommandReceived.headsetId.substring(0, 8)}...
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Show connected headsets */}
@@ -277,10 +320,13 @@ export const PerHeadsetImageGrid = ({
                   )}
                   
                   {isFocused && !isSelected && (
-                    <div className="absolute top-2 right-2 animate-fade-in">
-                      <Badge variant="secondary" className="bg-accent text-accent-foreground font-bold backdrop-blur-sm">
-                        FOCUSED
-                      </Badge>
+                    <div className="absolute inset-0 animate-pulse-glow pointer-events-none">
+                      <div className="absolute inset-0 border-4 border-accent rounded-lg" />
+                      <div className="absolute top-2 right-2">
+                        <Badge variant="secondary" className="bg-accent text-accent-foreground font-bold backdrop-blur-sm text-lg px-4 py-2">
+                          ⚡ FOCUSED - PUSH NOW
+                        </Badge>
+                      </div>
                     </div>
                   )}
 
