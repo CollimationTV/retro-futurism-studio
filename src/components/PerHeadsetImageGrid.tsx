@@ -38,6 +38,7 @@ export const PerHeadsetImageGrid = ({
   const [pushFlash, setPushFlash] = useState(false);
   const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
   const [motionDebounce, setMotionDebounce] = useState<Map<string, { direction: string; startTime: number; lastIndex: number }>>(new Map());
+  const [navigationCooldown, setNavigationCooldown] = useState<Map<string, number>>(new Map());
 
   // Initialize headset selections
   useEffect(() => {
@@ -64,11 +65,18 @@ export const PerHeadsetImageGrid = ({
     const currentSelection = headsetSelections.get(headsetId);
     if (!currentSelection || currentSelection.imageId !== null) return;
 
+    // Check cooldown - prevent rapid navigation
+    const cooldownTime = navigationCooldown.get(headsetId);
+    const now = Date.now();
+    if (cooldownTime && now - cooldownTime < 1000) {
+      // Still in cooldown period (1 second after last navigation)
+      return;
+    }
+
     // Threshold for detecting intentional head movement
-    const TURN_THRESHOLD = 0.2;
+    const TURN_THRESHOLD = 0.3; // Increased from 0.2 to reduce sensitivity
     const DEBOUNCE_MS = 500; // Require 500ms of sustained movement
     
-    const now = Date.now();
     let direction = '';
     let newIndex = currentSelection.focusedIndex;
 
@@ -105,6 +113,9 @@ export const PerHeadsetImageGrid = ({
         });
         setHeadsetSelections(newSelections);
         
+        // Set cooldown to prevent immediate re-navigation
+        setNavigationCooldown(prev => new Map(prev).set(headsetId, now));
+        
         // Reset debounce after successful navigation
         setMotionDebounce(prev => {
           const next = new Map(prev);
@@ -120,7 +131,7 @@ export const PerHeadsetImageGrid = ({
         return next;
       });
     }
-  }, [motionEvent, images.length, headsetSelections, motionDebounce]);
+  }, [motionEvent, images.length, headsetSelections, motionDebounce, navigationCooldown]);
 
   // Track all mental commands for visual feedback
   useEffect(() => {
