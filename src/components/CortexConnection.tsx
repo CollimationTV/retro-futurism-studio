@@ -150,7 +150,7 @@ export const CortexConnection = ({ onMentalCommand }: CortexConnectionProps) => 
         <AlertCircle className="h-4 w-4 text-primary" />
         <AlertDescription className="text-sm text-muted-foreground">
           <strong>Run locally required:</strong> You must run this app on your computer 
-          (not Lovable preview) because Cortex uses ws://localhost:6868.
+          (not Lovable preview) because Cortex uses wss://localhost:6868.
           Get credentials from{" "}
           <a 
             href="https://www.emotiv.com/my-account/cortex-apps/" 
