@@ -58,32 +58,45 @@ export const PerHeadsetImageGrid = ({
   // Handle head turning (gyroscope) for navigation
   useEffect(() => {
     if (!motionEvent) return;
-    const { gyroY, headsetId } = motionEvent;
+    const { gyroX, gyroY, headsetId } = motionEvent;
     
     const currentSelection = headsetSelections.get(headsetId);
     if (!currentSelection || currentSelection.imageId !== null) return;
 
-    // Threshold for detecting intentional head turn (tune this value)
+    // Threshold for detecting intentional head movement
     const TURN_THRESHOLD = 0.15;
     
     const newSelections = new Map(headsetSelections);
     let newIndex = currentSelection.focusedIndex;
 
-    if (gyroY > TURN_THRESHOLD) {
-      // Turning right
-      newIndex = (currentSelection.focusedIndex + 1) % images.length;
-    } else if (gyroY < -TURN_THRESHOLD) {
-      // Turning left
-      newIndex = (currentSelection.focusedIndex - 1 + images.length) % images.length;
-    } else {
-      return; // No significant motion
-    }
+    // Left/Right (gyroY) OR Up/Down (gyroX)
+    if (Math.abs(gyroY) > TURN_THRESHOLD || Math.abs(gyroX) > TURN_THRESHOLD) {
+      if (Math.abs(gyroY) > Math.abs(gyroX)) {
+        // Horizontal movement is stronger
+        if (gyroY > 0) {
+          // Turning right
+          newIndex = (currentSelection.focusedIndex + 1) % images.length;
+        } else {
+          // Turning left
+          newIndex = (currentSelection.focusedIndex - 1 + images.length) % images.length;
+        }
+      } else {
+        // Vertical movement is stronger
+        if (gyroX > 0) {
+          // Tilting down
+          newIndex = (currentSelection.focusedIndex + 3) % images.length; // Move down a row
+        } else {
+          // Tilting up
+          newIndex = (currentSelection.focusedIndex - 3 + images.length) % images.length; // Move up a row
+        }
+      }
 
-    newSelections.set(headsetId, {
-      ...currentSelection,
-      focusedIndex: newIndex
-    });
-    setHeadsetSelections(newSelections);
+      newSelections.set(headsetId, {
+        ...currentSelection,
+        focusedIndex: newIndex
+      });
+      setHeadsetSelections(newSelections);
+    }
   }, [motionEvent, images.length, headsetSelections]);
 
   // Track all mental commands for visual feedback
@@ -270,7 +283,7 @@ export const PerHeadsetImageGrid = ({
               <div className="flex items-center gap-2">
                 <Focus className="h-5 w-5 text-primary" />
                 <span className="text-sm font-mono">
-                  Turn your head physically to navigate • Hold <span className="text-primary font-bold">PUSH</span> for 3s to select
+                  Tilt head UP/DOWN or LEFT/RIGHT to navigate • Hold <span className="text-primary font-bold">PUSH</span> for 3s to select
                 </span>
               </div>
               <div className="h-4 w-px bg-border" />
@@ -329,25 +342,24 @@ export const PerHeadsetImageGrid = ({
                 key={image.id}
                 className={`
                   relative overflow-hidden cursor-pointer transition-all duration-500
-                  ${isSelected ? 'border-2 shadow-2xl scale-105' : 'border-border'}
-                  ${isFocused && !isSelected ? 'border-accent border-2 shadow-lg shadow-accent/20' : ''}
-                  hover:scale-105 hover:shadow-xl
+                  ${isSelected ? 'border-2 shadow-2xl' : 'border-border'}
+                  ${isFocused && !isSelected ? 'border-2 shadow-lg' : ''}
                 `}
                 style={{
-                  borderColor: isSelected ? headsetColor : undefined,
-                  boxShadow: isSelected ? `0 20px 40px -15px ${headsetColor}40` : undefined,
+                  borderColor: isFocused || isSelected ? headsetColor : undefined,
+                  boxShadow: isFocused || isSelected ? `0 20px 40px -15px ${headsetColor}40` : undefined,
+                  transform: isFocused && !isSelected ? 'scale(1.05)' : 'scale(1)',
                 }}
               >
                 <div className="aspect-video relative">
                   <img
                     src={image.url}
                     alt={image.title || `Image ${image.id}`}
-                    className={`w-full h-full object-cover transition-all duration-700 ${
-                      isSelected ? 'scale-110 brightness-110' : ''
-                    }`}
+                    className={`w-full h-full object-cover transition-all duration-700`}
                     style={{
                       opacity: pushProgressValue !== undefined ? 1 - pushProgressValue : 1,
                       filter: pushProgressValue !== undefined ? `blur(${pushProgressValue * 8}px)` : undefined,
+                      transform: isFocused && !isSelected ? 'scale(1.1)' : 'scale(1)',
                     }}
                   />
                   
@@ -386,18 +398,19 @@ export const PerHeadsetImageGrid = ({
                   )}
                   
                   {isFocused && !isSelected && (
-                    <div className="absolute inset-0 animate-pulse-glow pointer-events-none">
-                      <div className="absolute inset-0 border-4 border-accent rounded-lg" />
-                      <div className="absolute top-2 right-2">
-                        <Badge variant="secondary" className="bg-accent text-accent-foreground font-bold backdrop-blur-sm text-lg px-4 py-2">
-                          ⚡ FOCUSED {pushProgressValue !== undefined && `(${Math.round(pushProgressValue * 100)}%)`}
-                        </Badge>
-                      </div>
+                    <div className="absolute inset-0 pointer-events-none">
+                      <div 
+                        className="absolute inset-0 border-4 rounded-lg transition-all"
+                        style={{ borderColor: headsetColor }}
+                      />
                       {pushProgressValue !== undefined && (
                         <div className="absolute bottom-0 left-0 right-0 h-2 bg-background/50">
                           <div 
-                            className="h-full bg-accent transition-all duration-100"
-                            style={{ width: `${pushProgressValue * 100}%` }}
+                            className="h-full transition-all duration-100"
+                            style={{ 
+                              width: `${pushProgressValue * 100}%`,
+                              backgroundColor: headsetColor
+                            }}
                           />
                         </div>
                       )}
