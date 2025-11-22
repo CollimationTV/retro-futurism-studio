@@ -149,7 +149,9 @@ export const CortexConnection = ({ onMentalCommand }: CortexConnectionProps) => 
       <Alert className="mb-6 border-primary/30 bg-primary/5">
         <AlertCircle className="h-4 w-4 text-primary" />
         <AlertDescription className="text-sm text-muted-foreground">
-          Get your Client ID and Secret from the{" "}
+          <strong>Run locally required:</strong> You must run this app on your computer 
+          (not Lovable preview) because Cortex uses ws://localhost:6868.
+          Get credentials from{" "}
           <a 
             href="https://www.emotiv.com/my-account/cortex-apps/" 
             target="_blank" 
@@ -158,7 +160,7 @@ export const CortexConnection = ({ onMentalCommand }: CortexConnectionProps) => 
           >
             Emotiv Developer Portal
           </a>
-          {". Make sure Emotiv Launcher is running on your computer."}
+          {". Make sure Emotiv Launcher is running."}
         </AlertDescription>
       </Alert>
 

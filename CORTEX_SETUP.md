@@ -37,18 +37,46 @@ For better accuracy, train your mental commands in EmotivBCI:
    - **Left/Right** - for navigation (optional)
 5. Save your profile with a memorable name
 
-## Step 4: Run the Application
+## Step 4: Run the Application Locally
 
-1. Make sure Emotiv Launcher is running in the background
-2. Start the NeuroVision app:
+**IMPORTANT**: You **must** run this app locally on your computer (not in Lovable preview) because:
+- Cortex API runs locally at `ws://localhost:6868` (insecure WebSocket)
+- Browsers block insecure WebSocket connections from HTTPS pages
+- Lovable preview uses HTTPS, so it cannot connect to local Cortex
+
+### Setup Instructions:
+
+1. Clone your project repository:
+   ```bash
+   git clone <YOUR_GIT_URL>
+   cd <YOUR_PROJECT_NAME>
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Make sure Emotiv Launcher is running in the background
+
+4. Start the development server:
    ```bash
    npm run dev
    ```
-3. Open [http://localhost:8080](http://localhost:8080)
-4. In the **Cortex Connection** panel:
+
+5. Open **http://localhost:8080** (not https://) in your browser
+
+6. In the **Cortex Connection** panel:
    - Enter your **Client ID**
    - Enter your **Client Secret**
    - Click **"Connect to Cortex"**
+
+### Why This Matters:
+
+- ✅ **http://localhost:8080** → Can connect to `ws://localhost:6868` ✓
+- ❌ **https://lovable.app/preview** → Cannot connect to `ws://localhost:6868` ✗
+
+The local dev server runs over HTTP, which allows WebSocket connections to the local Cortex service.
 
 ## Step 5: Using Mental Commands
 
