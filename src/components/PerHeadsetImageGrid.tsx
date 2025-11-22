@@ -34,6 +34,7 @@ export const PerHeadsetImageGrid = ({
   const [allSelectionsComplete, setAllSelectionsComplete] = useState(false);
   const [lastCommandReceived, setLastCommandReceived] = useState<{ com: string; pow: number; headsetId: string } | null>(null);
   const [pushFlash, setPushFlash] = useState(false);
+  const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
 
   // Initialize headset selections
   useEffect(() => {
@@ -52,26 +53,31 @@ export const PerHeadsetImageGrid = ({
     setHeadsetSelections(newSelections);
   }, [connectedHeadsets]);
 
-  // Auto-cycle focus through images (RSVP-style)
+  // Handle LEFT/RIGHT commands for navigation
   useEffect(() => {
-    const interval = setInterval(() => {
-      setHeadsetSelections(prev => {
-        const newSelections = new Map(prev);
-        newSelections.forEach((selection, headsetId) => {
-          // Only cycle if image not yet selected
-          if (selection.imageId === null) {
-            newSelections.set(headsetId, {
-              ...selection,
-              focusedIndex: (selection.focusedIndex + 1) % images.length
-            });
-          }
-        });
-        return newSelections;
-      });
-    }, 3000); // Cycle every 3 seconds
+    if (!mentalCommand) return;
+    const { com, headsetId } = mentalCommand;
+    
+    if (com !== 'left' && com !== 'right') return;
 
-    return () => clearInterval(interval);
-  }, [images.length]);
+    const currentSelection = headsetSelections.get(headsetId);
+    if (!currentSelection || currentSelection.imageId !== null) return;
+
+    const newSelections = new Map(headsetSelections);
+    let newIndex = currentSelection.focusedIndex;
+
+    if (com === 'right') {
+      newIndex = (currentSelection.focusedIndex + 1) % images.length;
+    } else if (com === 'left') {
+      newIndex = (currentSelection.focusedIndex - 1 + images.length) % images.length;
+    }
+
+    newSelections.set(headsetId, {
+      ...currentSelection,
+      focusedIndex: newIndex
+    });
+    setHeadsetSelections(newSelections);
+  }, [mentalCommand, images.length, headsetSelections]);
 
   // Track all mental commands for visual feedback
   useEffect(() => {
@@ -91,33 +97,74 @@ export const PerHeadsetImageGrid = ({
     }
   }, [mentalCommand]);
 
-  // Handle PUSH command for selection only
+  // Handle PUSH command with 3-second hold requirement
   useEffect(() => {
     if (!mentalCommand) return;
-    if (mentalCommand.com !== 'push') return;
 
-    const { headsetId } = mentalCommand;
+    const { com, headsetId, pow } = mentalCommand;
     const currentSelection = headsetSelections.get(headsetId);
     
-    console.log('PUSH command from', headsetId, 'currentSelection:', currentSelection);
-    
-    if (!currentSelection || currentSelection.imageId !== null) {
-      console.log('Selection blocked - already selected or no current selection');
-      return;
-    }
+    if (!currentSelection || currentSelection.imageId !== null) return;
 
     const focusedImageId = images[currentSelection.focusedIndex].id;
-    console.log('Selecting image:', focusedImageId);
 
-    const newSelections = new Map(headsetSelections);
-    newSelections.set(headsetId, {
-      ...currentSelection,
-      imageId: focusedImageId
-    });
-    
-    setTriggerParticle(focusedImageId);
-    setHeadsetSelections(newSelections);
-  }, [mentalCommand, images, headsetSelections]);
+    if (com === 'push' && pow > 0.1) {
+      // Start or continue push
+      const now = Date.now();
+      const existing = pushProgress.get(headsetId);
+      
+      if (!existing || existing.imageId !== focusedImageId) {
+        // New push started
+        setPushProgress(prev => new Map(prev).set(headsetId, { startTime: now, imageId: focusedImageId }));
+      }
+    } else {
+      // Push released or neutral - reset progress
+      setPushProgress(prev => {
+        const next = new Map(prev);
+        next.delete(headsetId);
+        return next;
+      });
+    }
+  }, [mentalCommand, images, headsetSelections, pushProgress]);
+
+  // Monitor push progress and lock selection after 3 seconds
+  useEffect(() => {
+    if (pushProgress.size === 0) return;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const newSelections = new Map(headsetSelections);
+      let changed = false;
+
+      pushProgress.forEach((progress, headsetId) => {
+        const duration = now - progress.startTime;
+        if (duration >= 3000) {
+          // 3 seconds reached - lock selection
+          const currentSelection = headsetSelections.get(headsetId);
+          if (currentSelection && currentSelection.imageId === null) {
+            newSelections.set(headsetId, {
+              ...currentSelection,
+              imageId: progress.imageId
+            });
+            setTriggerParticle(progress.imageId);
+            changed = true;
+          }
+          // Clear push progress
+          setPushProgress(prev => {
+            const next = new Map(prev);
+            next.delete(headsetId);
+            return next;
+          });
+        }
+      });
+
+      if (changed) {
+        setHeadsetSelections(newSelections);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [pushProgress, headsetSelections]);
 
   // Check if all selections are complete
   useEffect(() => {
@@ -147,10 +194,11 @@ export const PerHeadsetImageGrid = ({
     }
   }, [headsetSelections, connectedHeadsets, allSelectionsComplete, onAllSelected]);
 
-  const getImageStatus = (imageId: number): { isSelected: boolean; isFocused: boolean; headsetId?: string } => {
+  const getImageStatus = (imageId: number): { isSelected: boolean; isFocused: boolean; headsetId?: string; pushProgress?: number } => {
     let isSelected = false;
     let isFocused = false;
     let headsetId: string | undefined;
+    let pushProgressValue: number | undefined;
 
     headsetSelections.forEach((selection, hId) => {
       if (selection.imageId === imageId) {
@@ -159,10 +207,17 @@ export const PerHeadsetImageGrid = ({
       }
       if (images[selection.focusedIndex]?.id === imageId) {
         isFocused = true;
+        
+        // Check push progress
+        const progress = pushProgress.get(hId);
+        if (progress && progress.imageId === imageId) {
+          const duration = Date.now() - progress.startTime;
+          pushProgressValue = Math.min(duration / 3000, 1); // 0 to 1 over 3 seconds
+        }
       }
     });
 
-    return { isSelected, isFocused, headsetId };
+    return { isSelected, isFocused, headsetId, pushProgress: pushProgressValue };
   };
 
   const getHeadsetColor = (headsetId: string): string => {
@@ -208,7 +263,7 @@ export const PerHeadsetImageGrid = ({
               <div className="flex items-center gap-2">
                 <Focus className="h-5 w-5 text-primary" />
                 <span className="text-sm font-mono">
-                  Use <span className="text-primary font-bold">PUSH</span> to select focused image
+                  Turn head LEFT/RIGHT to navigate • Hold <span className="text-primary font-bold">PUSH</span> for 3s to select
                 </span>
               </div>
               <div className="h-4 w-px bg-border" />
@@ -259,7 +314,7 @@ export const PerHeadsetImageGrid = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {images.map((image, index) => {
-            const { isSelected, isFocused, headsetId } = getImageStatus(image.id);
+            const { isSelected, isFocused, headsetId, pushProgress: pushProgressValue } = getImageStatus(image.id);
             const headsetColor = headsetId ? getHeadsetColor(headsetId) : 'hsl(var(--primary))';
 
             return (
@@ -283,6 +338,10 @@ export const PerHeadsetImageGrid = ({
                     className={`w-full h-full object-cover transition-all duration-700 ${
                       isSelected ? 'scale-110 brightness-110' : ''
                     }`}
+                    style={{
+                      opacity: pushProgressValue !== undefined ? 1 - pushProgressValue : 1,
+                      filter: pushProgressValue !== undefined ? `blur(${pushProgressValue * 8}px)` : undefined,
+                    }}
                   />
                   
                   {/* Particle dissolve effect */}
@@ -324,9 +383,17 @@ export const PerHeadsetImageGrid = ({
                       <div className="absolute inset-0 border-4 border-accent rounded-lg" />
                       <div className="absolute top-2 right-2">
                         <Badge variant="secondary" className="bg-accent text-accent-foreground font-bold backdrop-blur-sm text-lg px-4 py-2">
-                          ⚡ FOCUSED - PUSH NOW
+                          ⚡ FOCUSED {pushProgressValue !== undefined && `(${Math.round(pushProgressValue * 100)}%)`}
                         </Badge>
                       </div>
+                      {pushProgressValue !== undefined && (
+                        <div className="absolute bottom-0 left-0 right-0 h-2 bg-background/50">
+                          <div 
+                            className="h-full bg-accent transition-all duration-100"
+                            style={{ width: `${pushProgressValue * 100}%` }}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 
