@@ -1,29 +1,28 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { PerHeadsetImageGrid } from "@/components/PerHeadsetImageGrid";
 import { StatusPanel } from "@/components/StatusPanel";
-import { MultiHeadsetConnection } from "@/components/MultiHeadsetConnection";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { level2Images } from "@/data/imageData";
 import { useToast } from "@/hooks/use-toast";
-import { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 
 const SecondSelection = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [mentalCommand, setMentalCommand] = useState<MentalCommandEvent | null>(null);
-  const [motionEvent, setMotionEvent] = useState<MotionEvent | null>(null);
-  const [connectedHeadsets, setConnectedHeadsets] = useState<string[]>([]);
-  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'ready' | 'error'>('disconnected');
   
-  // Get state from first selection
-  const { level1Selections, connectedHeadsets: initialHeadsets } = location.state || {};
+  // Get state from first selection (reuse existing connection)
+  const { 
+    level1Selections, 
+    connectedHeadsets, 
+    mentalCommand, 
+    motionEvent 
+  } = location.state || {};
 
   useEffect(() => {
-    if (!level1Selections || !initialHeadsets) {
+    if (!level1Selections || !connectedHeadsets) {
       toast({
         title: "Invalid Navigation",
         description: "Please complete the first selection step",
@@ -31,23 +30,7 @@ const SecondSelection = () => {
       });
       navigate("/");
     }
-  }, [level1Selections, initialHeadsets, navigate, toast]);
-
-  const handleMentalCommand = (command: MentalCommandEvent) => {
-    setMentalCommand(command);
-  };
-
-  const handleMotion = (motion: MotionEvent) => {
-    setMotionEvent(motion);
-  };
-
-  const handleHeadsetsChange = (headsetIds: string[]) => {
-    setConnectedHeadsets(headsetIds);
-  };
-
-  const handleConnectionStatus = (status: 'disconnected' | 'connecting' | 'initializing' | 'ready' | 'error') => {
-    setConnectionStatus(status === 'initializing' ? 'connecting' : status as any);
-  };
+  }, [level1Selections, connectedHeadsets, navigate, toast]);
 
   const handleAllSelected = (selections: Map<string, number>) => {
     navigate("/results", {
@@ -89,28 +72,17 @@ const SecondSelection = () => {
       </div>
     </div>
 
-    <section className="py-12 px-6">
-      <div className="container mx-auto max-w-4xl">
-        <MultiHeadsetConnection 
-          onMentalCommand={handleMentalCommand}
-          onMotion={handleMotion}
-          onHeadsetsChange={handleHeadsetsChange}
-          onConnectionStatus={handleConnectionStatus}
-        />
-      </div>
-    </section>
-
     <StatusPanel 
-      connectedHeadsets={connectedHeadsets}
+      connectedHeadsets={connectedHeadsets || []}
       lastCommand={mentalCommand ? { com: mentalCommand.com, pow: mentalCommand.pow } : null}
-      connectionStatus={connectionStatus}
+      connectionStatus="ready"
     />
 
     <PerHeadsetImageGrid
       images={level2Images}
       mentalCommand={mentalCommand}
       motionEvent={motionEvent}
-      connectedHeadsets={connectedHeadsets}
+      connectedHeadsets={connectedHeadsets || []}
       onAllSelected={handleAllSelected}
       title="Select Your Image - Level 2"
       description="Each user selects one more image using mind control"

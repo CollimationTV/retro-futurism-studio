@@ -36,7 +36,9 @@ const Index = () => {
     navigate("/level2", {
       state: {
         level1Selections: selections,
-        connectedHeadsets
+        connectedHeadsets,
+        mentalCommand,
+        motionEvent
       }
     });
   };
