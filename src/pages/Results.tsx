@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,48 @@ const Results = () => {
   const getImageById = (id: number) => {
     return [...level1Images, ...level2Images].find(img => img.id === id);
   };
+
+  // Auto-trigger Sora video generation workflow
+  useEffect(() => {
+    if (!level1Selections || !level2Selections) return;
+
+    const collectMetadata = () => {
+      const allMetadata: string[] = [];
+      
+      // Collect metadata from level 1 selections
+      level1Selections.forEach((imageId: number) => {
+        const image = getImageById(imageId);
+        if (image?.metadata) {
+          allMetadata.push(...image.metadata);
+        }
+      });
+
+      // Collect metadata from level 2 selections
+      level2Selections.forEach((imageId: number) => {
+        const image = getImageById(imageId);
+        if (image?.metadata) {
+          allMetadata.push(...image.metadata);
+        }
+      });
+
+      return allMetadata;
+    };
+
+    const generateVideo = async () => {
+      const metadata = collectMetadata();
+      console.log("🎬 Auto-triggering Sora with metadata:", metadata);
+
+      // Navigate to separate video output screen
+      navigate("/video-output", { 
+        state: { metadata },
+        replace: true 
+      });
+    };
+
+    // Small delay to let user see results before transitioning
+    const timer = setTimeout(generateVideo, 2000);
+    return () => clearTimeout(timer);
+  }, [level1Selections, level2Selections, navigate]);
 
   const getHeadsetColor = (index: number): string => {
     const colors = [
