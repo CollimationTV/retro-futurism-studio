@@ -65,6 +65,17 @@ export const PerHeadsetImageGrid = ({
     const currentSelection = headsetSelections.get(headsetId);
     if (!currentSelection || currentSelection.imageId !== null) return;
 
+    // FREEZE navigation if this headset is actively pushing
+    if (pushProgress.has(headsetId)) {
+      // Clear any debounce state since we're frozen
+      setMotionDebounce(prev => {
+        const next = new Map(prev);
+        next.delete(headsetId);
+        return next;
+      });
+      return;
+    }
+
     // Check cooldown - prevent rapid navigation
     const cooldownTime = navigationCooldown.get(headsetId);
     const now = Date.now();
@@ -131,7 +142,7 @@ export const PerHeadsetImageGrid = ({
         return next;
       });
     }
-  }, [motionEvent, images.length, headsetSelections, motionDebounce, navigationCooldown]);
+  }, [motionEvent, images.length, headsetSelections, motionDebounce, navigationCooldown, pushProgress]);
 
   // Track all mental commands for visual feedback
   useEffect(() => {
