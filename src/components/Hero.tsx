@@ -29,6 +29,10 @@ export const Hero = () => {
           <Button 
             size="lg" 
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold uppercase tracking-wider group relative overflow-hidden"
+            onClick={() => {
+              const connectionSection = document.querySelector('[data-connection-panel]');
+              connectionSection?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
           >
             <span className="relative z-10 flex items-center gap-2">
               <Brain className="h-5 w-5" />
@@ -41,6 +45,7 @@ export const Hero = () => {
             size="lg" 
             variant="outline"
             className="border-primary/50 hover:bg-primary/10 font-bold uppercase tracking-wider"
+            onClick={() => window.open('https://emotiv.gitbook.io/cortex-api/', '_blank')}
           >
             View Documentation
           </Button>
@@ -48,7 +53,7 @@ export const Hero = () => {
         
         <div className="mt-20 grid grid-cols-3 gap-8 max-w-3xl mx-auto">
           <div className="text-center">
-            <div className="text-4xl font-black text-primary neon-glow mb-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>30</div>
+            <div className="text-4xl font-black text-primary neon-glow mb-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>9</div>
             <div className="text-sm text-muted-foreground uppercase tracking-wider">Image Grid</div>
           </div>
           <div className="text-center">

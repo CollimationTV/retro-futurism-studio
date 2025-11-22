@@ -12,9 +12,10 @@ import { Badge } from "@/components/ui/badge";
 interface MultiHeadsetConnectionProps {
   onMentalCommand?: (command: MentalCommandEvent) => void;
   onHeadsetsChange?: (headsetIds: string[]) => void;
+  onConnectionStatus?: (status: 'disconnected' | 'connecting' | 'initializing' | 'ready' | 'error') => void;
 }
 
-export const MultiHeadsetConnection = ({ onMentalCommand, onHeadsetsChange }: MultiHeadsetConnectionProps) => {
+export const MultiHeadsetConnection = ({ onMentalCommand, onHeadsetsChange, onConnectionStatus }: MultiHeadsetConnectionProps) => {
   const { toast } = useToast();
   const [clientId, setClientId] = useState(() => localStorage.getItem("emotiv_client_id") || "");
   const [clientSecret, setClientSecret] = useState(() => localStorage.getItem("emotiv_client_secret") || "");
@@ -64,6 +65,7 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onHeadsetsChange }: Mu
       // Set up event handlers
       client.onConnectionStatus = (newStatus) => {
         console.log('Connection status:', newStatus);
+        onConnectionStatus?.(newStatus as 'disconnected' | 'connecting' | 'initializing' | 'ready' | 'error');
         if (newStatus === 'ready') {
           setStatus('ready');
           // Query available headsets once authenticated
