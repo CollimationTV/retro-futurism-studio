@@ -3,10 +3,10 @@ import { Card } from "@/components/ui/card";
 import { Brain, Check } from "lucide-react";
 import { MentalCommandEvent } from "@/lib/cortexClient";
 
-// Generate 30 placeholder images
-const images = Array.from({ length: 30 }, (_, i) => ({
+// Generate 9 placeholder images in 16:9 format
+const images = Array.from({ length: 9 }, (_, i) => ({
   id: i + 1,
-  url: `https://images.unsplash.com/photo-${1500000000000 + i * 10000000}?w=400&h=400&fit=crop`,
+  url: `https://images.unsplash.com/photo-${1500000000000 + i * 10000000}?w=800&h=450&fit=crop`,
 }));
 
 interface ImageGridProps {
@@ -42,12 +42,12 @@ export const ImageGrid = ({ mentalCommand }: ImageGridProps) => {
         setFocusedImageIndex(prev => Math.min(images.length - 1, prev + 1));
         break;
       case 'lift':
-        // Move focus up
-        setFocusedImageIndex(prev => Math.max(0, prev - 6));
+        // Move focus up (3 columns)
+        setFocusedImageIndex(prev => Math.max(0, prev - 3));
         break;
       case 'drop':
-        // Move focus down
-        setFocusedImageIndex(prev => Math.min(images.length - 1, prev + 6));
+        // Move focus down (3 columns)
+        setFocusedImageIndex(prev => Math.min(images.length - 1, prev + 3));
         break;
     }
   }, [mentalCommand]);
@@ -93,11 +93,11 @@ export const ImageGrid = ({ mentalCommand }: ImageGridProps) => {
           <div className="h-8 w-px bg-border" />
           <div className="text-sm">
             <span className="text-muted-foreground">Selected:</span>{" "}
-            <span className="text-accent font-bold">{selectedImages.length}/30</span>
+            <span className="text-accent font-bold">{selectedImages.length}/9</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-w-6xl mx-auto">
           {images.map((image) => {
             const isSelected = selectedImages.includes(image.id);
             const isActive = activeImage === image.id;
@@ -106,7 +106,7 @@ export const ImageGrid = ({ mentalCommand }: ImageGridProps) => {
               <Card
                 key={image.id}
                 className={`
-                  relative aspect-square overflow-hidden cursor-pointer
+                  relative aspect-video overflow-hidden cursor-pointer
                   border-2 transition-all duration-300
                   ${isSelected 
                     ? 'border-primary card-glow-active' 
