@@ -66,7 +66,7 @@ export const PerHeadsetImageGrid = ({
         });
         return newSelections;
       });
-    }, 1500); // Cycle every 1.5 seconds
+    }, 3000); // Cycle every 3 seconds
 
     return () => clearInterval(interval);
   }, [images.length]);
@@ -243,12 +243,14 @@ export const PerHeadsetImageGrid = ({
                   />
                   
                   {/* Particle dissolve effect */}
-                  {triggerParticle === image.id && (
-                    <ParticleDissolve
-                      trigger={true}
-                      onComplete={() => setTriggerParticle(null)}
-                    />
-                  )}
+                  <ParticleDissolve
+                    trigger={triggerParticle === image.id}
+                    onComplete={() => {
+                      if (triggerParticle === image.id) {
+                        setTriggerParticle(null);
+                      }
+                    }}
+                  />
                   
                   {/* Cinematic overlay on selection */}
                   {isSelected && (
