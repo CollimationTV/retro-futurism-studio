@@ -1,6 +1,6 @@
 /**
  * Emotiv Cortex API WebSocket Client
- * Connects to local Cortex service at ws://localhost:6868
+ * Connects to local Cortex service at wss://localhost:6868
  */
 
 export interface CortexConfig {
@@ -51,9 +51,9 @@ export class CortexClient {
    */
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      console.log('🔌 Connecting to Cortex API at ws://localhost:6868...');
+      console.log('🔌 Connecting to Cortex API at wss://localhost:6868...');
       
-      this.ws = new WebSocket('ws://localhost:6868');
+      this.ws = new WebSocket('wss://localhost:6868');
 
       this.ws.onopen = () => {
         console.log('✅ WebSocket connected');
