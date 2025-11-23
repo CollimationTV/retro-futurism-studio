@@ -38,6 +38,7 @@ export const PerHeadsetImageGrid = ({
   const [pushFlash, setPushFlash] = useState(false);
   const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
   const [neutralState, setNeutralState] = useState<Map<string, boolean>>(new Map()); // Track if headset is in neutral zone
+  const [moveCooldown, setMoveCooldown] = useState<Map<string, number>>(new Map()); // Cooldown timer per headset
 
   // Initialize headset selections
   useEffect(() => {
@@ -56,7 +57,7 @@ export const PerHeadsetImageGrid = ({
     setHeadsetSelections(newSelections);
   }, [connectedHeadsets]);
 
-  // Handle head turning (gyroscope) for DISCRETE tilt-step navigation
+  // Handle head turning (gyroscope) for SMOOTH discrete tilt-step navigation
   useEffect(() => {
     if (!motionEvent) return;
     const { gyroX, gyroY, headsetId } = motionEvent;
@@ -71,9 +72,16 @@ export const PerHeadsetImageGrid = ({
       return;
     }
 
-    // Thresholds for discrete tilt-step navigation
-    const NEUTRAL_ZONE = 0.15; // Dead zone - must be below this to be "neutral"
-    const TILT_THRESHOLD = 0.5; // Must exceed this to trigger a move
+    // Check cooldown - prevent rapid successive moves
+    const cooldownTime = moveCooldown.get(headsetId) || 0;
+    const now = Date.now();
+    if (now - cooldownTime < 400) { // 400ms cooldown between moves
+      return;
+    }
+
+    // Thresholds for smooth discrete tilt-step navigation
+    const NEUTRAL_ZONE = 0.25; // Larger dead zone to prevent accidental triggers
+    const TILT_THRESHOLD = 0.6; // Higher threshold for intentional movement
     
     const isInNeutral = Math.abs(gyroX) < NEUTRAL_ZONE && Math.abs(gyroY) < NEUTRAL_ZONE;
     const wasInNeutral = neutralState.get(headsetId) ?? true; // Default to neutral on first event
@@ -124,8 +132,11 @@ export const PerHeadsetImageGrid = ({
       
       // Mark as NOT neutral - must return to neutral before next move
       setNeutralState(prev => new Map(prev).set(headsetId, false));
+      
+      // Set cooldown to prevent rapid successive moves
+      setMoveCooldown(prev => new Map(prev).set(headsetId, now));
     }
-  }, [motionEvent, images.length, headsetSelections, neutralState, pushProgress]);
+  }, [motionEvent, images.length, headsetSelections, neutralState, pushProgress, moveCooldown]);
 
   // Track all mental commands for visual feedback
   useEffect(() => {
@@ -369,7 +380,7 @@ export const PerHeadsetImageGrid = ({
               <Card
                 key={image.id}
                 className={`
-                  relative overflow-hidden cursor-pointer transition-all duration-500
+                  relative overflow-hidden cursor-pointer
                   ${isSelected ? 'border-2 shadow-2xl' : 'border-border'}
                   ${isFocused && !isSelected ? 'border-2 shadow-lg' : ''}
                 `}
@@ -377,17 +388,19 @@ export const PerHeadsetImageGrid = ({
                   borderColor: isFocused || isSelected ? headsetColor : undefined,
                   boxShadow: isFocused || isSelected ? `0 20px 40px -15px ${headsetColor}40` : undefined,
                   transform: isFocused && !isSelected ? 'scale(1.05)' : 'scale(1)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth easing
                 }}
               >
                 <div className="aspect-video relative">
                   <img
                     src={image.url}
                     alt={image.title || `Image ${image.id}`}
-                    className={`w-full h-full object-cover transition-all duration-700`}
+                    className={`w-full h-full object-cover`}
                     style={{
                       opacity: pushProgressValue !== undefined ? 1 - pushProgressValue : 1,
                       filter: pushProgressValue !== undefined ? `blur(${pushProgressValue * 8}px)` : undefined,
                       transform: isFocused && !isSelected ? 'scale(1.1)' : 'scale(1)',
+                      transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth zoom
                     }}
                   />
                   
