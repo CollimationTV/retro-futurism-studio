@@ -37,15 +37,13 @@ export const PerHeadsetImageGrid = ({
   const [lastCommandReceived, setLastCommandReceived] = useState<{ com: string; pow: number; headsetId: string } | null>(null);
   const [pushFlash, setPushFlash] = useState(false);
   const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
-  const [pushArm, setPushArm] = useState<Map<string, { imageId: number; armStart: number }>>(new Map());
   const [cursorPosition, setCursorPosition] = useState<Map<string, number>>(new Map()); // headsetId -> 0-1 normalized position
 
   // Cursor and selection sensitivity constants
   const CURSOR_MOVEMENT_SPEED = 0.00005;
   const CURSOR_DEAD_ZONE = 0.15;
   const CURSOR_MAX_STEP = 0.005;
-  const PUSH_POWER_THRESHOLD = 0.25;
-  const PUSH_ARM_TIME_MS = 500;
+  const PUSH_POWER_THRESHOLD = 0.2;
   const PUSH_HOLD_TIME_MS = 5000;
 
   // Initialize headset selections and cursor positions
@@ -86,8 +84,8 @@ export const PerHeadsetImageGrid = ({
     const currentSelection = headsetSelections.get(headsetId);
     if (!currentSelection || currentSelection.imageId !== null) return;
 
-    // FREEZE navigation if this headset is actively pushing (arming or holding)
-    if (pushArm.has(headsetId) || pushProgress.has(headsetId)) {
+    // FREEZE navigation if this headset is actively pushing/holding selection
+    if (pushProgress.has(headsetId)) {
       console.log(`🚫 Motion frozen - PUSH active for ${headsetId.substring(0,8)}`);
       return;
     }
@@ -152,7 +150,7 @@ export const PerHeadsetImageGrid = ({
     }
   }, [mentalCommand]);
 
-  // Handle PUSH command with two-stage detection (arm + hold)
+  // Handle PUSH command hold-to-select (single-stage: hold for PUSH_HOLD_TIME_MS)
   useEffect(() => {
     if (!mentalCommand) return;
 
@@ -165,43 +163,21 @@ export const PerHeadsetImageGrid = ({
 
     if (com === 'push' && pow >= PUSH_POWER_THRESHOLD) {
       const now = Date.now();
-      const arm = pushArm.get(headsetId);
+      const existing = pushProgress.get(headsetId);
       
-      // Stage 1: Arming phase (0.5s)
-      if (!arm || arm.imageId !== focusedImageId) {
-        // Start new arm
-        setPushArm(prev => new Map(prev).set(headsetId, { imageId: focusedImageId, armStart: now }));
-        // Clear any existing hold progress
-        setPushProgress(prev => {
-          const next = new Map(prev);
-          next.delete(headsetId);
-          return next;
-        });
-      } else {
-        // Check if armed
-        const armDuration = now - arm.armStart;
-        if (armDuration >= PUSH_ARM_TIME_MS) {
-          // Stage 2: Armed! Start hold timer if not already started
-          const existing = pushProgress.get(headsetId);
-          if (!existing || existing.imageId !== focusedImageId) {
-            setPushProgress(prev => new Map(prev).set(headsetId, { startTime: now, imageId: focusedImageId }));
-          }
-        }
+      // Start or update hold timer for this headset on the currently focused image
+      if (!existing || existing.imageId !== focusedImageId) {
+        setPushProgress(prev => new Map(prev).set(headsetId, { startTime: now, imageId: focusedImageId }));
       }
     } else {
-      // Push released or below threshold - reset both arm and hold
-      setPushArm(prev => {
-        const next = new Map(prev);
-        next.delete(headsetId);
-        return next;
-      });
+      // Push released or below threshold - reset hold progress
       setPushProgress(prev => {
         const next = new Map(prev);
         next.delete(headsetId);
         return next;
       });
     }
-  }, [mentalCommand, images, headsetSelections, pushArm, pushProgress, PUSH_POWER_THRESHOLD, PUSH_ARM_TIME_MS]);
+  }, [mentalCommand, images, headsetSelections, pushProgress, PUSH_POWER_THRESHOLD]);
 
   // Monitor push progress and lock selection after hold duration
   useEffect(() => {
@@ -225,13 +201,8 @@ export const PerHeadsetImageGrid = ({
             setTriggerParticle(progress.imageId);
             changed = true;
           }
-          // Clear push progress and arm
+          // Clear push progress
           setPushProgress(prev => {
-            const next = new Map(prev);
-            next.delete(headsetId);
-            return next;
-          });
-          setPushArm(prev => {
             const next = new Map(prev);
             next.delete(headsetId);
             return next;
