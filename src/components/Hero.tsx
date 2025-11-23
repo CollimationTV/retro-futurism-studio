@@ -45,7 +45,7 @@ export const Hero = () => {
             size="lg" 
             variant="outline"
             className="border-primary/50 hover:bg-primary/10 font-bold uppercase tracking-wider"
-            onClick={() => window.open('https://emotiv.gitbook.io/cortex-api/', '_blank')}
+            onClick={() => window.open('/USER_GUIDE.md', '_blank')}
           >
             View Documentation
           </Button>

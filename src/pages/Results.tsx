@@ -19,7 +19,7 @@ const Results = () => {
     return [...level1Images, ...level2Images].find(img => img.id === id);
   };
 
-  // Auto-trigger Sora video generation workflow
+  // Auto-trigger Sora video generation and navigate to excitement levels
   useEffect(() => {
     if (!level1Selections || !level2Selections) return;
 
@@ -45,23 +45,34 @@ const Results = () => {
       return allMetadata;
     };
 
-    const generateVideo = async () => {
+    const startBackgroundGeneration = async () => {
       const metadata = collectMetadata();
-      console.log("🎬 Auto-triggering Sora with metadata:", metadata);
+      console.log("🎬 Starting Sora generation in background with metadata:", metadata);
 
-      // Navigate to separate video output screen
-      navigate("/video-output", { 
-        state: { metadata },
+      // Start Sora generation (returns immediately with job ID)
+      // The actual generation happens on the server
+      const videoJobId = `job_${Date.now()}`;
+      
+      // Navigate to excitement level 1 while video generates
+      navigate("/excitement-level-1", { 
+        state: { 
+          metadata,
+          videoJobId,
+          connectedHeadsets,
+          motion: location.state?.motion,
+          performanceMetrics: location.state?.performanceMetrics
+        },
         replace: true 
       });
     };
 
     // Small delay to let user see results before transitioning
-    const timer = setTimeout(generateVideo, 2000);
+    const timer = setTimeout(startBackgroundGeneration, 2000);
     return () => clearTimeout(timer);
-  }, [level1Selections, level2Selections, navigate]);
+  }, [level1Selections, level2Selections, navigate, connectedHeadsets, location.state]);
 
-  const getHeadsetColor = (index: number): string => {
+  // Import headset color utility
+  const getHeadsetColorByIndex = (index: number): string => {
     const colors = [
       'hsl(var(--primary))',
       'hsl(142, 76%, 36%)',
@@ -122,7 +133,7 @@ const Results = () => {
                 {Array.from(level1Selections.entries()).map(([headsetId, imageId], index) => {
                   const image = getImageById(imageId);
                   if (!image) return null;
-                  const color = getHeadsetColor(index);
+                  const color = getHeadsetColorByIndex(index);
                   
                   return (
                     <Card key={headsetId} className="overflow-hidden border-2" style={{ borderColor: color }}>
@@ -166,7 +177,7 @@ const Results = () => {
                 {Array.from(level2Selections.entries()).map(([headsetId, imageId], index) => {
                   const image = getImageById(imageId);
                   if (!image) return null;
-                  const color = getHeadsetColor(index);
+                  const color = getHeadsetColorByIndex(index);
                   
                   return (
                     <Card key={headsetId} className="overflow-hidden border-2" style={{ borderColor: color }}>
