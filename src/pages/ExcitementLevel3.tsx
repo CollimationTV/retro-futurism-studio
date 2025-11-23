@@ -8,6 +8,7 @@ import { excitementLevel3Images } from "@/data/excitementImages";
 import { generateSphericalLayout } from "@/utils/sphericalLayout";
 import { getHeadsetColor } from "@/utils/headsetColors";
 import { PerformanceMetricsEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
+import { Brain3D } from "@/components/Brain3D";
 
 const ExcitementLevel3 = () => {
   const location = useLocation();
@@ -180,7 +181,10 @@ const ExcitementLevel3 = () => {
   }, [selections, connectedHeadsets, navigate, metadata, averageExcitement]);
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 relative">
+      {/* Animated Brain Background */}
+      <Brain3D excitement={averageExcitement} className="opacity-20 z-0" />
+      
       <Header />
       
       <div className="container mx-auto px-6 py-12">

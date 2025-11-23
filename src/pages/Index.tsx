@@ -6,9 +6,10 @@ import { PerHeadsetImageGrid } from "@/components/PerHeadsetImageGrid";
 import { StatusPanel } from "@/components/StatusPanel";
 import { Features } from "@/components/Features";
 import { MultiHeadsetConnection } from "@/components/MultiHeadsetConnection";
-import { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
+import { MentalCommandEvent, MotionEvent, PerformanceMetricsEvent } from "@/lib/multiHeadsetCortexClient";
 import { level1Images } from "@/data/imageData";
 import { Brain } from "lucide-react";
+import { Brain3D } from "@/components/Brain3D";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ const Index = () => {
   const [motionEvent, setMotionEvent] = useState<MotionEvent | null>(null);
   const [connectedHeadsets, setConnectedHeadsets] = useState<string[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'ready' | 'error'>('disconnected');
+  const [excitementLevels, setExcitementLevels] = useState<Map<string, number>>(new Map());
 
   const handleMentalCommand = (command: MentalCommandEvent) => {
     setMentalCommand(command);
@@ -44,19 +46,28 @@ const Index = () => {
     });
   };
 
+  // Calculate average excitement for brain visualization
+  const averageExcitement = Array.from(excitementLevels.values()).reduce((sum, val) => sum + val, 0) / Math.max(excitementLevels.size, 1);
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen relative">
+      {/* Animated Brain Background */}
+      <Brain3D excitement={averageExcitement} className="opacity-20 z-0" />
+      
       <Header />
       <Hero />
       
       <section className="py-12 px-6" data-connection-panel>
         <div className="container mx-auto max-w-4xl">
-          <MultiHeadsetConnection 
-            onMentalCommand={handleMentalCommand}
-            onMotion={handleMotion}
-            onHeadsetsChange={handleHeadsetsChange}
-            onConnectionStatus={handleConnectionStatus}
-          />
+        <MultiHeadsetConnection
+          onMentalCommand={handleMentalCommand}
+          onMotion={handleMotion}
+          onPerformanceMetrics={(metrics: PerformanceMetricsEvent) => {
+            setExcitementLevels(prev => new Map(prev).set(metrics.headsetId, metrics.excitement));
+          }}
+          onHeadsetsChange={handleHeadsetsChange}
+          onConnectionStatus={handleConnectionStatus}
+        />
         </div>
       </section>
       
