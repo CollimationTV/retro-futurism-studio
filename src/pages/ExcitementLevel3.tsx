@@ -23,6 +23,11 @@ const ExcitementLevel3 = () => {
   const [focusedImages, setFocusedImages] = useState<Map<string, number>>(new Map()); // headsetId -> imageId
   const [cursorPosition, setCursorPosition] = useState<Map<string, number>>(new Map()); // headsetId -> 0-1 normalized position
   
+  // Cursor movement constants (same as PerHeadsetImageGrid for consistency)
+  const CURSOR_MOVEMENT_SPEED = 0.0002;
+  const CURSOR_DEAD_ZONE = 0.05;
+  const CURSOR_MAX_STEP = 0.01;
+  
   const positions = generateSphericalLayout();
   
   // Calculate average excitement across all headsets
@@ -66,17 +71,17 @@ const ExcitementLevel3 = () => {
     // Get current cursor position (0-1 normalized)
     const currentPosition = cursorPosition.get(headsetId) ?? 0.0;
     
-    // Sensitivity settings for smooth cursor control
-    const MOVEMENT_SPEED = 0.001; // Further reduced for mouse-like slow cursor
-    const DEAD_ZONE = 0.1; // Ignore very small head movements
-    
     // Only update if movement exceeds dead zone
-    if (Math.abs(gyroY) < DEAD_ZONE) return;
+    if (Math.abs(gyroY) < CURSOR_DEAD_ZONE) return;
+    
+    // Calculate delta and clamp to prevent large jumps
+    const rawDelta = gyroY * CURSOR_MOVEMENT_SPEED;
+    const clampedDelta = Math.max(-CURSOR_MAX_STEP, Math.min(CURSOR_MAX_STEP, rawDelta));
     
     // Calculate new position based on head pan (gyroY)
     // Positive gyroY = head turned right = cursor moves right
     // Negative gyroY = head turned left = cursor moves left
-    let newPosition = currentPosition + (gyroY * MOVEMENT_SPEED);
+    let newPosition = currentPosition + clampedDelta;
     
     // Clamp position to 0-1 range with wrapping (circular navigation)
     if (newPosition >= 1) newPosition = newPosition - 1;

@@ -37,7 +37,16 @@ export const PerHeadsetImageGrid = ({
   const [lastCommandReceived, setLastCommandReceived] = useState<{ com: string; pow: number; headsetId: string } | null>(null);
   const [pushFlash, setPushFlash] = useState(false);
   const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
+  const [pushArm, setPushArm] = useState<Map<string, { imageId: number; armStart: number }>>(new Map());
   const [cursorPosition, setCursorPosition] = useState<Map<string, number>>(new Map()); // headsetId -> 0-1 normalized position
+
+  // Cursor and selection sensitivity constants
+  const CURSOR_MOVEMENT_SPEED = 0.0002;
+  const CURSOR_DEAD_ZONE = 0.05;
+  const CURSOR_MAX_STEP = 0.01;
+  const PUSH_POWER_THRESHOLD = 0.35;
+  const PUSH_ARM_TIME_MS = 500;
+  const PUSH_HOLD_TIME_MS = 5000;
 
   // Initialize headset selections and cursor positions
   useEffect(() => {
@@ -80,17 +89,17 @@ export const PerHeadsetImageGrid = ({
     // Get current cursor position (0-1 normalized)
     const currentPosition = cursorPosition.get(headsetId) ?? 0.0;
     
-    // Sensitivity settings for smooth cursor control
-    const MOVEMENT_SPEED = 0.001; // Further reduced for mouse-like slow cursor
-    const DEAD_ZONE = 0.1; // Ignore very small head movements
-    
     // Only update if movement exceeds dead zone
-    if (Math.abs(gyroY) < DEAD_ZONE) return;
+    if (Math.abs(gyroY) < CURSOR_DEAD_ZONE) return;
+    
+    // Calculate delta and clamp to prevent large jumps
+    const rawDelta = gyroY * CURSOR_MOVEMENT_SPEED;
+    const clampedDelta = Math.max(-CURSOR_MAX_STEP, Math.min(CURSOR_MAX_STEP, rawDelta));
     
     // Calculate new position based on head pan (gyroY)
     // Positive gyroY = head turned right = cursor moves right
     // Negative gyroY = head turned left = cursor moves left
-    let newPosition = currentPosition + (gyroY * MOVEMENT_SPEED);
+    let newPosition = currentPosition + clampedDelta;
     
     // Clamp position to 0-1 range with wrapping (circular navigation)
     if (newPosition >= 1) newPosition = newPosition - 1;
@@ -132,7 +141,7 @@ export const PerHeadsetImageGrid = ({
     }
   }, [mentalCommand]);
 
-  // Handle PUSH command with 3-second hold requirement
+  // Handle PUSH command with two-stage detection (arm + hold)
   useEffect(() => {
     if (!mentalCommand) return;
 
@@ -143,26 +152,47 @@ export const PerHeadsetImageGrid = ({
 
     const focusedImageId = images[currentSelection.focusedIndex].id;
 
-    if (com === 'push' && pow > 0.1) {
-      // Start or continue push
+    if (com === 'push' && pow >= PUSH_POWER_THRESHOLD) {
       const now = Date.now();
-      const existing = pushProgress.get(headsetId);
+      const arm = pushArm.get(headsetId);
       
-      if (!existing || existing.imageId !== focusedImageId) {
-        // New push started
-        setPushProgress(prev => new Map(prev).set(headsetId, { startTime: now, imageId: focusedImageId }));
+      // Stage 1: Arming phase (0.5s)
+      if (!arm || arm.imageId !== focusedImageId) {
+        // Start new arm
+        setPushArm(prev => new Map(prev).set(headsetId, { imageId: focusedImageId, armStart: now }));
+        // Clear any existing hold progress
+        setPushProgress(prev => {
+          const next = new Map(prev);
+          next.delete(headsetId);
+          return next;
+        });
+      } else {
+        // Check if armed
+        const armDuration = now - arm.armStart;
+        if (armDuration >= PUSH_ARM_TIME_MS) {
+          // Stage 2: Armed! Start hold timer if not already started
+          const existing = pushProgress.get(headsetId);
+          if (!existing || existing.imageId !== focusedImageId) {
+            setPushProgress(prev => new Map(prev).set(headsetId, { startTime: now, imageId: focusedImageId }));
+          }
+        }
       }
     } else {
-      // Push released or neutral - reset progress
+      // Push released or below threshold - reset both arm and hold
+      setPushArm(prev => {
+        const next = new Map(prev);
+        next.delete(headsetId);
+        return next;
+      });
       setPushProgress(prev => {
         const next = new Map(prev);
         next.delete(headsetId);
         return next;
       });
     }
-  }, [mentalCommand, images, headsetSelections, pushProgress]);
+  }, [mentalCommand, images, headsetSelections, pushArm, pushProgress, PUSH_POWER_THRESHOLD, PUSH_ARM_TIME_MS]);
 
-  // Monitor push progress and lock selection after 5 seconds
+  // Monitor push progress and lock selection after hold duration
   useEffect(() => {
     if (pushProgress.size === 0) return;
 
@@ -173,8 +203,8 @@ export const PerHeadsetImageGrid = ({
 
       pushProgress.forEach((progress, headsetId) => {
         const duration = now - progress.startTime;
-        if (duration >= 5000) {
-          // 5 seconds reached - lock selection
+        if (duration >= PUSH_HOLD_TIME_MS) {
+          // Hold time reached - lock selection
           const currentSelection = headsetSelections.get(headsetId);
           if (currentSelection && currentSelection.imageId === null) {
             newSelections.set(headsetId, {
@@ -184,8 +214,13 @@ export const PerHeadsetImageGrid = ({
             setTriggerParticle(progress.imageId);
             changed = true;
           }
-          // Clear push progress
+          // Clear push progress and arm
           setPushProgress(prev => {
+            const next = new Map(prev);
+            next.delete(headsetId);
+            return next;
+          });
+          setPushArm(prev => {
             const next = new Map(prev);
             next.delete(headsetId);
             return next;
@@ -199,7 +234,7 @@ export const PerHeadsetImageGrid = ({
     }, 100);
 
     return () => clearInterval(interval);
-  }, [pushProgress, headsetSelections]);
+  }, [pushProgress, headsetSelections, PUSH_HOLD_TIME_MS]);
 
   // Check if all selections are complete
   useEffect(() => {
@@ -243,11 +278,11 @@ export const PerHeadsetImageGrid = ({
       if (images[selection.focusedIndex]?.id === imageId) {
         isFocused = true;
         
-        // Check push progress
+        // Check push progress (only show during hold phase, not arming)
         const progress = pushProgress.get(hId);
         if (progress && progress.imageId === imageId) {
           const duration = Date.now() - progress.startTime;
-          pushProgressValue = Math.min(duration / 5000, 1); // 0 to 1 over 5 seconds
+          pushProgressValue = Math.min(duration / PUSH_HOLD_TIME_MS, 1); // 0 to 1 over hold duration
         }
       }
     });
