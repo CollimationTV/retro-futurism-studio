@@ -43,7 +43,7 @@ export const PerHeadsetImageGrid = ({
   const CURSOR_MOVEMENT_SPEED = 0.00005;
   const CURSOR_DEAD_ZONE = 0.15;
   const CURSOR_MAX_STEP = 0.005;
-  const PUSH_POWER_THRESHOLD = 0.25; // Slightly more sensitive PUSH detection
+  const PUSH_POWER_THRESHOLD = 0.35; // Less sensitive PUSH detection
   const PUSH_HOLD_TIME_MS = 8000; // 8 seconds hold time
 
   // Initialize headset selections and cursor positions
