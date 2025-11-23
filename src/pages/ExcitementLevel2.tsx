@@ -1,13 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Card } from "@/components/ui/card";
-import { Music, Play, Pause } from "lucide-react";
+import { Music, Zap } from "lucide-react";
+import { excitementLevel2Images } from "@/data/excitementImages";
 import { getHeadsetColor } from "@/utils/headsetColors";
-import { soundtracks, getSoundtrackByExcitementScores } from "@/data/soundtracks";
-import type { MotionEvent } from "@/lib/multiHeadsetCortexClient";
-
-const SNIPPET_DURATION = 20000; // 20 seconds
+import { getSoundtrackByScore } from "@/data/soundtracks";
+import type { MentalCommandEvent } from "@/lib/multiHeadsetCortexClient";
+import { Brain3D } from "@/components/Brain3D";
 
 const ExcitementLevel2 = () => {
   const location = useLocation();
@@ -16,136 +16,92 @@ const ExcitementLevel2 = () => {
   const { 
     videoJobId,
     connectedHeadsets,
-    motion,
-    performanceMetrics
+    mentalCommand,
+    excitementLevel1Selections,
+    excitementLevel1Scores
   } = location.state || {};
 
-  const [currentSongIndex, setCurrentSongIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [excitementScores, setExcitementScores] = useState<Map<number, number[]>>(new Map());
-  const [cursorPosition, setCursorPosition] = useState({ x: 0.5, y: 0.5 });
-  const [focusedSongId, setFocusedSongId] = useState<number | null>(null);
-  
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const startTimeRef = useRef<number>(0);
+  const [excitementLevels, setExcitementLevels] = useState<Map<string, number>>(new Map(excitementLevel1Scores));
+  const [selections, setSelections] = useState<Map<string, number>>(new Map());
+  const [currentFocus, setCurrentFocus] = useState<Map<string, number>>(new Map());
 
-  // Cursor movement from gyration data
+  // Monitor excitement levels
   useEffect(() => {
-    if (!motion) return;
-    
-    const event = motion as MotionEvent;
-    const MOVEMENT_SPEED = 0.0002;
-    const DEAD_ZONE = 0.05;
-    const MAX_STEP = 0.01;
-    
-    if (Math.abs(event.gyroY) > DEAD_ZONE) {
-      const delta = event.gyroY * MOVEMENT_SPEED;
-      const clampedDelta = Math.max(-MAX_STEP, Math.min(MAX_STEP, delta));
-      
-      setCursorPosition(prev => ({
-        x: Math.max(0, Math.min(1, prev.x + clampedDelta)),
-        y: prev.y
-      }));
-    }
-  }, [motion]);
+    if (!mentalCommand) return;
 
-  // Determine focused song based on cursor position
-  useEffect(() => {
-    const numSongs = soundtracks.length;
-    const sectionWidth = 1 / numSongs;
-    const focusedIndex = Math.floor(cursorPosition.x / sectionWidth);
-    const focusedSong = soundtracks[Math.min(focusedIndex, numSongs - 1)];
-    setFocusedSongId(focusedSong.id);
-  }, [cursorPosition]);
-
-  // Record excitement during playback
-  useEffect(() => {
-    if (!isPlaying || !performanceMetrics) return;
-
-    const currentSong = soundtracks[currentSongIndex];
-    const excitementValue = performanceMetrics.met?.exc || 0; // Excitement metric from Emotiv
+    const event = mentalCommand as MentalCommandEvent;
+    const excitementValue = event.pow;
     
-    setExcitementScores(prev => {
-      const newScores = new Map(prev);
-      const songScores = newScores.get(currentSong.id) || [];
-      songScores.push(excitementValue);
-      newScores.set(currentSong.id, songScores);
-      return newScores;
+    setExcitementLevels(prev => {
+      const newLevels = new Map(prev);
+      newLevels.set(event.headsetId, excitementValue);
+      return newLevels;
     });
-  }, [performanceMetrics, isPlaying, currentSongIndex]);
 
-  // Auto-play snippet and advance
-  useEffect(() => {
-    if (currentSongIndex >= soundtracks.length) {
-      // All songs played, calculate winner
-      calculateWinnerAndNavigate();
-      return;
-    }
-
-    const currentSong = soundtracks[currentSongIndex];
-    console.log(`🎵 Playing snippet ${currentSongIndex + 1}/${soundtracks.length}: ${currentSong.name}`);
-    
-    // Auto-start playing
-    if (audioRef.current) {
-      audioRef.current.src = currentSong.previewUrl;
-      audioRef.current.play();
-      setIsPlaying(true);
-      startTimeRef.current = Date.now();
-    }
-
-    // Progress tracker
-    const progressInterval = setInterval(() => {
-      const elapsed = Date.now() - startTimeRef.current;
-      const progressPercent = (elapsed / SNIPPET_DURATION) * 100;
-      setProgress(progressPercent);
-
-      if (elapsed >= SNIPPET_DURATION) {
-        // Move to next song
-        setIsPlaying(false);
-        setProgress(0);
-        setCurrentSongIndex(prev => prev + 1);
+    // Check if excitement exceeds threshold
+    const focusedImageId = currentFocus.get(event.headsetId);
+    if (focusedImageId !== undefined) {
+      const image = excitementLevel2Images.find(img => img.id === focusedImageId);
+      if (image && excitementValue >= image.excitementThreshold) {
+        handleSelection(event.headsetId, focusedImageId);
       }
-    }, 100);
+    }
+  }, [mentalCommand]);
 
-    return () => clearInterval(progressInterval);
-  }, [currentSongIndex]);
-
-  const calculateWinnerAndNavigate = () => {
-    console.log("🎯 All songs played! Calculating winner...");
+  const handleSelection = (headsetId: string, imageId: number) => {
+    if (selections.has(headsetId)) return;
     
-    // Calculate average excitement for each song
-    const averageScores = new Map<number, number>();
-    excitementScores.forEach((scores, songId) => {
-      const average = scores.reduce((sum, val) => sum + val, 0) / scores.length;
-      averageScores.set(songId, average);
-      console.log(`🎶 Song ${songId} average excitement: ${(average * 100).toFixed(1)}%`);
-    });
-    
-    const selectedSoundtrack = getSoundtrackByExcitementScores(averageScores);
-    const collectiveScore = Math.round((averageScores.get(selectedSoundtrack.id) || 0) * 100);
-    
-    console.log(`✨ Winner: ${selectedSoundtrack.name} with ${collectiveScore}% excitement`);
-    
-    setTimeout(() => {
-      navigate("/video-output", {
-        state: {
-          videoJobId,
-          metadata: location.state.metadata,
-          collectiveScore,
-          soundtrack: selectedSoundtrack
-        }
-      });
-    }, 2000);
+    console.log(`✨ Excitement level 2 selection by ${headsetId}:`, imageId);
+    setSelections(prev => new Map(prev).set(headsetId, imageId));
   };
 
-  const currentSong = soundtracks[currentSongIndex];
+  // Calculate collective excitement score and navigate to video output
+  useEffect(() => {
+    if (connectedHeadsets && selections.size === connectedHeadsets.length && selections.size > 0) {
+      console.log("🎯 All excitement selections complete! Calculating collective score...");
+      
+      // Calculate average excitement score across all headsets and both levels
+      const allScores: number[] = [];
+      excitementLevels.forEach(score => allScores.push(score));
+      
+      const averageExcitement = allScores.reduce((sum, score) => sum + score, 0) / allScores.length;
+      const collectiveScore = Math.round(averageExcitement * 100); // Convert to 0-100 scale
+      
+      console.log(`🎵 Collective excitement score: ${collectiveScore}`);
+      
+      const selectedSoundtrack = getSoundtrackByScore(collectiveScore);
+      console.log(`🎶 Selected soundtrack: ${selectedSoundtrack.name}`);
+      
+      setTimeout(() => {
+        navigate("/video-output", {
+          state: {
+            videoJobId,
+            metadata: location.state.metadata, // Pass through original metadata
+            collectiveScore,
+            soundtrack: selectedSoundtrack,
+            excitementLevel1Selections,
+            excitementLevel2Selections: selections
+          }
+        });
+      }, 2000);
+    }
+  }, [selections, connectedHeadsets, navigate, videoJobId, excitementLevels]);
+
+  const getExcitementColor = (level: number): string => {
+    if (level < 0.3) return 'hsl(142, 76%, 36%)';
+    if (level < 0.6) return 'hsl(48, 96%, 53%)';
+    return 'hsl(25, 95%, 53%)';
+  };
+
+  // Calculate average excitement for brain visualization
+  const averageExcitement = Array.from(excitementLevels.values()).reduce((sum, val) => sum + val, 0) / Math.max(excitementLevels.size, 1);
 
   return (
-    <div className="min-h-screen">
-      <Header />
+    <div className="min-h-screen relative">
+      {/* Animated Brain Background */}
+      <Brain3D excitement={averageExcitement} className="opacity-20 z-0" />
       
-      <audio ref={audioRef} />
+      <Header />
       
       <div className="py-12 px-6">
         <div className="container mx-auto max-w-7xl">
@@ -155,114 +111,124 @@ const ExcitementLevel2 = () => {
               <Music className="h-12 w-12 text-primary animate-pulse" />
             </div>
             <h1 className="text-4xl font-bold uppercase tracking-wider mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              Soundtrack Selection
+              Excitement Level 2: Soundtrack
             </h1>
             <p className="text-lg text-muted-foreground mb-4">
-              Listen to each 20-second snippet. Your excitement will choose the winner!
+              Your collective energy will choose the soundtrack!
             </p>
             <div className="text-sm text-muted-foreground/70">
-              Playing {currentSongIndex + 1} of {soundtracks.length}
+              Let your excitement flow as you explore musical themes
             </div>
           </div>
 
-          {/* Current song display */}
-          {currentSong && (
-            <div className="max-w-2xl mx-auto mb-8">
-              <Card className="p-8">
-                <div className="flex items-center justify-center gap-4 mb-6">
-                  {isPlaying ? (
-                    <Pause className="h-16 w-16 text-primary animate-pulse" />
-                  ) : (
-                    <Play className="h-16 w-16 text-primary" />
-                  )}
-                </div>
-                
-                <h2 className="text-3xl font-bold text-center mb-2">
-                  {currentSong.name}
-                </h2>
-                <p className="text-center text-muted-foreground mb-6">
-                  {currentSong.description}
-                </p>
-
-                {/* Progress bar */}
-                <div className="relative w-full h-4 bg-muted rounded-full overflow-hidden">
+          {/* Excitement Meters */}
+          <div className="flex justify-center gap-4 mb-8">
+            {connectedHeadsets?.map((headsetId: string) => {
+              const level = excitementLevels.get(headsetId) || 0;
+              const color = getHeadsetColor(headsetId);
+              const hasSelected = selections.has(headsetId);
+              
+              return (
+                <div key={headsetId} className="flex flex-col items-center gap-2">
                   <div 
-                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/60 transition-all duration-100"
-                    style={{ width: `${Math.min(progress, 100)}%` }}
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center text-xs font-bold">
-                    {Math.round((progress / 100) * 20)}s / 20s
+                    className="w-16 h-16 rounded-full flex items-center justify-center border-4 font-mono text-xs font-bold transition-all"
+                    style={{
+                      borderColor: color,
+                      backgroundColor: hasSelected ? `${color}40` : 'transparent',
+                      transform: hasSelected ? 'scale(1.1)' : 'scale(1)'
+                    }}
+                  >
+                    {(level * 100).toFixed(0)}%
+                  </div>
+                  <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full transition-all duration-300"
+                      style={{
+                        width: `${level * 100}%`,
+                        backgroundColor: getExcitementColor(level)
+                      }}
+                    />
                   </div>
                 </div>
+              );
+            })}
+          </div>
 
-                {/* Real-time excitement */}
-                <div className="mt-6">
-                  <div className="text-sm text-muted-foreground text-center mb-2">
-                    Current Excitement
-                  </div>
-                  <div className="flex justify-center gap-4">
-                    {connectedHeadsets?.map((headsetId: string) => {
-                      const color = getHeadsetColor(headsetId);
-                      const excitement = performanceMetrics?.met?.exc || 0;
-                      
-                      return (
-                        <div key={headsetId} className="flex flex-col items-center gap-2">
-                          <div 
-                            className="w-16 h-16 rounded-full flex items-center justify-center border-4 font-mono text-xs font-bold"
-                            style={{
-                              borderColor: color,
-                              backgroundColor: `${color}20`
-                            }}
-                          >
-                            {(excitement * 100).toFixed(0)}%
-                          </div>
-                          <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
-                            <div 
-                              className="h-full transition-all duration-300 bg-primary"
-                              style={{ width: `${excitement * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </Card>
-            </div>
-          )}
-
-          {/* All songs preview grid */}
-          <div className="grid grid-cols-4 gap-4">
-            {soundtracks.map((song, index) => {
-              const isCurrent = index === currentSongIndex;
-              const isFocused = song.id === focusedSongId;
-              const hasPlayed = index < currentSongIndex;
-              const avgExcitement = excitementScores.get(song.id);
-              const avgScore = avgExcitement 
-                ? avgExcitement.reduce((sum, val) => sum + val, 0) / avgExcitement.length 
-                : 0;
+          {/* Image Grid */}
+          <div className="grid grid-cols-3 gap-6">
+            {excitementLevel2Images.map((image) => {
+              const focusedByHeadsets = Array.from(currentFocus.entries())
+                .filter(([_, imageId]) => imageId === image.id)
+                .map(([headsetId]) => headsetId);
+              
+              const selectedByHeadsets = Array.from(selections.entries())
+                .filter(([_, imageId]) => imageId === image.id)
+                .map(([headsetId]) => headsetId);
 
               return (
                 <Card 
-                  key={song.id}
-                  className={`p-4 transition-all duration-300 ${
-                    isCurrent ? 'ring-4 ring-primary scale-105' : ''
-                  } ${isFocused ? 'ring-2 ring-accent' : ''}`}
-                  style={{ opacity: hasPlayed ? 0.6 : 1 }}
+                  key={image.id}
+                  className="relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105"
+                  style={{
+                    opacity: selectedByHeadsets.length > 0 ? 0.5 : 1
+                  }}
                 >
-                  <div className="text-center">
-                    <Music className={`h-8 w-8 mx-auto mb-2 ${isCurrent ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
-                    <h3 className="font-bold text-sm mb-1">{song.name}</h3>
-                    {hasPlayed && (
-                      <div className="text-xs text-muted-foreground">
-                        Excitement: {(avgScore * 100).toFixed(0)}%
-                      </div>
-                    )}
-                    {isCurrent && (
-                      <div className="text-xs text-primary font-bold mt-1">
-                        NOW PLAYING
-                      </div>
-                    )}
+                  <div className="aspect-video relative">
+                    <img
+                      src={image.url}
+                      alt={image.title}
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    {/* Excitement threshold indicator */}
+                    <div className="absolute top-2 right-2 px-2 py-1 bg-background/80 backdrop-blur-sm rounded text-xs">
+                      {(image.excitementThreshold * 100).toFixed(0)}% needed
+                    </div>
+
+                    {/* Headset indicators */}
+                    <div className="absolute bottom-2 left-2 flex gap-1">
+                      {focusedByHeadsets.map(headsetId => {
+                        const color = getHeadsetColor(headsetId);
+                        const level = excitementLevels.get(headsetId) || 0;
+                        
+                        return (
+                          <div
+                            key={headsetId}
+                            className="w-8 h-8 rounded-full border-2 flex items-center justify-center backdrop-blur-sm"
+                            style={{
+                              borderColor: color,
+                              backgroundColor: `${color}40`,
+                              boxShadow: level >= image.excitementThreshold ? `0 0 20px ${color}` : 'none'
+                            }}
+                          >
+                            <Zap 
+                              className="w-4 h-4" 
+                              style={{ color }}
+                            />
+                          </div>
+                        );
+                      })}
+                      
+                      {selectedByHeadsets.map(headsetId => {
+                        const color = getHeadsetColor(headsetId);
+                        return (
+                          <div
+                            key={`selected-${headsetId}`}
+                            className="w-8 h-8 rounded-full border-2 flex items-center justify-center backdrop-blur-sm animate-pulse-glow"
+                            style={{
+                              borderColor: color,
+                              backgroundColor: color
+                            }}
+                          >
+                            ✓
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-card">
+                    <p className="text-sm font-semibold text-center">{image.title}</p>
                   </div>
                 </Card>
               );
@@ -270,16 +236,6 @@ const ExcitementLevel2 = () => {
           </div>
         </div>
       </div>
-
-      {/* Invisible cursor indicator */}
-      <div 
-        className="fixed w-4 h-4 bg-primary/50 rounded-full pointer-events-none z-50 transition-all duration-100"
-        style={{
-          left: `${cursorPosition.x * 100}%`,
-          top: '50%',
-          transform: 'translate(-50%, -50%)'
-        }}
-      />
 
       {/* Scan line effect */}
       <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">

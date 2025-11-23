@@ -6,7 +6,9 @@
 export interface Soundtrack {
   id: number;
   name: string;
-  previewUrl: string; // 20-second preview snippet
+  url: string; // URL to audio file or reference
+  minScore: number; // Minimum collective excitement score (0-100)
+  maxScore: number; // Maximum collective excitement score (0-100)
   description: string;
 }
 
@@ -14,45 +16,43 @@ export const soundtracks: Soundtrack[] = [
   {
     id: 1,
     name: "Calm Horizons",
-    previewUrl: "/soundtracks/calm-horizons-preview.mp3",
+    url: "/soundtracks/calm-horizons.mp3",
+    minScore: 0,
+    maxScore: 25,
     description: "Gentle, ambient tones for a serene experience"
   },
   {
     id: 2,
     name: "Rising Dawn",
-    previewUrl: "/soundtracks/rising-dawn-preview.mp3",
+    url: "/soundtracks/rising-dawn.mp3",
+    minScore: 26,
+    maxScore: 50,
     description: "Uplifting melodies that build gradually"
   },
   {
     id: 3,
     name: "Electric Future",
-    previewUrl: "/soundtracks/electric-future-preview.mp3",
+    url: "/soundtracks/electric-future.mp3",
+    minScore: 51,
+    maxScore: 75,
     description: "Energetic electronic beats with retro-futuristic vibes"
   },
   {
     id: 4,
     name: "Cosmic Pulse",
-    previewUrl: "/soundtracks/cosmic-pulse-preview.mp3",
+    url: "/soundtracks/cosmic-pulse.mp3",
+    minScore: 76,
+    maxScore: 100,
     description: "High-energy, epic orchestral combined with synth"
   }
 ];
 
 /**
- * Get soundtrack with highest excitement score
+ * Get soundtrack based on collective excitement score
  */
-export const getSoundtrackByExcitementScores = (
-  excitementScores: Map<number, number>
-): Soundtrack => {
-  // Find soundtrack ID with highest average excitement
-  let highestScore = 0;
-  let selectedId = 1;
-  
-  excitementScores.forEach((score, soundtrackId) => {
-    if (score > highestScore) {
-      highestScore = score;
-      selectedId = soundtrackId;
-    }
-  });
-  
-  return soundtracks.find(s => s.id === selectedId) || soundtracks[0];
+export const getSoundtrackByScore = (score: number): Soundtrack => {
+  const soundtrack = soundtracks.find(
+    s => score >= s.minScore && score <= s.maxScore
+  );
+  return soundtrack || soundtracks[0];
 };

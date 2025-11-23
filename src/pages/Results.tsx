@@ -53,14 +53,14 @@ const Results = () => {
       // The actual generation happens on the server
       const videoJobId = `job_${Date.now()}`;
       
-      // Navigate to excitement level 1 while video generates
-      navigate("/excitement-level-1", { 
+      // Navigate to excitement level 3 (new artistic earth-forming level)
+      navigate("/excitement-level-3", { 
         state: { 
           metadata,
           videoJobId,
           connectedHeadsets,
-          motion: location.state?.motion,
-          performanceMetrics: location.state?.performanceMetrics
+          performanceMetrics: location.state?.performanceMetrics,
+          motionEvent: location.state?.motionEvent
         },
         replace: true 
       });

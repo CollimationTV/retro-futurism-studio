@@ -27,6 +27,17 @@ export interface MotionEvent {
   headsetId: string;
 }
 
+export interface PerformanceMetricsEvent {
+  excitement: number;   // 0-1 scale
+  engagement: number;   // 0-1 scale
+  stress: number;       // 0-1 scale
+  relaxation: number;   // 0-1 scale
+  interest: number;     // 0-1 scale
+  focus: number;        // 0-1 scale
+  time: number;
+  headsetId: string;
+}
+
 export interface HeadsetInfo {
   id: string;
   status: string;
@@ -59,6 +70,7 @@ export class MultiHeadsetCortexClient {
   private callbacks: Map<number, (response: any) => void> = new Map();
   public onMentalCommand: ((event: MentalCommandEvent) => void) | null = null;
   public onMotion: ((event: MotionEvent) => void) | null = null;
+  public onPerformanceMetrics: ((event: PerformanceMetricsEvent) => void) | null = null;
   public onConnectionStatus: ((status: string) => void) | null = null;
   public onHeadsetStatus: ((headsetId: string, status: string) => void) | null = null;
   public onError: ((error: string) => void) | null = null;
@@ -150,6 +162,26 @@ export class MultiHeadsetCortexClient {
         headsetId: headsetId
       };
       this.onMotion?.(event);
+    }
+
+    // Handle performance metrics stream (excitement, engagement, etc.)
+    if (message.met !== undefined && Array.isArray(message.met)) {
+      const headsetId = message.sid ? this.getHeadsetIdBySessionId(message.sid) : 'unknown';
+      
+      // met array format: [engagement, excitement, stress, relaxation, interest, focus]
+      const [engagement, excitement, stress, relaxation, interest, focus] = message.met;
+      
+      const event: PerformanceMetricsEvent = {
+        engagement: engagement || 0,
+        excitement: excitement || 0,
+        stress: stress || 0,
+        relaxation: relaxation || 0,
+        interest: interest || 0,
+        focus: focus || 0,
+        time: message.time,
+        headsetId: headsetId
+      };
+      this.onPerformanceMetrics?.(event);
     }
 
     // Handle warnings and errors
@@ -306,7 +338,7 @@ export class MultiHeadsetCortexClient {
     const result = await this.sendRequest('subscribe', {
       cortexToken: this.authToken,
       session: session.sessionId,
-      streams: ['com', 'mot'] // Mental commands + motion sensor streams
+      streams: ['com', 'mot', 'met'] // Mental commands + motion sensors + performance metrics
     });
 
     console.log(`✅ Subscribed to mental commands and motion for headset ${headsetId}:`, result);
