@@ -125,3 +125,98 @@ export const excitementLevel2Images: ExcitementImage[] = [
     excitementThreshold: 0.3
   }
 ];
+
+// Excitement Level 3 Images - Artistic artworks forming the earth
+// HIGHER thresholds for lower sensitivity (0.55-0.75 range)
+export const excitementLevel3Images: ExcitementImage[] = [
+  {
+    id: 19,
+    url: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&h=800&fit=crop",
+    title: "Earth's Heartbeat",
+    excitementThreshold: 0.65
+  },
+  {
+    id: 20,
+    url: "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=800&h=800&fit=crop",
+    title: "Cosmic Genesis",
+    excitementThreshold: 0.60
+  },
+  {
+    id: 21,
+    url: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=800&h=800&fit=crop",
+    title: "Ocean's Breath",
+    excitementThreshold: 0.55
+  },
+  {
+    id: 22,
+    url: "https://images.unsplash.com/photo-1511884642898-4c92249e20b6?w=800&h=800&fit=crop",
+    title: "Forest Consciousness",
+    excitementThreshold: 0.70
+  },
+  {
+    id: 23,
+    url: "https://images.unsplash.com/photo-1509114397022-ed747cca3f65?w=800&h=800&fit=crop",
+    title: "Unity Wave",
+    excitementThreshold: 0.65
+  },
+  {
+    id: 24,
+    url: "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=800&h=800&fit=crop",
+    title: "Mountain Energy",
+    excitementThreshold: 0.75
+  },
+  {
+    id: 25,
+    url: "https://images.unsplash.com/photo-1502134249126-9f3755a50d78?w=800&h=800&fit=crop",
+    title: "Emotional Tide",
+    excitementThreshold: 0.60
+  },
+  {
+    id: 26,
+    url: "https://images.unsplash.com/photo-1464802686167-b939a6910659?w=800&h=800&fit=crop",
+    title: "Stellar Dawn",
+    excitementThreshold: 0.70
+  },
+  {
+    id: 27,
+    url: "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=800&h=800&fit=crop",
+    title: "Human Connection",
+    excitementThreshold: 0.65
+  },
+  {
+    id: 28,
+    url: "https://images.unsplash.com/photo-1476610182048-b716b8518aae?w=800&h=800&fit=crop",
+    title: "Sky Consciousness",
+    excitementThreshold: 0.55
+  },
+  {
+    id: 29,
+    url: "https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=800&h=800&fit=crop",
+    title: "Desert Spirit",
+    excitementThreshold: 0.75
+  },
+  {
+    id: 30,
+    url: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&h=800&fit=crop",
+    title: "Nature's Flow",
+    excitementThreshold: 0.60
+  },
+  {
+    id: 31,
+    url: "https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?w=800&h=800&fit=crop",
+    title: "Aurora Dreams",
+    excitementThreshold: 0.70
+  },
+  {
+    id: 32,
+    url: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&h=800&fit=crop",
+    title: "Wild Heart",
+    excitementThreshold: 0.65
+  },
+  {
+    id: 33,
+    url: "https://images.unsplash.com/photo-1482192505345-5655af888cc4?w=800&h=800&fit=crop",
+    title: "Earth Rising",
+    excitementThreshold: 0.75
+  }
+];

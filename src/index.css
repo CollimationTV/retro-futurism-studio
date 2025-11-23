@@ -84,3 +84,28 @@ All colors MUST be HSL.
     box-shadow: 0 0 20px rgba(0, 255, 255, 0.3), 0 0 40px rgba(0, 255, 255, 0.15), 0 0 60px rgba(0, 255, 255, 0.1);
   }
 }
+
+@keyframes rotateEarth {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes particle-burst {
+  to {
+    transform: translateX(100px);
+    opacity: 0;
+  }
+}
