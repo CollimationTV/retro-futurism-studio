@@ -72,9 +72,9 @@ export const PerHeadsetImageGrid = ({
     }
 
     // Thresholds for discrete tilt-step navigation
-    const NEUTRAL_ZONE = 0.03; // Smaller dead zone for more sensitivity
-    const TILT_THRESHOLD = 0.12; // Lower threshold so subtle turns register
-
+    const NEUTRAL_ZONE = 0.15; // Dead zone - must be below this to be "neutral"
+    const TILT_THRESHOLD = 0.5; // Must exceed this to trigger a move
+    
     const isInNeutral = Math.abs(gyroX) < NEUTRAL_ZONE && Math.abs(gyroY) < NEUTRAL_ZONE;
     const wasInNeutral = neutralState.get(headsetId) ?? true; // Default to neutral on first event
 
@@ -157,15 +157,21 @@ export const PerHeadsetImageGrid = ({
     const focusedImageId = images[currentSelection.focusedIndex].id;
 
     if (com === 'push' && pow > 0.1) {
-      // Start or continue push. Once started, we keep holding even if power
-      // briefly drops, so the selection stays locked like it used to.
+      // Start or continue push
       const now = Date.now();
       const existing = pushProgress.get(headsetId);
       
       if (!existing || existing.imageId !== focusedImageId) {
-        // New push started on this image
+        // New push started
         setPushProgress(prev => new Map(prev).set(headsetId, { startTime: now, imageId: focusedImageId }));
       }
+    } else {
+      // Push released or neutral - reset progress
+      setPushProgress(prev => {
+        const next = new Map(prev);
+        next.delete(headsetId);
+        return next;
+      });
     }
   }, [mentalCommand, images, headsetSelections, pushProgress]);
 

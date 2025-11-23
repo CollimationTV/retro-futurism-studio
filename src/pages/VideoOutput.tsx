@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, RotateCcw, Music } from "lucide-react";
+import { Loader2, AlertCircle, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -14,12 +14,10 @@ const VideoOutput = () => {
   const [isGenerating, setIsGenerating] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { metadata, collectiveScore, soundtrack } = location.state || {};
-
   useEffect(() => {
-    const metadataFromState = metadata || location.state?.metadata;
+    const { metadata } = location.state || {};
     
-    if (!metadataFromState || metadataFromState.length === 0) {
+    if (!metadata || metadata.length === 0) {
       toast({
         title: "No Selection Data",
         description: "Please complete the selection process first.",
@@ -29,11 +27,7 @@ const VideoOutput = () => {
       return;
     }
 
-    console.log("🎬 Starting Sora video generation with metadata:", metadataFromState);
-    if (collectiveScore) {
-      console.log("🎵 Collective excitement score:", collectiveScore);
-      console.log("🎶 Selected soundtrack:", soundtrack?.name);
-    }
+    console.log("🎬 Starting Sora video generation with metadata:", metadata);
     
     // Call the Sora edge function with extended timeout
     const generateVideo = async () => {
@@ -50,7 +44,7 @@ const VideoOutput = () => {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
             },
-            body: JSON.stringify({ metadata: metadataFromState }),
+            body: JSON.stringify({ metadata }),
             signal: controller.signal,
           }
         );
@@ -86,7 +80,7 @@ const VideoOutput = () => {
     };
 
     generateVideo();
-  }, [location.state, navigate, toast, metadata, collectiveScore, soundtrack]);
+  }, [location.state, navigate, toast]);
 
   const handleStartOver = () => {
     navigate("/");
@@ -136,19 +130,9 @@ const VideoOutput = () => {
           <div className="space-y-8">
             <div className="text-center">
               <h1 className="text-4xl font-bold text-foreground mb-4">Your Generated Video</h1>
-              <p className="text-muted-foreground text-lg mb-2">
+              <p className="text-muted-foreground text-lg">
                 Created from your mind-controlled selections
               </p>
-              {soundtrack && collectiveScore !== undefined && (
-                <div className="inline-flex flex-col items-center gap-2 px-6 py-3 bg-primary/10 rounded-lg border border-primary/20 mt-4">
-                  <div className="flex items-center gap-2">
-                    <Music className="w-5 h-5 text-primary" />
-                    <span className="font-semibold text-primary">Soundtrack: {soundtrack.name}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{soundtrack.description}</p>
-                  <p className="text-xs text-muted-foreground">Collective Excitement Score: {collectiveScore}/100</p>
-                </div>
-              )}
             </div>
             
             <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden">
