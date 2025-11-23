@@ -114,6 +114,28 @@ const SecondSelection = () => {
       />
     </div>
 
+      {/* Manual navigation buttons for testing */}
+      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 flex gap-2 bg-background/90 backdrop-blur-sm border border-border rounded-lg p-2">
+        <button
+          onClick={() => navigate("/")}
+          className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
+        >
+          ← Level 1
+        </button>
+        <button
+          onClick={() => navigate("/excitement-level-3", { state: { connectedHeadsets, mentalCommand, motionEvent } })}
+          className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
+        >
+          → Level 3
+        </button>
+        <button
+          onClick={() => navigate("/video-output")}
+          className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
+        >
+          → Video
+        </button>
+      </div>
+
       {/* Scan line effect */}
       <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
         <div className="absolute w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent animate-scan-line" />
