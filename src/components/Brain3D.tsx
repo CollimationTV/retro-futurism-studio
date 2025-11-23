@@ -21,9 +21,9 @@ const BrainNode = ({ position, excitement }: BrainNodeProps) => {
   return (
     <Sphere ref={meshRef} args={[0.05, 16, 16]} position={position}>
       <meshStandardMaterial
-        color={`hsl(180, 100%, ${50 + excitement * 30}%)`}
-        emissive={`hsl(180, 100%, ${40 + excitement * 40}%)`}
-        emissiveIntensity={0.5 + excitement * 1.5}
+        color={`hsl(180, 100%, ${50 + excitement * 40}%)`}
+        emissive={`hsl(180, 100%, ${35 + excitement * 55}%)`}
+        emissiveIntensity={0.4 + excitement * 2.5}
       />
     </Sphere>
   );
@@ -109,9 +109,9 @@ const Brain = ({ excitement }: BrainProps) => {
       {/* Ambient light for glow */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={excitement * 2}
+        intensity={0.5 + excitement * 4}
         color="#00ffff"
-        distance={10}
+        distance={12}
       />
     </group>
   );

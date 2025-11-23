@@ -65,11 +65,14 @@ const ExcitementLevel3 = () => {
     
     // Skip if excitement hold is active (frozen during selection)
     if (excitementDuration.has(headsetId)) {
+      console.log(`🚫 Level3 motion frozen - excitement hold active for ${headsetId.substring(0,8)}`);
       return;
     }
     
     // Get current cursor position (0-1 normalized)
     const currentPosition = cursorPosition.get(headsetId) ?? 0.0;
+    
+    console.log(`🎮 L3 Motion: headset=${headsetId.substring(0,8)}, gyroY=${gyroY.toFixed(4)}, pos=${currentPosition.toFixed(3)}`);
     
     // Only update if movement exceeds dead zone
     if (Math.abs(gyroY) < CURSOR_DEAD_ZONE) return;

@@ -41,10 +41,10 @@ export const PerHeadsetImageGrid = ({
   const [cursorPosition, setCursorPosition] = useState<Map<string, number>>(new Map()); // headsetId -> 0-1 normalized position
 
   // Cursor and selection sensitivity constants
-  const CURSOR_MOVEMENT_SPEED = 0.0002;
-  const CURSOR_DEAD_ZONE = 0.05;
-  const CURSOR_MAX_STEP = 0.01;
-  const PUSH_POWER_THRESHOLD = 0.35;
+  const CURSOR_MOVEMENT_SPEED = 0.00005;
+  const CURSOR_DEAD_ZONE = 0.15;
+  const CURSOR_MAX_STEP = 0.005;
+  const PUSH_POWER_THRESHOLD = 0.25;
   const PUSH_ARM_TIME_MS = 500;
   const PUSH_HOLD_TIME_MS = 5000;
 
@@ -86,8 +86,8 @@ export const PerHeadsetImageGrid = ({
     const currentSelection = headsetSelections.get(headsetId);
     if (!currentSelection || currentSelection.imageId !== null) return;
 
-    // FREEZE navigation if this headset is actively pushing
-    if (pushProgress.has(headsetId)) {
+    // FREEZE navigation if this headset is actively pushing (arming or holding)
+    if (pushArm.has(headsetId) || pushProgress.has(headsetId)) {
       console.log(`🚫 Motion frozen - PUSH active for ${headsetId.substring(0,8)}`);
       return;
     }
