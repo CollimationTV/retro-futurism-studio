@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Zap } from "lucide-react";
 import { excitementLevel1Images } from "@/data/excitementImages";
 import { getHeadsetColor } from "@/utils/headsetColors";
-import type { MentalCommandEvent } from "@/lib/multiHeadsetCortexClient";
+import type { MotionEvent } from "@/lib/multiHeadsetCortexClient";
 
 const ExcitementLevel1 = () => {
   const location = useLocation();
@@ -14,37 +14,92 @@ const ExcitementLevel1 = () => {
   const { 
     videoJobId,
     connectedHeadsets,
-    mentalCommand 
+    motion,
+    performanceMetrics
   } = location.state || {};
 
   const [excitementLevels, setExcitementLevels] = useState<Map<string, number>>(new Map());
   const [selections, setSelections] = useState<Map<string, number>>(new Map());
-  const [currentFocus, setCurrentFocus] = useState<Map<string, number>>(new Map());
+  const [cursorPosition, setCursorPosition] = useState({ x: 0.5, y: 0.5 });
+  const [focusedImageId, setFocusedImageId] = useState<number | null>(null);
+  const [selectionHoldStart, setSelectionHoldStart] = useState<Map<string, number>>(new Map());
+
+  const SELECTION_HOLD_DURATION = 5000; // 5 seconds
+
+  // Cursor movement from gyration data
+  useEffect(() => {
+    if (!motion) return;
+    
+    const event = motion as MotionEvent;
+    const MOVEMENT_SPEED = 0.0002;
+    const DEAD_ZONE = 0.05;
+    const MAX_STEP = 0.01;
+    
+    if (Math.abs(event.gyroY) > DEAD_ZONE) {
+      const delta = event.gyroY * MOVEMENT_SPEED;
+      const clampedDelta = Math.max(-MAX_STEP, Math.min(MAX_STEP, delta));
+      
+      setCursorPosition(prev => ({
+        x: Math.max(0, Math.min(1, prev.x + clampedDelta)),
+        y: prev.y
+      }));
+    }
+  }, [motion]);
+
+  // Determine focused image based on cursor position
+  useEffect(() => {
+    const numImages = excitementLevel1Images.length;
+    const cols = 3;
+    const rows = Math.ceil(numImages / cols);
+    
+    const col = Math.floor(cursorPosition.x * cols);
+    const row = Math.floor(cursorPosition.y * rows);
+    const index = Math.min(row * cols + col, numImages - 1);
+    
+    setFocusedImageId(excitementLevel1Images[index]?.id || null);
+  }, [cursorPosition]);
 
   // Monitor excitement levels from performance metrics
   useEffect(() => {
-    if (!mentalCommand) return;
+    if (!performanceMetrics?.met) return;
 
-    // Emotiv headsets provide excitement metric through performance metrics
-    // For now, we'll use mental command power as a proxy for excitement
-    const event = mentalCommand as MentalCommandEvent;
-    const excitementValue = event.pow; // 0-1 range
+    const excitementValue = performanceMetrics.met.exc || 0; // 0-1 range
+    const headsetId = performanceMetrics.headsetId || "default";
     
     setExcitementLevels(prev => {
       const newLevels = new Map(prev);
-      newLevels.set(event.headsetId, excitementValue);
+      newLevels.set(headsetId, excitementValue);
       return newLevels;
     });
 
-    // Check if excitement exceeds threshold for focused image
-    const focusedImageId = currentFocus.get(event.headsetId);
-    if (focusedImageId !== undefined) {
+    // Check if excitement exceeds threshold for focused image (auto-selection)
+    if (focusedImageId !== null) {
       const image = excitementLevel1Images.find(img => img.id === focusedImageId);
       if (image && excitementValue >= image.excitementThreshold) {
-        handleSelection(event.headsetId, focusedImageId);
+        // Start or continue hold timer
+        const now = Date.now();
+        const holdStart = selectionHoldStart.get(headsetId);
+        
+        if (!holdStart) {
+          setSelectionHoldStart(prev => new Map(prev).set(headsetId, now));
+        } else if (now - holdStart >= SELECTION_HOLD_DURATION) {
+          handleSelection(headsetId, focusedImageId);
+          setSelectionHoldStart(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(headsetId);
+            return newMap;
+          });
+        }
+      } else {
+        // Reset hold timer if excitement drops below threshold
+        setSelectionHoldStart(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(headsetId);
+          return newMap;
+        });
       }
     }
-  }, [mentalCommand]);
+  }, [performanceMetrics, focusedImageId]);
 
   const handleSelection = (headsetId: string, imageId: number) => {
     if (selections.has(headsetId)) return; // Already selected
@@ -63,19 +118,29 @@ const ExcitementLevel1 = () => {
           state: {
             videoJobId,
             connectedHeadsets,
-            mentalCommand,
+            motion,
+            performanceMetrics,
+            metadata: location.state.metadata,
             excitementLevel1Selections: selections,
             excitementLevel1Scores: excitementLevels
           }
         });
       }, 1500);
     }
-  }, [selections, connectedHeadsets, navigate, videoJobId, excitementLevels, mentalCommand]);
+  }, [selections, connectedHeadsets, navigate, videoJobId, excitementLevels, motion, performanceMetrics, location.state]);
 
   const getExcitementColor = (level: number): string => {
     if (level < 0.3) return 'hsl(142, 76%, 36%)'; // Green
     if (level < 0.6) return 'hsl(48, 96%, 53%)'; // Yellow
     return 'hsl(25, 95%, 53%)'; // Orange/Red
+  };
+
+  const getHoldProgress = (headsetId: string): number => {
+    const holdStart = selectionHoldStart.get(headsetId);
+    if (!holdStart) return 0;
+    
+    const elapsed = Date.now() - holdStart;
+    return Math.min((elapsed / SELECTION_HOLD_DURATION) * 100, 100);
   };
 
   return (
@@ -96,7 +161,7 @@ const ExcitementLevel1 = () => {
               Your video is generating... Let your excitement guide your selections!
             </p>
             <div className="text-sm text-muted-foreground/70">
-              Focus on an image and let your excitement levels rise to make a selection
+              Move your head to navigate • High excitement auto-selects focused image
             </div>
           </div>
 
@@ -106,11 +171,12 @@ const ExcitementLevel1 = () => {
               const level = excitementLevels.get(headsetId) || 0;
               const color = getHeadsetColor(headsetId);
               const hasSelected = selections.has(headsetId);
+              const holdProgress = getHoldProgress(headsetId);
               
               return (
                 <div key={headsetId} className="flex flex-col items-center gap-2">
                   <div 
-                    className="w-16 h-16 rounded-full flex items-center justify-center border-4 font-mono text-xs font-bold transition-all"
+                    className="w-16 h-16 rounded-full flex items-center justify-center border-4 font-mono text-xs font-bold transition-all relative"
                     style={{
                       borderColor: color,
                       backgroundColor: hasSelected ? `${color}40` : 'transparent',
@@ -118,6 +184,22 @@ const ExcitementLevel1 = () => {
                     }}
                   >
                     {(level * 100).toFixed(0)}%
+                    
+                    {holdProgress > 0 && (
+                      <svg className="absolute inset-0 w-full h-full -rotate-90">
+                        <circle
+                          cx="50%"
+                          cy="50%"
+                          r="28"
+                          fill="none"
+                          stroke={color}
+                          strokeWidth="4"
+                          strokeDasharray={`${2 * Math.PI * 28}`}
+                          strokeDashoffset={`${2 * Math.PI * 28 * (1 - holdProgress / 100)}`}
+                          className="transition-all duration-100"
+                        />
+                      </svg>
+                    )}
                   </div>
                   <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
                     <div 
@@ -136,9 +218,7 @@ const ExcitementLevel1 = () => {
           {/* Image Grid */}
           <div className="grid grid-cols-3 gap-6">
             {excitementLevel1Images.map((image) => {
-              const focusedByHeadsets = Array.from(currentFocus.entries())
-                .filter(([_, imageId]) => imageId === image.id)
-                .map(([headsetId]) => headsetId);
+              const isFocused = focusedImageId === image.id;
               
               const selectedByHeadsets = Array.from(selections.entries())
                 .filter(([_, imageId]) => imageId === image.id)
@@ -147,7 +227,9 @@ const ExcitementLevel1 = () => {
               return (
                 <Card 
                   key={image.id}
-                  className="relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105"
+                  className={`relative overflow-hidden transition-all duration-300 ${
+                    isFocused ? 'scale-110 ring-4 ring-primary' : ''
+                  }`}
                   style={{
                     opacity: selectedByHeadsets.length > 0 ? 0.5 : 1
                   }}
@@ -166,14 +248,14 @@ const ExcitementLevel1 = () => {
 
                     {/* Headset indicators */}
                     <div className="absolute bottom-2 left-2 flex gap-1">
-                      {focusedByHeadsets.map(headsetId => {
+                      {isFocused && Array.from(excitementLevels.entries()).map(([headsetId, level]) => {
                         const color = getHeadsetColor(headsetId);
-                        const level = excitementLevels.get(headsetId) || 0;
+                        const holdProgress = getHoldProgress(headsetId);
                         
                         return (
                           <div
                             key={headsetId}
-                            className="w-8 h-8 rounded-full border-2 flex items-center justify-center backdrop-blur-sm"
+                            className="w-8 h-8 rounded-full border-2 flex items-center justify-center backdrop-blur-sm relative"
                             style={{
                               borderColor: color,
                               backgroundColor: `${color}40`,
@@ -184,6 +266,15 @@ const ExcitementLevel1 = () => {
                               className="w-4 h-4" 
                               style={{ color }}
                             />
+                            
+                            {holdProgress > 0 && (
+                              <div 
+                                className="absolute inset-0 rounded-full"
+                                style={{
+                                  background: `conic-gradient(${color} ${holdProgress}%, transparent ${holdProgress}%)`
+                                }}
+                              />
+                            )}
                           </div>
                         );
                       })}
@@ -215,6 +306,16 @@ const ExcitementLevel1 = () => {
           </div>
         </div>
       </div>
+
+      {/* Invisible cursor indicator */}
+      <div 
+        className="fixed w-4 h-4 bg-primary/50 rounded-full pointer-events-none z-50 transition-all duration-100"
+        style={{
+          left: `${cursorPosition.x * 100}%`,
+          top: `${cursorPosition.y * 100}%`,
+          transform: 'translate(-50%, -50%)'
+        }}
+      />
 
       {/* Scan line effect */}
       <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
