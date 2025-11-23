@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { MultiHeadsetCortexClient, MentalCommandEvent, MotionEvent, HeadsetInfo } from "@/lib/multiHeadsetCortexClient";
+import { MultiHeadsetCortexClient, MentalCommandEvent, MotionEvent, HeadsetInfo, PerformanceMetricsEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain, Power, AlertCircle, CheckCircle, Loader2, Headphones } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -12,11 +12,12 @@ import { Badge } from "@/components/ui/badge";
 interface MultiHeadsetConnectionProps {
   onMentalCommand?: (command: MentalCommandEvent) => void;
   onMotion?: (motion: MotionEvent) => void;
+  onPerformanceMetrics?: (metrics: PerformanceMetricsEvent) => void;
   onHeadsetsChange?: (headsetIds: string[]) => void;
   onConnectionStatus?: (status: 'disconnected' | 'connecting' | 'initializing' | 'ready' | 'error') => void;
 }
 
-export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onHeadsetsChange, onConnectionStatus }: MultiHeadsetConnectionProps) => {
+export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onPerformanceMetrics, onHeadsetsChange, onConnectionStatus }: MultiHeadsetConnectionProps) => {
   const { toast } = useToast();
   const [clientId, setClientId] = useState(() => localStorage.getItem("emotiv_client_id") || "");
   const [clientSecret, setClientSecret] = useState(() => localStorage.getItem("emotiv_client_secret") || "");
@@ -96,6 +97,11 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onHeadsetsCh
       client.onMotion = (event) => {
         console.log('Motion from', event.headsetId, '- gyroY:', event.gyroY);
         onMotion?.(event);
+      };
+
+      client.onPerformanceMetrics = (event) => {
+        console.log('Performance metrics from', event.headsetId, ':', event);
+        onPerformanceMetrics?.(event);
       };
 
       client.onError = (errorMessage) => {

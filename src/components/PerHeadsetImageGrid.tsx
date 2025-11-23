@@ -81,7 +81,7 @@ export const PerHeadsetImageGrid = ({
     const currentPosition = cursorPosition.get(headsetId) ?? 0.0;
     
     // Sensitivity settings for smooth cursor control
-    const MOVEMENT_SPEED = 0.003; // Reduced from 0.012 - much slower cursor
+    const MOVEMENT_SPEED = 0.001; // Further reduced for mouse-like slow cursor
     const DEAD_ZONE = 0.1; // Ignore very small head movements
     
     // Only update if movement exceeds dead zone
