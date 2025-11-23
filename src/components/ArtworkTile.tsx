@@ -36,7 +36,8 @@ export const ArtworkTile = ({
     }
   }, [isSelected]);
   
-  const progressPercentage = (excitementProgress / threshold) * 100;
+  const safeThreshold = threshold > 0 ? threshold : 1;
+  const progressPercentage = excitementProgress * 100 / safeThreshold;
   const isActivating = excitementProgress > 0;
   
   return (
@@ -71,10 +72,18 @@ export const ArtworkTile = ({
             className="w-full h-full object-cover"
           />
           
-          {/* Threshold indicator bar at bottom */}
+          {/* Threshold and progress indicator bar at bottom */}
           <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
-            <div className="text-xs text-white/80 mb-1">
-              {Math.round(threshold * 100)}% req.
+            <div className="flex items-center gap-2">
+              <div className="text-xs text-white/80 whitespace-nowrap">
+                {Math.round(safeThreshold * 100)}% req.
+              </div>
+              <div className="flex-1 h-1 bg-white/20 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-white/80 transition-all duration-200"
+                  style={{ width: `${Math.min(progressPercentage, 100)}%` }}
+                />
+              </div>
             </div>
           </div>
           
@@ -107,7 +116,7 @@ export const ArtworkTile = ({
                   textShadow: '0 0 20px currentColor'
                 }}
               >
-                {Math.ceil((1 - excitementProgress / threshold) * 5)}
+                 {Math.ceil((1 - excitementProgress / safeThreshold) * 5)}
               </div>
             </div>
           )}

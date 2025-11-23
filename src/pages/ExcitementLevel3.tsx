@@ -25,7 +25,7 @@ const ExcitementLevel3 = () => {
   const [cursorPosition, setCursorPosition] = useState<Map<string, number>>(new Map()); // headsetId -> 0-1 normalized position
   
   // Selection constants (same as PerHeadsetImageGrid for consistency)
-  const PUSH_POWER_THRESHOLD = 0.3; // More sensitive PUSH detection
+  const PUSH_POWER_THRESHOLD = 0.25; // Slightly more sensitive PUSH detection
   const PUSH_HOLD_TIME_MS = 8000; // 8 seconds hold time
   const AUTO_CYCLE_INTERVAL_MS = 4000;
   
@@ -252,8 +252,8 @@ const ExcitementLevel3 = () => {
                   position={{ x: position.x, y: position.y }}
                   scale={position.scale}
                   zIndex={position.zIndex}
-                  excitementProgress={maxPushProgress * 100}
-                  threshold={0} // No threshold - responds to PUSH only
+                  excitementProgress={maxPushProgress}
+                  threshold={1} // Normalized 0-1 progress
                   isSelected={isSelected}
                   isFocusedByAny={isFocusedByAny}
                   focusColors={focusColors}
