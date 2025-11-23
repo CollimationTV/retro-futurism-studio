@@ -83,6 +83,35 @@ All colors MUST be HSL.
   .card-glow-active {
     box-shadow: 0 0 20px rgba(0, 255, 255, 0.3), 0 0 40px rgba(0, 255, 255, 0.15), 0 0 60px rgba(0, 255, 255, 0.1);
   }
+  
+  .glass-panel {
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+  }
+  
+  .tech-border {
+    position: relative;
+  }
+  
+  .tech-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid hsl(var(--primary) / 0.3);
+    pointer-events: none;
+  }
+  
+  .tech-border::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 8px hsl(var(--primary));
+  }
 }
 
 @keyframes rotateEarth {
