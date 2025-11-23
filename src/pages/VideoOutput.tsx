@@ -14,7 +14,7 @@ const VideoOutput = () => {
   const [isGenerating, setIsGenerating] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { metadata, collectiveScore, soundtrack } = location.state || {};
+  const { metadata, collectiveScore, soundtrack, level3Selections } = location.state || {};
 
   useEffect(() => {
     const metadataFromState = metadata || location.state?.metadata;
@@ -139,6 +139,11 @@ const VideoOutput = () => {
               <p className="text-muted-foreground text-lg mb-2">
                 Created from your mind-controlled selections
               </p>
+              {level3Selections && level3Selections.length > 0 && (
+                <p className="text-sm text-muted-foreground mb-4">
+                  Earth formed by {level3Selections.length} emotional resonance{level3Selections.length !== 1 ? 's' : ''}
+                </p>
+              )}
               {soundtrack && collectiveScore !== undefined && (
                 <div className="inline-flex flex-col items-center gap-2 px-6 py-3 bg-primary/10 rounded-lg border border-primary/20 mt-4">
                   <div className="flex items-center gap-2">
