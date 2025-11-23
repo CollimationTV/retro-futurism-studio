@@ -231,7 +231,7 @@ const ExcitementLevel3 = () => {
               const focusColors = focusedByHeadsets.map(hId => getHeadsetColor(hId));
               const isFocusedByAny = focusColors.length > 0;
               
-              // Calculate push progress for focused headsets
+              // Calculate push progress for focused headsets (no excitement threshold needed)
               let maxPushProgress = 0;
               focusedByHeadsets.forEach(headsetId => {
                 const progress = pushProgress.get(headsetId);
@@ -253,7 +253,7 @@ const ExcitementLevel3 = () => {
                   scale={position.scale}
                   zIndex={position.zIndex}
                   excitementProgress={maxPushProgress * 100}
-                  threshold={image.excitementThreshold}
+                  threshold={0} // No threshold - responds to PUSH only
                   isSelected={isSelected}
                   isFocusedByAny={isFocusedByAny}
                   focusColors={focusColors}
