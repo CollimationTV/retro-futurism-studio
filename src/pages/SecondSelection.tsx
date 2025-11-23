@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { PerHeadsetImageGrid } from "@/components/PerHeadsetImageGrid";
@@ -14,6 +14,7 @@ const SecondSelection = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const imageGridRef = useRef<HTMLDivElement>(null);
   const [excitementLevel, setExcitementLevel] = useState(0);
   
   // Get state from first selection (reuse existing connection)
@@ -42,6 +43,15 @@ const SecondSelection = () => {
       navigate("/");
     }
   }, [level1Selections, connectedHeadsets, navigate, toast]);
+
+  // Auto-scroll to image grid on mount
+  useEffect(() => {
+    if (imageGridRef.current) {
+      setTimeout(() => {
+        imageGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 500);
+    }
+  }, []);
 
   const handleAllSelected = (selections: Map<string, number>) => {
     navigate("/results", {
@@ -92,15 +102,17 @@ const SecondSelection = () => {
       connectionStatus="ready"
     />
 
-    <PerHeadsetImageGrid
-      images={level2Images}
-      mentalCommand={mentalCommand}
-      motionEvent={motionEvent}
-      connectedHeadsets={connectedHeadsets || []}
-      onAllSelected={handleAllSelected}
-      title="Select Your Image - Level 2"
-      description="Each user selects one more image using mind control"
-    />
+    <div ref={imageGridRef}>
+      <PerHeadsetImageGrid
+        images={level2Images}
+        mentalCommand={mentalCommand}
+        motionEvent={motionEvent}
+        connectedHeadsets={connectedHeadsets || []}
+        onAllSelected={handleAllSelected}
+        title="Select Your Image - Level 2"
+        description="Each user selects one more image using mind control"
+      />
+    </div>
 
       {/* Scan line effect */}
       <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
