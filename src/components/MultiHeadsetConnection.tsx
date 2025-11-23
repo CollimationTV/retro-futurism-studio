@@ -39,7 +39,7 @@ export const MultiHeadsetConnection = ({ onHeadsetsChange }: MultiHeadsetConnect
   const handleInitialize = async () => {
     const trimmedClientId = clientId.trim();
     const trimmedClientSecret = clientSecret.trim();
-    
+
     if (!trimmedClientId || !trimmedClientSecret) {
       toast({
         title: "Missing Credentials",
@@ -55,6 +55,10 @@ export const MultiHeadsetConnection = ({ onHeadsetsChange }: MultiHeadsetConnect
 
     setStatus('connecting');
     setError(null);
+
+    // Protect against hanging forever on "Authenticating..." if Cortex never responds
+    let didTimeout = false;
+    let timeoutId: number | undefined;
 
     try {
       const client = new MultiHeadsetCortexClient({
@@ -93,7 +97,7 @@ export const MultiHeadsetConnection = ({ onHeadsetsChange }: MultiHeadsetConnect
       client.onMotion = (event) => {
         console.log('Motion from', event.headsetId, '- gyroY:', event.gyroY);
       };
-      
+
       client.onPerformanceMetrics = (event) => {
         console.log('Performance metrics from', event.headsetId, '- excitement:', event.excitement);
       };
@@ -110,9 +114,39 @@ export const MultiHeadsetConnection = ({ onHeadsetsChange }: MultiHeadsetConnect
 
       setLocalCortexClient(client);
       setCortexClient(client); // Store in global context
+
+      const timeoutMs = 15000; // 15 seconds
+      timeoutId = window.setTimeout(() => {
+        didTimeout = true;
+        const timeoutMessage =
+          "Cortex initialization is taking too long. Please confirm Emotiv Launcher is running locally and your credentials are correct, then try again.";
+        console.error(timeoutMessage);
+        setStatus('error');
+        setError(timeoutMessage);
+        client.disconnect();
+        toast({
+          title: "Initialization Timed Out",
+          description: timeoutMessage,
+          variant: "destructive",
+        });
+      }, timeoutMs);
+
       await client.initialize();
 
+      if (!didTimeout && timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+
     } catch (err) {
+      if (timeoutId && !didTimeout) {
+        window.clearTimeout(timeoutId);
+      }
+
+      if (didTimeout) {
+        // Timeout handler already set error state and toast
+        return;
+      }
+
       console.error('Connection error:', err);
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Failed to connect to Cortex');
@@ -123,7 +157,6 @@ export const MultiHeadsetConnection = ({ onHeadsetsChange }: MultiHeadsetConnect
       });
     }
   };
-
   const loadAvailableHeadsets = async (client: MultiHeadsetCortexClient) => {
     try {
       const headsets = await client.getAvailableHeadsets();
