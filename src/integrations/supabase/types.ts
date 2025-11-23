@@ -14,7 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      operator_controls: {
+        Row: {
+          auto_cycle_speed: number | null
+          created_at: string
+          id: string
+          manual_selection_headset_id: string | null
+          manual_selection_image_id: number | null
+          manual_selection_level: number | null
+          push_sensitivity: number | null
+          session_id: string
+          updated_at: string
+        }
+        Insert: {
+          auto_cycle_speed?: number | null
+          created_at?: string
+          id?: string
+          manual_selection_headset_id?: string | null
+          manual_selection_image_id?: number | null
+          manual_selection_level?: number | null
+          push_sensitivity?: number | null
+          session_id: string
+          updated_at?: string
+        }
+        Update: {
+          auto_cycle_speed?: number | null
+          created_at?: string
+          id?: string
+          manual_selection_headset_id?: string | null
+          manual_selection_image_id?: number | null
+          manual_selection_level?: number | null
+          push_sensitivity?: number | null
+          session_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

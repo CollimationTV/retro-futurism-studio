@@ -9,6 +9,10 @@ import { generateSphericalLayout } from "@/utils/sphericalLayout";
 import { getHeadsetColor } from "@/utils/headsetColors";
 import { PerformanceMetricsEvent, MotionEvent, MentalCommandEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
+import { OperatorPanel, OperatorControls } from "@/components/OperatorPanel";
+import { FuturisticGrid } from "@/components/FuturisticGrid";
+import { TechnicalReadout } from "@/components/TechnicalReadout";
+import { supabase } from "@/integrations/supabase/client";
 
 const ExcitementLevel3 = () => {
   const location = useLocation();
@@ -25,16 +29,59 @@ const ExcitementLevel3 = () => {
   const [cursorPosition, setCursorPosition] = useState<Map<string, number>>(new Map()); // headsetId -> 0-1 normalized position
   const [lastPushReleaseTime, setLastPushReleaseTime] = useState<Map<string, number>>(new Map());
   
-  // Selection constants (same as PerHeadsetImageGrid for consistency)
-  const PUSH_POWER_THRESHOLD = 0.30; // Moderate PUSH sensitivity
-  const PUSH_HOLD_TIME_MS = 8000; // 8 seconds hold time
-  const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
-  const POST_PUSH_DELAY_MS = 3000; // 3 second cooldown after releasing push
+  // Dynamic selection constants (can be overridden by operator controls)
+  const [PUSH_POWER_THRESHOLD, setPushPowerThreshold] = useState(0.30);
+  const [PUSH_HOLD_TIME_MS] = useState(8000);
+  const [AUTO_CYCLE_INTERVAL_MS, setAutoCycleIntervalMs] = useState(6000);
+  const [POST_PUSH_DELAY_MS] = useState(3000);
+  
+  // Session ID for operator controls
+  const sessionId = videoJobId || `session-${Date.now()}`;
   
   const positions = generateSphericalLayout();
   
   // Calculate average excitement across all headsets
   const averageExcitement = Array.from(excitementLevels.values()).reduce((sum, val) => sum + val, 0) / Math.max(excitementLevels.size, 1);
+  
+  // Handle operator controls updates
+  const handleOperatorControlsChange = (controls: OperatorControls) => {
+    console.log('🎛️ Operator controls updated:', controls);
+    setPushPowerThreshold(controls.pushSensitivity);
+    setAutoCycleIntervalMs(controls.autoCycleSpeed);
+    
+    // Handle manual selection
+    if (controls.manualSelection.headsetId && 
+        controls.manualSelection.imageId !== null && 
+        controls.manualSelection.level === 3) {
+      console.log(`🎯 Operator forcing selection for ${controls.manualSelection.headsetId}: image ${controls.manualSelection.imageId}`);
+      setSelections(prev => new Map(prev).set(
+        controls.manualSelection.headsetId!,
+        controls.manualSelection.imageId!
+      ));
+    }
+  };
+  
+  // Subscribe to operator controls on mount
+  useEffect(() => {
+    const initControls = async () => {
+      const { data } = await supabase
+        .from('operator_controls')
+        .select('*')
+        .eq('session_id', sessionId)
+        .single();
+        
+      if (data) {
+        if (data.push_sensitivity !== null) {
+          setPushPowerThreshold(data.push_sensitivity);
+        }
+        if (data.auto_cycle_speed !== null) {
+          setAutoCycleIntervalMs(data.auto_cycle_speed);
+        }
+      }
+    };
+    
+    initControls();
+  }, [sessionId]);
   
   // Listen to performance metrics, motion, and mental command events from parent state
   useEffect(() => {
@@ -186,27 +233,55 @@ const ExcitementLevel3 = () => {
   }, [selections, connectedHeadsets, navigate, metadata, averageExcitement]);
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 relative">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 relative overflow-hidden">
+      {/* Futuristic grid overlay */}
+      <FuturisticGrid />
+      
       {/* Animated Brain Background */}
       <Brain3D excitement={averageExcitement} className="opacity-20 z-0" />
       
       <Header />
       
+      {/* Operator Panel */}
+      <OperatorPanel 
+        sessionId={sessionId}
+        connectedHeadsets={connectedHeadsets || []}
+        currentLevel={3}
+        onControlsChange={handleOperatorControlsChange}
+      />
+      
+      {/* Technical Readout */}
+      <TechnicalReadout
+        connectedHeadsets={connectedHeadsets?.length || 0}
+        averageExcitement={averageExcitement}
+        selectionsComplete={selections.size}
+        totalSelections={connectedHeadsets?.length || 0}
+      />
+      
       <div className="container mx-auto px-6 py-12">
         {/* Title */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 relative">
+          {/* Technical frame around title */}
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+          
           <h1 
-            className="text-5xl font-bold uppercase tracking-wider neon-glow mb-4"
+            className="text-5xl font-bold uppercase tracking-wider neon-glow mb-4 relative"
             style={{ fontFamily: 'Orbitron, sans-serif' }}
           >
+            <span className="text-xs text-primary/60 absolute -top-4 left-1/2 transform -translate-x-1/2">
+              LEVEL 03
+            </span>
             Emotional Resonance Sphere
           </h1>
-          <p className="text-xl text-muted-foreground">
-            Hold PUSH to select your artwork
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            {selections.size} / {connectedHeadsets?.length || 0} selections complete
-          </p>
+          <div className="bg-card/60 backdrop-blur-sm border border-primary/20 rounded inline-block px-6 py-3 mt-4">
+            <p className="text-xl text-foreground font-mono">
+              Hold PUSH to select your artwork
+            </p>
+            <p className="text-sm text-primary/80 mt-2 font-mono">
+              PROGRESS: {selections.size} / {connectedHeadsets?.length || 0}
+            </p>
+          </div>
         </div>
         
         {/* Main visualization container */}
