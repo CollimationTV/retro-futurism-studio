@@ -39,21 +39,25 @@ const Index = () => {
         </div>
       </section>
       
-      <StatusPanel 
-        connectedHeadsets={connectedHeadsets}
-        lastCommand={mentalCommand ? { com: mentalCommand.com, pow: mentalCommand.pow } : null}
-        connectionStatus={connectionStatus}
-      />
-      
-      <PerHeadsetImageGrid
-        images={level1Images}
-        mentalCommand={mentalCommand}
-        motionEvent={motionEvent}
-        connectedHeadsets={connectedHeadsets}
-        onAllSelected={handleAllSelected}
-        title="Select Your Image - Level 1"
-        description="Each user selects one image using mind control"
-      />
+      {connectedHeadsets.length > 0 && (
+        <>
+          <StatusPanel 
+            connectedHeadsets={connectedHeadsets}
+            lastCommand={mentalCommand ? { com: mentalCommand.com, pow: mentalCommand.pow } : null}
+            connectionStatus={connectionStatus}
+          />
+          
+          <PerHeadsetImageGrid
+            images={level1Images}
+            mentalCommand={mentalCommand}
+            motionEvent={motionEvent}
+            connectedHeadsets={connectedHeadsets}
+            onAllSelected={handleAllSelected}
+            title="Select Your Image - Level 1"
+            description="Each user selects one image using mind control"
+          />
+        </>
+      )}
       
       <Features />
       
