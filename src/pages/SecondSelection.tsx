@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { PerHeadsetImageGrid } from "@/components/PerHeadsetImageGrid";
@@ -7,22 +7,35 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { level2Images } from "@/data/imageData";
 import { useToast } from "@/hooks/use-toast";
+import { useCortex } from "@/contexts/CortexContext";
 
 const SecondSelection = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { mentalCommand, motionEvent, connectionStatus } = useCortex();
+  const [connectedHeadsets, setConnectedHeadsets] = useState<string[]>([]);
   
-  // Get state from first selection (reuse existing connection)
-  const { 
-    level1Selections, 
-    connectedHeadsets, 
-    mentalCommand, 
-    motionEvent 
-  } = location.state || {};
+  // Get state from first selection
+  const { level1Selections } = location.state || {};
+
+  // Get connected headsets from cortex context
+  useEffect(() => {
+    if (connectionStatus === 'ready') {
+      // Get headsets from the cortex context - they're already connected
+      // We'll track them via the actual events received
+      const headsetsFromEvents = new Set<string>();
+      if (mentalCommand?.headsetId) headsetsFromEvents.add(mentalCommand.headsetId);
+      if (motionEvent?.headsetId) headsetsFromEvents.add(motionEvent.headsetId);
+      
+      if (headsetsFromEvents.size > 0) {
+        setConnectedHeadsets(Array.from(headsetsFromEvents));
+      }
+    }
+  }, [mentalCommand, motionEvent, connectionStatus]);
 
   useEffect(() => {
-    if (!level1Selections || !connectedHeadsets) {
+    if (!level1Selections) {
       toast({
         title: "Invalid Navigation",
         description: "Please complete the first selection step",
@@ -30,7 +43,7 @@ const SecondSelection = () => {
       });
       navigate("/");
     }
-  }, [level1Selections, connectedHeadsets, navigate, toast]);
+  }, [level1Selections, navigate, toast]);
 
   const handleAllSelected = (selections: Map<string, number>) => {
     navigate("/results", {
@@ -73,16 +86,16 @@ const SecondSelection = () => {
     </div>
 
     <StatusPanel 
-      connectedHeadsets={connectedHeadsets || []}
+      connectedHeadsets={connectedHeadsets}
       lastCommand={mentalCommand ? { com: mentalCommand.com, pow: mentalCommand.pow } : null}
-      connectionStatus="ready"
+      connectionStatus={connectionStatus}
     />
 
     <PerHeadsetImageGrid
       images={level2Images}
       mentalCommand={mentalCommand}
       motionEvent={motionEvent}
-      connectedHeadsets={connectedHeadsets || []}
+      connectedHeadsets={connectedHeadsets}
       onAllSelected={handleAllSelected}
       title="Select Your Image - Level 2"
       description="Each user selects one more image using mind control"

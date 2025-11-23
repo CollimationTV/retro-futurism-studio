@@ -4,25 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { MultiHeadsetCortexClient, MentalCommandEvent, MotionEvent, HeadsetInfo } from "@/lib/multiHeadsetCortexClient";
+import { MultiHeadsetCortexClient, HeadsetInfo, MentalCommandEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain, Power, AlertCircle, CheckCircle, Loader2, Headphones } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { useCortex } from "@/contexts/CortexContext";
 
 interface MultiHeadsetConnectionProps {
-  onMentalCommand?: (command: MentalCommandEvent) => void;
-  onMotion?: (motion: MotionEvent) => void;
   onHeadsetsChange?: (headsetIds: string[]) => void;
-  onConnectionStatus?: (status: 'disconnected' | 'connecting' | 'initializing' | 'ready' | 'error') => void;
 }
 
-export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onHeadsetsChange, onConnectionStatus }: MultiHeadsetConnectionProps) => {
+export const MultiHeadsetConnection = ({ onHeadsetsChange }: MultiHeadsetConnectionProps) => {
   const { toast } = useToast();
+  const { setCortexClient } = useCortex();
   const [clientId, setClientId] = useState(() => localStorage.getItem("emotiv_client_id") || "");
   const [clientSecret, setClientSecret] = useState(() => localStorage.getItem("emotiv_client_secret") || "");
   const [status, setStatus] = useState<'disconnected' | 'connecting' | 'initializing' | 'ready' | 'error'>('disconnected');
   const [error, setError] = useState<string | null>(null);
-  const [cortexClient, setCortexClient] = useState<MultiHeadsetCortexClient | null>(null);
+  const [localCortexClient, setLocalCortexClient] = useState<MultiHeadsetCortexClient | null>(null);
   
   // Headset management
   const [availableHeadsets, setAvailableHeadsets] = useState<HeadsetInfo[]>([]);
@@ -66,7 +65,6 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onHeadsetsCh
       // Set up event handlers
       client.onConnectionStatus = (newStatus) => {
         console.log('Connection status:', newStatus);
-        onConnectionStatus?.(newStatus as 'disconnected' | 'connecting' | 'initializing' | 'ready' | 'error');
         if (newStatus === 'ready') {
           setStatus('ready');
           // Query available headsets once authenticated
@@ -90,12 +88,14 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onHeadsetsCh
       client.onMentalCommand = (event) => {
         console.log('Mental command from', event.headsetId, ':', event);
         setLastCommands(prev => new Map(prev).set(event.headsetId, event));
-        onMentalCommand?.(event);
       };
 
       client.onMotion = (event) => {
         console.log('Motion from', event.headsetId, '- gyroY:', event.gyroY);
-        onMotion?.(event);
+      };
+      
+      client.onPerformanceMetrics = (event) => {
+        console.log('Performance metrics from', event.headsetId, '- excitement:', event.excitement);
       };
 
       client.onError = (errorMessage) => {
@@ -108,7 +108,8 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onHeadsetsCh
         });
       };
 
-      setCortexClient(client);
+      setLocalCortexClient(client);
+      setCortexClient(client); // Store in global context
       await client.initialize();
 
     } catch (err) {
@@ -142,10 +143,10 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onHeadsetsCh
   };
 
   const handleConnectHeadset = async (headsetId: string) => {
-    if (!cortexClient) return;
+    if (!localCortexClient) return;
 
     try {
-      await cortexClient.initializeHeadset(headsetId);
+      await localCortexClient.initializeHeadset(headsetId);
       toast({
         title: "Headset Connected",
         description: `Successfully connected to headset ${headsetId.substring(0, 8)}...`,
@@ -176,9 +177,9 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onHeadsetsCh
   }, [headsetStatuses]);
 
   const handleDisconnectHeadset = async (headsetId: string) => {
-    if (!cortexClient) return;
+    if (!localCortexClient) return;
     
-    await cortexClient.disconnectHeadset(headsetId);
+    await localCortexClient.disconnectHeadset(headsetId);
     setHeadsetStatuses(prev => {
       const next = new Map(prev);
       next.delete(headsetId);
@@ -197,8 +198,9 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onHeadsetsCh
   };
 
   const handleDisconnect = () => {
-    if (cortexClient) {
-      cortexClient.disconnect();
+    if (localCortexClient) {
+      localCortexClient.disconnect();
+      setLocalCortexClient(null);
       setCortexClient(null);
     }
     setStatus('disconnected');
@@ -212,8 +214,8 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onHeadsetsCh
   };
 
   const handleRefreshHeadsets = async () => {
-    if (cortexClient) {
-      await loadAvailableHeadsets(cortexClient);
+    if (localCortexClient) {
+      await loadAvailableHeadsets(localCortexClient);
       toast({
         title: "Refreshed",
         description: "Scanned for available headsets",
@@ -223,11 +225,11 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onHeadsetsCh
 
   useEffect(() => {
     return () => {
-      if (cortexClient) {
-        cortexClient.disconnect();
+      if (localCortexClient) {
+        localCortexClient.disconnect();
       }
     };
-  }, [cortexClient]);
+  }, [localCortexClient]);
 
   const getStatusIcon = (currentStatus: string) => {
     switch (currentStatus) {

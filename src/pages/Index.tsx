@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
@@ -6,39 +6,22 @@ import { PerHeadsetImageGrid } from "@/components/PerHeadsetImageGrid";
 import { StatusPanel } from "@/components/StatusPanel";
 import { Features } from "@/components/Features";
 import { MultiHeadsetConnection } from "@/components/MultiHeadsetConnection";
-import { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
+import { useCortex } from "@/contexts/CortexContext";
 import { level1Images } from "@/data/imageData";
 
 const Index = () => {
   const navigate = useNavigate();
-  const [mentalCommand, setMentalCommand] = useState<MentalCommandEvent | null>(null);
-  const [motionEvent, setMotionEvent] = useState<MotionEvent | null>(null);
+  const { mentalCommand, motionEvent, connectionStatus } = useCortex();
   const [connectedHeadsets, setConnectedHeadsets] = useState<string[]>([]);
-  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'ready' | 'error'>('disconnected');
-
-  const handleMentalCommand = (command: MentalCommandEvent) => {
-    setMentalCommand(command);
-  };
-
-  const handleMotion = (motion: MotionEvent) => {
-    setMotionEvent(motion);
-  };
 
   const handleHeadsetsChange = (headsetIds: string[]) => {
     setConnectedHeadsets(headsetIds);
-  };
-
-  const handleConnectionStatus = (status: 'disconnected' | 'connecting' | 'initializing' | 'ready' | 'error') => {
-    setConnectionStatus(status === 'initializing' ? 'connecting' : status as any);
   };
 
   const handleAllSelected = (selections: Map<string, number>) => {
     navigate("/level2", {
       state: {
         level1Selections: selections,
-        connectedHeadsets,
-        mentalCommand,
-        motionEvent
       }
     });
   };
@@ -51,10 +34,7 @@ const Index = () => {
       <section className="py-12 px-6" data-connection-panel>
         <div className="container mx-auto max-w-4xl">
           <MultiHeadsetConnection 
-            onMentalCommand={handleMentalCommand}
-            onMotion={handleMotion}
             onHeadsetsChange={handleHeadsetsChange}
-            onConnectionStatus={handleConnectionStatus}
           />
         </div>
       </section>

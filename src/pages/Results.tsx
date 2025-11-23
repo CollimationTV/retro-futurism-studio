@@ -5,15 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, Download, CheckCircle2 } from "lucide-react";
 import { level1Images, level2Images } from "@/data/imageData";
+import { useCortex } from "@/contexts/CortexContext";
 
 const Results = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { level1Selections, level2Selections, connectedHeadsets } = location.state || { 
+  const { performanceMetrics, motionEvent } = useCortex();
+  const { level1Selections, level2Selections } = location.state || { 
     level1Selections: new Map(), 
-    level2Selections: new Map(),
-    connectedHeadsets: []
+    level2Selections: new Map()
   };
+
+  // Get connected headsets from selections
+  const connectedHeadsets = Array.from(new Set([
+    ...Array.from(level1Selections.keys()),
+    ...Array.from(level2Selections.keys())
+  ]));
 
   const getImageById = (id: number) => {
     return [...level1Images, ...level2Images].find(img => img.id === id);

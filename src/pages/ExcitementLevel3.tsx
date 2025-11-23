@@ -7,15 +7,20 @@ import { ArtworkTile } from "@/components/ArtworkTile";
 import { excitementLevel3Images } from "@/data/excitementImages";
 import { generateSphericalLayout } from "@/utils/sphericalLayout";
 import { getHeadsetColor } from "@/utils/headsetColors";
-import { PerformanceMetricsEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
+import { useCortex } from "@/contexts/CortexContext";
 
 const ExcitementLevel3 = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { metadata, videoJobId, connectedHeadsets } = location.state || {};
+  const { performanceMetrics, motionEvent } = useCortex();
+  const { metadata, videoJobId } = location.state || {};
   
-  const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetricsEvent | null>(null);
-  const [motionEvent, setMotionEvent] = useState<MotionEvent | null>(null);
+  // Get connected headsets from selections in location.state
+  const connectedHeadsets = Array.from(new Set([
+    ...(location.state?.level1Selections ? Array.from(location.state.level1Selections.keys()) : []),
+    ...(location.state?.level2Selections ? Array.from(location.state.level2Selections.keys()) : [])
+  ]));
+  
   const [excitementLevels, setExcitementLevels] = useState<Map<string, number>>(new Map());
   const [selections, setSelections] = useState<Map<string, number>>(new Map());
   const [excitementDuration, setExcitementDuration] = useState<Map<string, { imageId: number; startTime: number; excitement: number }>>(new Map());
@@ -27,14 +32,6 @@ const ExcitementLevel3 = () => {
   
   // Calculate average excitement across all headsets
   const averageExcitement = Array.from(excitementLevels.values()).reduce((sum, val) => sum + val, 0) / Math.max(excitementLevels.size, 1);
-  
-  // Listen to performance metrics and motion events from parent state
-  useEffect(() => {
-    const metrics = location.state?.performanceMetrics;
-    const motion = location.state?.motionEvent;
-    if (metrics) setPerformanceMetrics(metrics);
-    if (motion) setMotionEvent(motion);
-  }, [location.state]);
   
   // Initialize focused images to center artwork (index 0)
   useEffect(() => {
