@@ -233,12 +233,24 @@ const ExcitementLevel3 = () => {
   }, [selections, connectedHeadsets, navigate, metadata, averageExcitement]);
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 relative overflow-hidden">
-      {/* Futuristic grid overlay */}
-      <FuturisticGrid />
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Dense grid background */}
+      <div 
+        className="fixed inset-0 pointer-events-none opacity-30"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, hsl(var(--primary) / 0.12) 1px, transparent 1px),
+            linear-gradient(to bottom, hsl(var(--primary) / 0.12) 1px, transparent 1px)
+          `,
+          backgroundSize: '30px 30px'
+        }}
+      />
       
       {/* Animated Brain Background */}
-      <Brain3D excitement={averageExcitement} className="opacity-20 z-0" />
+      <Brain3D excitement={averageExcitement} className="opacity-15 z-0" />
+      
+      {/* Futuristic grid overlay with scanlines */}
+      <FuturisticGrid className="opacity-40" />
       
       <Header />
       
@@ -260,27 +272,31 @@ const ExcitementLevel3 = () => {
       
       <div className="container mx-auto px-6 py-12">
         {/* Title */}
-        <div className="text-center mb-8 relative">
+        <div className="text-center mb-8 relative z-10">
           {/* Technical frame around title */}
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent" />
           
           <h1 
-            className="text-5xl font-bold uppercase tracking-wider neon-glow mb-4 relative"
+            className="text-6xl font-bold uppercase tracking-[0.3em] neon-glow mb-4 relative"
             style={{ fontFamily: 'Orbitron, sans-serif' }}
           >
-            <span className="text-xs text-primary/60 absolute -top-4 left-1/2 transform -translate-x-1/2">
-              LEVEL 03
+            <span className="text-xs text-primary/60 absolute -top-6 left-1/2 transform -translate-x-1/2 font-mono">
+              [ LEVEL 03 ]
             </span>
-            Emotional Resonance Sphere
+            RESONANCE_SPHERE
           </h1>
-          <div className="bg-card/60 backdrop-blur-sm border border-primary/20 rounded inline-block px-6 py-3 mt-4">
-            <p className="text-xl text-foreground font-mono">
-              Hold PUSH to select your artwork
+          <div className="glass-panel inline-block px-8 py-4 mt-6 tech-border">
+            <p className="text-lg text-foreground font-mono uppercase tracking-wider">
+              → HOLD PUSH TO LOCK SELECTION
             </p>
-            <p className="text-sm text-primary/80 mt-2 font-mono">
-              PROGRESS: {selections.size} / {connectedHeadsets?.length || 0}
-            </p>
+            <div className="flex items-center justify-center gap-4 mt-3 text-sm font-mono">
+              <span className="text-primary/80">STATUS:</span>
+              <span className="text-accent">{selections.size}</span>
+              <span className="text-primary/60">/</span>
+              <span className="text-primary">{connectedHeadsets?.length || 0}</span>
+              <span className="text-primary/60">COMPLETE</span>
+            </div>
           </div>
         </div>
         

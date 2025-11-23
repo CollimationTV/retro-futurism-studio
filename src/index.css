@@ -8,37 +8,37 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Retro futuristic dark theme */
-    --background: 240 30% 6%;
+    /* Retro futuristic dark theme - deeper blacks */
+    --background: 220 30% 3%;
     --foreground: 180 100% 90%;
 
-    --card: 240 25% 10%;
+    --card: 220 25% 6%;
     --card-foreground: 180 100% 90%;
 
-    --popover: 240 25% 10%;
+    --popover: 220 25% 6%;
     --popover-foreground: 180 100% 90%;
 
     /* Neon cyan primary */
     --primary: 180 100% 50%;
-    --primary-foreground: 240 30% 6%;
+    --primary-foreground: 220 30% 3%;
 
     /* Deep blue secondary */
-    --secondary: 240 50% 20%;
+    --secondary: 220 50% 15%;
     --secondary-foreground: 180 100% 90%;
 
     /* Muted dark tones */
-    --muted: 240 20% 15%;
+    --muted: 220 20% 10%;
     --muted-foreground: 180 30% 60%;
 
     /* Neon magenta accent */
     --accent: 320 100% 60%;
-    --accent-foreground: 240 30% 6%;
+    --accent-foreground: 220 30% 3%;
 
     --destructive: 0 100% 60%;
-    --destructive-foreground: 240 30% 6%;
+    --destructive-foreground: 220 30% 3%;
 
-    --border: 240 30% 20%;
-    --input: 240 30% 15%;
+    --border: 220 30% 15%;
+    --input: 220 30% 10%;
     --ring: 180 100% 50%;
 
     --radius: 0.25rem;
@@ -49,7 +49,7 @@ All colors MUST be HSL.
     --neon-blue: 220 100% 60%;
     
     /* Grid pattern */
-    --grid-color: 240 30% 15%;
+    --grid-color: 220 30% 10%;
   }
 }
 
@@ -60,10 +60,7 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground font-mono;
-    background-image: 
-      linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
-    background-size: 50px 50px;
+    background-color: hsl(var(--background));
   }
 }
 
