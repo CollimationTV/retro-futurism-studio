@@ -151,6 +151,12 @@ const Index = () => {
           → Level 3
         </button>
         <button
+          onClick={() => navigate("/audio-emotion", { state: { connectedHeadsets } })}
+          className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
+        >
+          → Audio
+        </button>
+        <button
           onClick={() => navigate("/video-output")}
           className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
         >

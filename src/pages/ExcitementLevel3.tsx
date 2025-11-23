@@ -25,7 +25,7 @@ const ExcitementLevel3 = () => {
   const [cursorPosition, setCursorPosition] = useState<Map<string, number>>(new Map()); // headsetId -> 0-1 normalized position
   
   // Selection constants (same as PerHeadsetImageGrid for consistency)
-  const PUSH_POWER_THRESHOLD = 0.25; // Slightly more sensitive PUSH detection
+  const PUSH_POWER_THRESHOLD = 0.35; // Less sensitive PUSH detection
   const PUSH_HOLD_TIME_MS = 8000; // 8 seconds hold time
   const AUTO_CYCLE_INTERVAL_MS = 4000;
   
@@ -152,17 +152,17 @@ const ExcitementLevel3 = () => {
       // Calculate collective excitement score (0-100)
       const collectiveScore = Math.round(averageExcitement * 100);
       
-      // Navigate to video output
+      // Navigate to audio emotion page
       setTimeout(() => {
-        navigate("/video-output", {
+        navigate("/audio-emotion", {
           state: {
+            videoJobId,
             metadata,
-            collectiveScore,
+            connectedHeadsets,
+            mentalCommand,
+            performanceMetrics,
             level3Selections: Array.from(selections.entries()),
-            soundtrack: {
-              name: collectiveScore > 70 ? "High Energy" : collectiveScore > 40 ? "Balanced" : "Calm",
-              description: "Selected based on collective excitement"
-            }
+            collectiveScore
           }
         });
       }, 2000);
@@ -293,6 +293,12 @@ const ExcitementLevel3 = () => {
           className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
         >
           ← Level 2
+        </button>
+        <button
+          onClick={() => navigate("/audio-emotion", { state: { connectedHeadsets, level3Selections: selections } })}
+          className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
+        >
+          → Audio
         </button>
         <button
           onClick={() => navigate("/video-output")}
