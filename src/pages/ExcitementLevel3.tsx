@@ -25,8 +25,8 @@ const ExcitementLevel3 = () => {
   const [cursorPosition, setCursorPosition] = useState<Map<string, number>>(new Map()); // headsetId -> 0-1 normalized position
   
   // Selection constants (same as PerHeadsetImageGrid for consistency)
-  const PUSH_POWER_THRESHOLD = 0.45;
-  const PUSH_HOLD_TIME_MS = 10000;
+  const PUSH_POWER_THRESHOLD = 0.3; // More sensitive PUSH detection
+  const PUSH_HOLD_TIME_MS = 8000; // 8 seconds hold time
   const AUTO_CYCLE_INTERVAL_MS = 4000;
   
   const positions = generateSphericalLayout();
