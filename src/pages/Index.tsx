@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
@@ -13,6 +13,7 @@ import { Brain3D } from "@/components/Brain3D";
 
 const Index = () => {
   const navigate = useNavigate();
+  const imageGridRef = useRef<HTMLDivElement>(null);
   const [mentalCommand, setMentalCommand] = useState<MentalCommandEvent | null>(null);
   const [motionEvent, setMotionEvent] = useState<MotionEvent | null>(null);
   const [connectedHeadsets, setConnectedHeadsets] = useState<string[]>([]);
@@ -46,6 +47,15 @@ const Index = () => {
       }
     });
   };
+
+  // Auto-scroll to image grid when connection is ready and headsets are connected
+  useEffect(() => {
+    if (connectionStatus === 'ready' && connectedHeadsets.length > 0 && imageGridRef.current) {
+      setTimeout(() => {
+        imageGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 500);
+    }
+  }, [connectionStatus, connectedHeadsets.length]);
 
   // Calculate average excitement for brain visualization
   const averageExcitement = Array.from(excitementLevels.values()).reduce((sum, val) => sum + val, 0) / Math.max(excitementLevels.size, 1);
@@ -81,15 +91,17 @@ const Index = () => {
       />
       
       {connectionStatus === 'ready' && connectedHeadsets.length > 0 && (
-        <PerHeadsetImageGrid
-          images={level1Images}
-          mentalCommand={mentalCommand}
-          motionEvent={motionEvent}
-          connectedHeadsets={connectedHeadsets}
-          onAllSelected={handleAllSelected}
-          title="Select Your Image - Level 1"
-          description="Each user selects one image using mind control"
-        />
+        <div ref={imageGridRef}>
+          <PerHeadsetImageGrid
+            images={level1Images}
+            mentalCommand={mentalCommand}
+            motionEvent={motionEvent}
+            connectedHeadsets={connectedHeadsets}
+            onAllSelected={handleAllSelected}
+            title="Select Your Image - Level 1"
+            description="Each user selects one image using mind control"
+          />
+        </div>
       )}
       
       {connectionStatus === 'ready' && connectedHeadsets.length === 0 && (
