@@ -46,10 +46,10 @@ const ExcitementLevel2 = () => {
     if (!motion || isPushHoldActive) return; // Freeze during PUSH
     
     const event = motion as MotionEvent;
-    const MOVEMENT_SPEED = 0.001; // Increased sensitivity
-    const DEAD_ZONE = 0.03; // Reduced dead zone
-    const MAX_STEP = 0.015; // Increased max step
-    
+    const MOVEMENT_SPEED = 0.003; // Higher sensitivity for clearer response
+    const DEAD_ZONE = 0.01; // Very small dead zone so subtle motion is picked up
+    const MAX_STEP = 0.03; // Allow a bit more movement per frame
+
     let deltaX = 0;
     let deltaY = 0;
     
