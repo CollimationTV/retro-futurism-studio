@@ -24,6 +24,7 @@ const Index = () => {
   };
 
   const handleMotion = (motion: MotionEvent) => {
+    console.log(`🎮 Index received motion: headset=${motion.headsetId.substring(0,8)}, gyroY=${motion.gyroY.toFixed(4)}`);
     setMotionEvent(motion);
   };
 
@@ -48,6 +49,8 @@ const Index = () => {
 
   // Calculate average excitement for brain visualization
   const averageExcitement = Array.from(excitementLevels.values()).reduce((sum, val) => sum + val, 0) / Math.max(excitementLevels.size, 1);
+  
+  console.log(`🧠 Brain excitement: ${(averageExcitement * 100).toFixed(1)}%, levels:`, Object.fromEntries(excitementLevels));
 
   return (
     <div className="min-h-screen relative">

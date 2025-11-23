@@ -75,22 +75,33 @@ export const PerHeadsetImageGrid = ({
 
   // Handle head turning for smooth cursor-like navigation
   useEffect(() => {
-    if (!motionEvent) return;
+    if (!motionEvent) {
+      console.log('⚠️ No motion event received');
+      return;
+    }
     const { gyroY, headsetId } = motionEvent;
+    
+    console.log(`🎮 Motion: headset=${headsetId.substring(0,8)}, gyroY=${gyroY.toFixed(4)}`);
     
     const currentSelection = headsetSelections.get(headsetId);
     if (!currentSelection || currentSelection.imageId !== null) return;
 
     // FREEZE navigation if this headset is actively pushing
     if (pushProgress.has(headsetId)) {
+      console.log(`🚫 Motion frozen - PUSH active for ${headsetId.substring(0,8)}`);
       return;
     }
 
     // Get current cursor position (0-1 normalized)
     const currentPosition = cursorPosition.get(headsetId) ?? 0.0;
     
+    console.log(`📍 Current position: ${currentPosition.toFixed(3)}, gyroY: ${gyroY.toFixed(4)}, dead zone: ${CURSOR_DEAD_ZONE}`);
+    
     // Only update if movement exceeds dead zone
-    if (Math.abs(gyroY) < CURSOR_DEAD_ZONE) return;
+    if (Math.abs(gyroY) < CURSOR_DEAD_ZONE) {
+      console.log(`💤 gyroY ${gyroY.toFixed(4)} below dead zone ${CURSOR_DEAD_ZONE}`);
+      return;
+    }
     
     // Calculate delta and clamp to prevent large jumps
     const rawDelta = gyroY * CURSOR_MOVEMENT_SPEED;
