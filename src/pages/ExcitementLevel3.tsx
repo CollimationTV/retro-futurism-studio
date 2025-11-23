@@ -23,11 +23,13 @@ const ExcitementLevel3 = () => {
   const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
   const [focusedImages, setFocusedImages] = useState<Map<string, number>>(new Map()); // headsetId -> imageId
   const [cursorPosition, setCursorPosition] = useState<Map<string, number>>(new Map()); // headsetId -> 0-1 normalized position
+  const [lastPushReleaseTime, setLastPushReleaseTime] = useState<Map<string, number>>(new Map());
   
   // Selection constants (same as PerHeadsetImageGrid for consistency)
   const PUSH_POWER_THRESHOLD = 0.35; // Less sensitive PUSH detection
   const PUSH_HOLD_TIME_MS = 8000; // 8 seconds hold time
-  const AUTO_CYCLE_INTERVAL_MS = 4000;
+  const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
+  const POST_PUSH_DELAY_MS = 3000; // 3 second cooldown after releasing push
   
   const positions = generateSphericalLayout();
   
@@ -59,6 +61,17 @@ const ExcitementLevel3 = () => {
   useEffect(() => {
     if (!connectedHeadsets || connectedHeadsets.length === 0 || excitementLevel3Images.length === 0) return;
 
+    // Check if any headset is currently pushing
+    const anyHeadsetPushing = pushProgress.size > 0;
+    if (anyHeadsetPushing) return;
+
+    // Check if we're in post-push cooldown for any headset
+    const now = Date.now();
+    const inCooldown = Array.from(lastPushReleaseTime.values()).some(
+      releaseTime => now - releaseTime < POST_PUSH_DELAY_MS
+    );
+    if (inCooldown) return;
+
     const interval = setInterval(() => {
       setFocusedImages(prev => {
         const updated = new Map(prev);
@@ -76,7 +89,7 @@ const ExcitementLevel3 = () => {
     }, AUTO_CYCLE_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [connectedHeadsets, excitementLevel3Images.length, pushProgress, selections, AUTO_CYCLE_INTERVAL_MS]);
+  }, [connectedHeadsets, excitementLevel3Images.length, pushProgress, selections, lastPushReleaseTime, AUTO_CYCLE_INTERVAL_MS, POST_PUSH_DELAY_MS]);
   
   // Handle PUSH command hold-to-select
   useEffect(() => {
@@ -98,7 +111,10 @@ const ExcitementLevel3 = () => {
         setPushProgress(prev => new Map(prev).set(headsetId, { startTime: now, imageId: focusedImageId }));
       }
     } else {
-      // Push released or below threshold - reset hold progress
+      // Push released or below threshold - reset hold progress and record release time
+      if (pushProgress.has(headsetId)) {
+        setLastPushReleaseTime(prev => new Map(prev).set(headsetId, Date.now()));
+      }
       setPushProgress(prev => {
         const next = new Map(prev);
         next.delete(headsetId);

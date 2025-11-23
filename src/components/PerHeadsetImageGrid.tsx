@@ -38,6 +38,7 @@ export const PerHeadsetImageGrid = ({
   const [pushFlash, setPushFlash] = useState(false);
   const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
   const [cursorPosition, setCursorPosition] = useState<Map<string, number>>(new Map()); // headsetId -> 0-1 normalized position
+  const [lastPushReleaseTime, setLastPushReleaseTime] = useState<Map<string, number>>(new Map());
 
   // Cursor and selection sensitivity constants
   const CURSOR_MOVEMENT_SPEED = 0.00005;
@@ -45,6 +46,8 @@ export const PerHeadsetImageGrid = ({
   const CURSOR_MAX_STEP = 0.005;
   const PUSH_POWER_THRESHOLD = 0.35; // Less sensitive PUSH detection
   const PUSH_HOLD_TIME_MS = 8000; // 8 seconds hold time
+  const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
+  const POST_PUSH_DELAY_MS = 3000; // 3 second cooldown after releasing push
 
   // Initialize headset selections and cursor positions
   useEffect(() => {
@@ -135,7 +138,17 @@ export const PerHeadsetImageGrid = ({
   // Auto-cycle focused image for each headset at a slow, constant pace
   useEffect(() => {
     if (connectedHeadsets.length === 0 || images.length === 0) return;
-    const AUTO_CYCLE_INTERVAL_MS = 4000; // 4 seconds per image for slow cycling
+
+    // Check if any headset is currently pushing
+    const anyHeadsetPushing = pushProgress.size > 0;
+    if (anyHeadsetPushing) return;
+
+    // Check if we're in post-push cooldown for any headset
+    const now = Date.now();
+    const inCooldown = Array.from(lastPushReleaseTime.values()).some(
+      releaseTime => now - releaseTime < POST_PUSH_DELAY_MS
+    );
+    if (inCooldown) return;
 
     const interval = setInterval(() => {
       setHeadsetSelections(prev => {
@@ -152,7 +165,7 @@ export const PerHeadsetImageGrid = ({
     }, AUTO_CYCLE_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [connectedHeadsets, images.length, pushProgress]);
+  }, [connectedHeadsets, images.length, pushProgress, lastPushReleaseTime, AUTO_CYCLE_INTERVAL_MS, POST_PUSH_DELAY_MS]);
 
   // Track all mental commands for visual feedback
   useEffect(() => {
@@ -192,7 +205,10 @@ export const PerHeadsetImageGrid = ({
         setPushProgress(prev => new Map(prev).set(headsetId, { startTime: now, imageId: focusedImageId }));
       }
     } else {
-      // Push released or below threshold - reset hold progress
+      // Push released or below threshold - reset hold progress and record release time
+      if (pushProgress.has(headsetId)) {
+        setLastPushReleaseTime(prev => new Map(prev).set(headsetId, Date.now()));
+      }
       setPushProgress(prev => {
         const next = new Map(prev);
         next.delete(headsetId);

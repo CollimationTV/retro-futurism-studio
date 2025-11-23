@@ -6,6 +6,7 @@ import { Music, Volume2, Play, Pause } from "lucide-react";
 import { getHeadsetColor } from "@/utils/headsetColors";
 import { getSoundtrackByScore } from "@/data/soundtracks";
 import { Brain3D } from "@/components/Brain3D";
+import { CollectiveExcitementCore } from "@/components/CollectiveExcitementCore";
 import type { PerformanceMetricsEvent } from "@/lib/multiHeadsetCortexClient";
 
 const AudioEmotion = () => {
@@ -166,45 +167,42 @@ const AudioEmotion = () => {
             </div>
           </div>
 
-          {/* Audio Player Visualization */}
-          <div className="max-w-3xl mx-auto mb-8">
-            <Card className="p-8 border-primary/30 bg-card/80 backdrop-blur-sm">
-              <div className="flex flex-col items-center gap-6">
-                {/* Play/Pause Icon */}
-                <div 
-                  className="w-32 h-32 rounded-full flex items-center justify-center border-4 transition-all"
-                  style={{
-                    borderColor: 'hsl(var(--primary))',
-                    backgroundColor: isPlaying ? 'hsl(var(--primary) / 0.2)' : 'transparent',
-                    transform: isPlaying ? 'scale(1.1)' : 'scale(1)'
-                  }}
-                >
+          {/* Collective Excitement Core Visualization */}
+          <div className="flex justify-center mb-8">
+            <CollectiveExcitementCore 
+              averageExcitement={averageExcitement} 
+              size={300}
+            />
+          </div>
+
+          {/* Audio Status and Progress */}
+          <div className="max-w-2xl mx-auto mb-8">
+            <Card className="p-6 border-primary/30 bg-card/80 backdrop-blur-sm">
+              <div className="flex flex-col items-center gap-4">
+                {/* Audio Icon */}
+                <div className="flex items-center gap-3">
                   {isPlaying ? (
-                    <Volume2 className="h-16 w-16 text-primary animate-pulse" />
+                    <Volume2 className="h-8 w-8 text-primary animate-pulse" />
                   ) : (
-                    <Pause className="h-16 w-16 text-primary/60" />
+                    <Pause className="h-8 w-8 text-primary/60" />
                   )}
+                  <span className="text-lg font-mono">
+                    {isPlaying ? 'Listening...' : 'Paused'}
+                  </span>
                 </div>
 
                 {/* Progress Bar */}
                 <div className="w-full">
-                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-primary transition-all duration-300"
+                      className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-300"
                       style={{ width: `${getProgressPercentage()}%` }}
                     />
                   </div>
-                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
                     <span>{Math.round(getProgressPercentage())}%</span>
                     <span>{CLIP_DURATION_MS / 1000}s</span>
                   </div>
-                </div>
-
-                {/* Status */}
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground">
-                    {isPlaying ? 'Playing audio... feel the emotion' : 'Preparing next clip...'}
-                  </p>
                 </div>
               </div>
             </Card>
