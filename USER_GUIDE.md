@@ -422,15 +422,16 @@ This is the **most artistic** level where 15 artworks form a rotating 3D sphere 
 | Problem | Solution | Technical Details |
 |---------|----------|-------------------|
 | **No movement** | Pan head left/right more | Dead zone: 0.1 gyro units |
-| **Too sensitive** | Reduce head movement speed | Movement speed: 0.012 per unit |
+| **Too sensitive** | Reduce head movement speed | Movement speed: 0.003 (slow & smooth) |
 | **Motion frozen** | Release PUSH hold | Motion disabled during selection |
 | **Erratic movement** | Smoother head panning | Continuous tracking, not discrete |
 
 **🎯 Navigation Tips for All Levels:**
-- ↔️ **Pan Head Left/Right**: Smooth cursor-like control through images/artworks
-- 🎯 **Natural Movement**: Turn head naturally like looking around a room
+- ↔️ **Pan Head Left/Right**: Very slow, smooth cursor-like control through images/artworks
+- 🎯 **Natural Movement**: Turn head gradually - small movements travel far
 - ⏱️ **Continuous Tracking**: No need to return to neutral - cursor follows head position
 - ❄️ **Frozen Motion**: Normal during PUSH hold (Levels 1&2) or excitement build (Level 3)
+- 🐌 **Slow Speed**: Cursor intentionally moves slowly for precise control
 
 ---
 
