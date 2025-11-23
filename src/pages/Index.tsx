@@ -5,14 +5,18 @@ import { Hero } from "@/components/Hero";
 import { PerHeadsetImageGrid } from "@/components/PerHeadsetImageGrid";
 import { StatusPanel } from "@/components/StatusPanel";
 import { Features } from "@/components/Features";
-import { CortexConnection } from "@/components/CortexConnection";
+import { MultiHeadsetConnection } from "@/components/MultiHeadsetConnection";
 import { useCortex } from "@/contexts/CortexContext";
 import { level1Images } from "@/data/imageData";
 
 const Index = () => {
   const navigate = useNavigate();
   const { mentalCommand, motionEvent, connectionStatus } = useCortex();
-  const [isConnected, setIsConnected] = useState(false);
+  const [connectedHeadsets, setConnectedHeadsets] = useState<string[]>([]);
+
+  const handleHeadsetsChange = (headsetIds: string[]) => {
+    setConnectedHeadsets(headsetIds);
+  };
 
   const handleAllSelected = (selections: Map<string, number>) => {
     navigate("/level2", {
@@ -29,16 +33,16 @@ const Index = () => {
       
       <section className="py-12 px-6" data-connection-panel>
         <div className="container mx-auto max-w-4xl">
-          <CortexConnection 
-            onMentalCommand={(cmd) => setIsConnected(true)}
+          <MultiHeadsetConnection 
+            onHeadsetsChange={handleHeadsetsChange}
           />
         </div>
       </section>
       
-      {isConnected && (
+      {connectedHeadsets.length > 0 && (
         <>
           <StatusPanel 
-            connectedHeadsets={[]}
+            connectedHeadsets={connectedHeadsets}
             lastCommand={mentalCommand ? { com: mentalCommand.com, pow: mentalCommand.pow } : null}
             connectionStatus={connectionStatus}
           />
@@ -47,7 +51,7 @@ const Index = () => {
             images={level1Images}
             mentalCommand={mentalCommand}
             motionEvent={motionEvent}
-            connectedHeadsets={[]}
+            connectedHeadsets={connectedHeadsets}
             onAllSelected={handleAllSelected}
             title="Select Your Image - Level 1"
             description="Each user selects one image using mind control"
