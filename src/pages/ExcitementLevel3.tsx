@@ -66,7 +66,7 @@ const ExcitementLevel3 = () => {
     const currentPosition = cursorPosition.get(headsetId) ?? 0.0;
     
     // Sensitivity settings for smooth cursor control
-    const MOVEMENT_SPEED = 0.012; // How fast cursor moves per gyro unit
+    const MOVEMENT_SPEED = 0.003; // Reduced from 0.012 - much slower cursor
     const DEAD_ZONE = 0.1; // Ignore very small head movements
     
     // Only update if movement exceeds dead zone
