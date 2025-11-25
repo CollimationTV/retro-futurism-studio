@@ -116,6 +116,17 @@ export class MultiHeadsetCortexClient {
    */
   private handleMessage(message: any) {
     console.log('📨 Received:', message);
+    
+    // 🔍 CRITICAL DEBUG: Log ALL message types
+    if (message.met !== undefined) {
+      console.log('🎯 PERFORMANCE METRICS MESSAGE DETECTED!', message);
+    } else if (message.com !== undefined) {
+      console.log('🧠 Mental command:', message.com);
+    } else if (message.mot !== undefined) {
+      console.log('🎮 Motion:', message.mot);
+    } else {
+      console.log('📋 Other message type:', Object.keys(message));
+    }
 
     // Handle responses to requests
     if (message.id !== undefined && this.callbacks.has(message.id)) {
