@@ -1,13 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Card } from "@/components/ui/card";
-import { Music, Zap } from "lucide-react";
+import { Music, Target } from "lucide-react";
 import { excitementLevel2Images } from "@/data/excitementImages";
 import { getHeadsetColor } from "@/utils/headsetColors";
 import { getSoundtrackByScore } from "@/data/soundtracks";
-import type { MentalCommandEvent } from "@/lib/multiHeadsetCortexClient";
+import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
+
+// Selection parameters
+const PUSH_POWER_THRESHOLD = 0.3;
+const PUSH_HOLD_TIME_MS = 8000;
 
 const ExcitementLevel2 = () => {
   const location = useLocation();
@@ -17,89 +21,130 @@ const ExcitementLevel2 = () => {
     videoJobId,
     connectedHeadsets,
     mentalCommand,
-    excitementLevel1Selections,
-    excitementLevel1Scores
+    motionEvent,
+    excitementLevel1Selections
   } = location.state || {};
 
-  const [excitementLevels, setExcitementLevels] = useState<Map<string, number>>(new Map(excitementLevel1Scores));
   const [selections, setSelections] = useState<Map<string, number>>(new Map());
-  const [currentFocus, setCurrentFocus] = useState<Map<string, number>>(new Map());
+  const [focusedImages, setFocusedImages] = useState<Map<string, number>>(new Map());
+  const [pushProgress, setPushProgress] = useState<Map<string, number>>(new Map());
+  const [isPushing, setIsPushing] = useState<Map<string, boolean>>(new Map());
+  
+  // Gyro calibration per headset
+  const gyroRanges = useRef<Map<string, { min: number; max: number }>>(new Map());
+  const pushStartTimes = useRef<Map<string, number>>(new Map());
 
-  // Monitor excitement levels
+  // Gyro-based cursor navigation
   useEffect(() => {
-    if (!mentalCommand) return;
-
-    const event = mentalCommand as MentalCommandEvent;
-    const excitementValue = event.pow;
+    if (!motionEvent) return;
     
-    setExcitementLevels(prev => {
-      const newLevels = new Map(prev);
-      newLevels.set(event.headsetId, excitementValue);
-      return newLevels;
-    });
-
-    // Check if excitement exceeds threshold
-    const focusedImageId = currentFocus.get(event.headsetId);
-    if (focusedImageId !== undefined) {
-      const image = excitementLevel2Images.find(img => img.id === focusedImageId);
-      if (image && excitementValue >= image.excitementThreshold) {
-        handleSelection(event.headsetId, focusedImageId);
-      }
-    }
-  }, [mentalCommand]);
-
-  const handleSelection = (headsetId: string, imageId: number) => {
+    const event = motionEvent as MotionEvent;
+    const headsetId = event.headsetId;
+    
+    // Skip if already selected
     if (selections.has(headsetId)) return;
     
-    console.log(`✨ Excitement level 2 selection by ${headsetId}:`, imageId);
-    setSelections(prev => new Map(prev).set(headsetId, imageId));
-  };
+    // Auto-calibrate gyro range
+    const currentRange = gyroRanges.current.get(headsetId) || { min: event.gyroY, max: event.gyroY };
+    currentRange.min = Math.min(currentRange.min, event.gyroY);
+    currentRange.max = Math.max(currentRange.max, event.gyroY);
+    gyroRanges.current.set(headsetId, currentRange);
+    
+    // Normalize gyroY to 0-1 range with smoothing
+    const range = currentRange.max - currentRange.min;
+    const normalized = range > 0.1 
+      ? Math.max(0, Math.min(1, (event.gyroY - currentRange.min) / range))
+      : 0.5;
+    
+    // Map to image index (0-8 for 3x3 grid)
+    const imageIndex = Math.floor(normalized * excitementLevel2Images.length);
+    const clampedIndex = Math.max(0, Math.min(excitementLevel2Images.length - 1, imageIndex));
+    const imageId = excitementLevel2Images[clampedIndex].id;
+    
+    // Update focused image
+    setFocusedImages(prev => {
+      const updated = new Map(prev);
+      updated.set(headsetId, imageId);
+      return updated;
+    });
+  }, [motionEvent, selections]);
 
-  // Calculate collective excitement score and navigate to video output
+  // Handle PUSH command for selections
+  useEffect(() => {
+    if (!mentalCommand) return;
+    
+    const event = mentalCommand as MentalCommandEvent;
+    const headsetId = event.headsetId;
+    
+    // Skip if already selected
+    if (selections.has(headsetId)) return;
+    
+    const focusedImageId = focusedImages.get(headsetId);
+    if (focusedImageId === undefined) return;
+    
+    // Detect PUSH command
+    if (event.com === 'push' && event.pow >= PUSH_POWER_THRESHOLD) {
+      // Start or continue PUSH hold
+      if (!pushStartTimes.current.has(headsetId)) {
+        pushStartTimes.current.set(headsetId, Date.now());
+        console.log(`🟢 PUSH started by ${headsetId} on image ${focusedImageId}`);
+      }
+      
+      setIsPushing(prev => new Map(prev).set(headsetId, true));
+      
+      // Calculate progress
+      const startTime = pushStartTimes.current.get(headsetId)!;
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(100, (elapsed / PUSH_HOLD_TIME_MS) * 100);
+      
+      setPushProgress(prev => new Map(prev).set(headsetId, progress));
+      
+      // Complete selection after hold duration
+      if (elapsed >= PUSH_HOLD_TIME_MS) {
+        console.log(`✅ Selection confirmed by ${headsetId}: image ${focusedImageId}`);
+        setSelections(prev => new Map(prev).set(headsetId, focusedImageId));
+        pushStartTimes.current.delete(headsetId);
+        setIsPushing(prev => {
+          const updated = new Map(prev);
+          updated.delete(headsetId);
+          return updated;
+        });
+      }
+    } else {
+      // PUSH released or below threshold - cancel
+      if (pushStartTimes.current.has(headsetId)) {
+        console.log(`🔴 PUSH cancelled by ${headsetId}`);
+        pushStartTimes.current.delete(headsetId);
+      }
+      setIsPushing(prev => new Map(prev).set(headsetId, false));
+      setPushProgress(prev => new Map(prev).set(headsetId, 0));
+    }
+  }, [mentalCommand, focusedImages, selections]);
+
+  // Navigate to Level 3 when all selections complete
   useEffect(() => {
     if (connectedHeadsets && selections.size === connectedHeadsets.length && selections.size > 0) {
-      console.log("🎯 All excitement selections complete! Calculating collective score...");
-      
-      // Calculate average excitement score across all headsets and both levels
-      const allScores: number[] = [];
-      excitementLevels.forEach(score => allScores.push(score));
-      
-      const averageExcitement = allScores.reduce((sum, score) => sum + score, 0) / allScores.length;
-      const collectiveScore = Math.round(averageExcitement * 100); // Convert to 0-100 scale
-      
-      console.log(`🎵 Collective excitement score: ${collectiveScore}`);
-      
-      const selectedSoundtrack = getSoundtrackByScore(collectiveScore);
-      console.log(`🎶 Selected soundtrack: ${selectedSoundtrack.name}`);
+      console.log("🎯 All Level 2 selections complete!");
       
       setTimeout(() => {
-        navigate("/video-output", {
+        navigate("/excitement-level-3", {
           state: {
             videoJobId,
-            metadata: location.state.metadata, // Pass through original metadata
-            collectiveScore,
-            soundtrack: selectedSoundtrack,
+            connectedHeadsets,
+            mentalCommand,
+            motionEvent,
             excitementLevel1Selections,
             excitementLevel2Selections: selections
           }
         });
-      }, 2000);
+      }, 1500);
     }
-  }, [selections, connectedHeadsets, navigate, videoJobId, excitementLevels]);
-
-  const getExcitementColor = (level: number): string => {
-    if (level < 0.3) return 'hsl(142, 76%, 36%)';
-    if (level < 0.6) return 'hsl(48, 96%, 53%)';
-    return 'hsl(25, 95%, 53%)';
-  };
-
-  // Calculate average excitement for brain visualization
-  const averageExcitement = Array.from(excitementLevels.values()).reduce((sum, val) => sum + val, 0) / Math.max(excitementLevels.size, 1);
+  }, [selections, connectedHeadsets, navigate, videoJobId, mentalCommand, motionEvent, excitementLevel1Selections]);
 
   return (
     <div className="min-h-screen relative">
       {/* Animated Brain Background */}
-      <Brain3D excitement={averageExcitement} className="opacity-20 z-0" />
+      <Brain3D excitement={0.5} className="opacity-20 z-0" />
       
       <Header />
       
@@ -111,43 +156,39 @@ const ExcitementLevel2 = () => {
               <Music className="h-12 w-12 text-primary animate-pulse" />
             </div>
             <h1 className="text-4xl font-bold uppercase tracking-wider mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              Excitement Level 2: Soundtrack
+              Level 2: Theme Selection
             </h1>
             <p className="text-lg text-muted-foreground mb-4">
-              Your collective energy will choose the soundtrack!
+              Tilt your head to navigate • Hold PUSH to select
             </p>
             <div className="text-sm text-muted-foreground/70">
-              Let your excitement flow as you explore musical themes
+              Choose your visual theme
             </div>
           </div>
 
-          {/* Excitement Meters */}
+          {/* Headset Status Indicators */}
           <div className="flex justify-center gap-4 mb-8">
             {connectedHeadsets?.map((headsetId: string) => {
-              const level = excitementLevels.get(headsetId) || 0;
               const color = getHeadsetColor(headsetId);
               const hasSelected = selections.has(headsetId);
+              const progress = pushProgress.get(headsetId) || 0;
+              const pushing = isPushing.get(headsetId) || false;
               
               return (
                 <div key={headsetId} className="flex flex-col items-center gap-2">
                   <div 
-                    className="w-16 h-16 rounded-full flex items-center justify-center border-4 font-mono text-xs font-bold transition-all"
+                    className="w-20 h-20 rounded-full flex items-center justify-center border-4 font-mono text-sm font-bold transition-all relative"
                     style={{
                       borderColor: color,
-                      backgroundColor: hasSelected ? `${color}40` : 'transparent',
-                      transform: hasSelected ? 'scale(1.1)' : 'scale(1)'
+                      backgroundColor: hasSelected ? color : pushing ? `${color}20` : 'transparent',
+                      transform: hasSelected ? 'scale(1.15)' : pushing ? 'scale(1.1)' : 'scale(1)',
+                      boxShadow: pushing ? `0 0 20px ${color}` : 'none'
                     }}
                   >
-                    {(level * 100).toFixed(0)}%
+                    {hasSelected ? '✓' : pushing ? `${progress.toFixed(0)}%` : ''}
                   </div>
-                  <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className="h-full transition-all duration-300"
-                      style={{
-                        width: `${level * 100}%`,
-                        backgroundColor: getExcitementColor(level)
-                      }}
-                    />
+                  <div className="text-xs text-muted-foreground">
+                    {hasSelected ? 'Selected' : pushing ? 'Pushing...' : 'Ready'}
                   </div>
                 </div>
               );
@@ -157,70 +198,93 @@ const ExcitementLevel2 = () => {
           {/* Image Grid */}
           <div className="grid grid-cols-3 gap-6">
             {excitementLevel2Images.map((image) => {
-              const focusedByHeadsets = Array.from(currentFocus.entries())
+              const focusedByHeadsets = Array.from(focusedImages.entries())
                 .filter(([_, imageId]) => imageId === image.id)
                 .map(([headsetId]) => headsetId);
               
               const selectedByHeadsets = Array.from(selections.entries())
                 .filter(([_, imageId]) => imageId === image.id)
                 .map(([headsetId]) => headsetId);
+              
+              const isFocused = focusedByHeadsets.length > 0;
+              const isSelected = selectedByHeadsets.length > 0;
 
               return (
                 <Card 
                   key={image.id}
-                  className="relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105"
+                  className="relative overflow-hidden transition-all duration-200"
                   style={{
-                    opacity: selectedByHeadsets.length > 0 ? 0.5 : 1
+                    opacity: isSelected ? 0.5 : 1,
+                    transform: isFocused ? 'scale(1.05)' : 'scale(1)',
+                    boxShadow: isFocused ? '0 0 30px rgba(255, 255, 255, 0.3)' : 'none'
                   }}
                 >
                   <div className="aspect-video relative">
                     <img
                       src={image.url}
                       alt={image.title}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-all duration-200"
+                      style={{
+                        filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
+                      }}
                     />
-                    
-                    {/* Excitement threshold indicator */}
-                    <div className="absolute top-2 right-2 px-2 py-1 bg-background/80 backdrop-blur-sm rounded text-xs">
-                      {(image.excitementThreshold * 100).toFixed(0)}% needed
-                    </div>
 
-                    {/* Headset indicators */}
-                    <div className="absolute bottom-2 left-2 flex gap-1">
+                    {/* Focus indicators */}
+                    <div className="absolute top-2 left-2 flex gap-1">
                       {focusedByHeadsets.map(headsetId => {
                         const color = getHeadsetColor(headsetId);
-                        const level = excitementLevels.get(headsetId) || 0;
+                        const progress = pushProgress.get(headsetId) || 0;
+                        const pushing = isPushing.get(headsetId);
                         
                         return (
-                          <div
-                            key={headsetId}
-                            className="w-8 h-8 rounded-full border-2 flex items-center justify-center backdrop-blur-sm"
-                            style={{
-                              borderColor: color,
-                              backgroundColor: `${color}40`,
-                              boxShadow: level >= image.excitementThreshold ? `0 0 20px ${color}` : 'none'
-                            }}
-                          >
-                            <Zap 
-                              className="w-4 h-4" 
-                              style={{ color }}
-                            />
+                          <div key={headsetId} className="relative">
+                            <div
+                              className="w-10 h-10 rounded-full border-3 flex items-center justify-center backdrop-blur-sm transition-all"
+                              style={{
+                                borderColor: color,
+                                backgroundColor: pushing ? `${color}60` : `${color}30`,
+                                boxShadow: pushing ? `0 0 20px ${color}` : `0 0 10px ${color}`
+                              }}
+                            >
+                              <Target 
+                                className="w-5 h-5" 
+                                style={{ color }}
+                              />
+                            </div>
+                            {pushing && (
+                              <svg className="absolute inset-0 w-10 h-10 -rotate-90">
+                                <circle
+                                  cx="20"
+                                  cy="20"
+                                  r="18"
+                                  fill="none"
+                                  stroke={color}
+                                  strokeWidth="3"
+                                  strokeDasharray={`${(progress / 100) * 113} 113`}
+                                  style={{ transition: 'stroke-dasharray 0.1s linear' }}
+                                />
+                              </svg>
+                            )}
                           </div>
                         );
                       })}
-                      
+                    </div>
+
+                    {/* Selection indicators */}
+                    <div className="absolute bottom-2 right-2 flex gap-1">
                       {selectedByHeadsets.map(headsetId => {
                         const color = getHeadsetColor(headsetId);
                         return (
                           <div
                             key={`selected-${headsetId}`}
-                            className="w-8 h-8 rounded-full border-2 flex items-center justify-center backdrop-blur-sm animate-pulse-glow"
+                            className="w-10 h-10 rounded-full border-3 flex items-center justify-center backdrop-blur-sm"
                             style={{
                               borderColor: color,
-                              backgroundColor: color
+                              backgroundColor: color,
+                              boxShadow: `0 0 20px ${color}`
                             }}
                           >
-                            ✓
+                            <span className="text-lg">✓</span>
                           </div>
                         );
                       })}
