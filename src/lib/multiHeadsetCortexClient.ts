@@ -67,6 +67,9 @@ export class MultiHeadsetCortexClient {
   // Track multiple sessions - one per headset
   private sessions: Map<string, HeadsetSession> = new Map();
   
+  // Store the metrics columns schema from subscription response
+  private metricsCols: string[] = [];
+  
   private callbacks: Map<number, (response: any) => void> = new Map();
   public onMentalCommand: ((event: MentalCommandEvent) => void) | null = null;
   public onMotion: ((event: MotionEvent) => void) | null = null;
@@ -179,23 +182,40 @@ export class MultiHeadsetCortexClient {
     if (message.met !== undefined && Array.isArray(message.met)) {
       const headsetId = message.sid ? this.getHeadsetIdBySessionId(message.sid) : 'unknown';
       
-      // met array format: [engagement, excitement, stress, relaxation, interest, focus]
-      const [engagement, excitement, stress, relaxation, interest, focus] = message.met;
+      // Build a map from the met array using the cols schema
+      // met array format from Emotiv: [eng.isActive, eng, exc.isActive, exc, lex, str.isActive, str, rel.isActive, rel, int.isActive, int, attention.isActive, attention]
+      const metMap: Record<string, any> = {};
+      
+      if (this.metricsCols.length > 0) {
+        this.metricsCols.forEach((colName, index) => {
+          metMap[colName] = message.met[index];
+        });
+      }
       
       console.log('📊 RAW Performance Metrics from Cortex:', {
         headsetId,
         sessionId: message.sid,
         rawMet: message.met,
-        parsed: { engagement, excitement, stress, relaxation, interest, focus }
+        cols: this.metricsCols,
+        metMap
       });
       
+      // Only use values when their corresponding .isActive flag is true
+      const engagement = metMap['eng.isActive'] && metMap['eng'] !== null ? metMap['eng'] : 0;
+      const excitement = metMap['exc.isActive'] && metMap['exc'] !== null ? metMap['exc'] : 0;
+      const longTermExcitement = metMap['lex'] !== null ? metMap['lex'] : 0;
+      const stress = metMap['str.isActive'] && metMap['str'] !== null ? metMap['str'] : 0;
+      const relaxation = metMap['rel.isActive'] && metMap['rel'] !== null ? metMap['rel'] : 0;
+      const interest = metMap['int.isActive'] && metMap['int'] !== null ? metMap['int'] : 0;
+      const attention = metMap['attention.isActive'] && metMap['attention'] !== null ? metMap['attention'] : 0;
+      
       const event: PerformanceMetricsEvent = {
-        engagement: engagement || 0,
-        excitement: excitement || 0,
-        stress: stress || 0,
-        relaxation: relaxation || 0,
-        interest: interest || 0,
-        focus: focus || 0,
+        engagement,
+        excitement,
+        stress,
+        relaxation,
+        interest,
+        focus: attention, // Map 'attention' to 'focus' for our interface
         time: message.time,
         headsetId: headsetId
       };
@@ -364,6 +384,16 @@ export class MultiHeadsetCortexClient {
     });
 
     console.log(`✅ Subscribed to streams for headset ${headsetId}:`, JSON.stringify(result, null, 2));
+    
+    // Extract and store the 'met' columns schema from subscription response
+    if (result.success && Array.isArray(result.success)) {
+      const metStream = result.success.find((s: any) => s.streamName === 'met');
+      if (metStream && metStream.cols) {
+        this.metricsCols = metStream.cols;
+        console.log(`📋 Stored 'met' columns schema:`, this.metricsCols);
+      }
+    }
+    
     console.log(`📊 Performance metrics ('met') should now be streaming at 2Hz`);
   }
 
