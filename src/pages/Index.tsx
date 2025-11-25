@@ -23,11 +23,19 @@ const Index = () => {
 
   const handleMentalCommand = (command: MentalCommandEvent) => {
     setMentalCommand(command);
+    window.dispatchEvent(new CustomEvent('mental-command', { detail: command }));
   };
 
   const handleMotion = (motion: MotionEvent) => {
     console.log(`🎮 Index received motion: headset=${motion.headsetId.substring(0,8)}, gyroY=${motion.gyroY.toFixed(4)}`);
     setMotionEvent(motion);
+    window.dispatchEvent(new CustomEvent('motion-event', { detail: motion }));
+  };
+  
+  const handlePerformanceMetrics = (metrics: PerformanceMetricsEvent) => {
+    console.log(`📊 Index received performance metrics: ${metrics.headsetId}, excitement=${metrics.excitement.toFixed(3)}`);
+    setExcitementLevels(prev => new Map(prev).set(metrics.headsetId, metrics.excitement));
+    window.dispatchEvent(new CustomEvent('performance-metrics', { detail: metrics }));
   };
 
   const handleHeadsetsChange = (headsetIds: string[]) => {
@@ -79,9 +87,7 @@ const Index = () => {
         <MultiHeadsetConnection
           onMentalCommand={handleMentalCommand}
           onMotion={handleMotion}
-          onPerformanceMetrics={(metrics: PerformanceMetricsEvent) => {
-            setExcitementLevels(prev => new Map(prev).set(metrics.headsetId, metrics.excitement));
-          }}
+          onPerformanceMetrics={handlePerformanceMetrics}
           onHeadsetsChange={handleHeadsetsChange}
           onConnectionStatus={handleConnectionStatus}
         />

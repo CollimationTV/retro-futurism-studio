@@ -81,15 +81,33 @@ const ExcitementLevel3 = () => {
     initControls();
   }, [sessionId]);
   
-  // Listen to performance metrics, motion, and mental command events from parent state
+  // Listen to window events for real-time performance metrics, motion, and mental commands
   useEffect(() => {
-    const metrics = location.state?.performanceMetrics;
-    const motion = location.state?.motionEvent;
-    const command = location.state?.mentalCommand;
-    if (metrics) setPerformanceMetrics(metrics);
-    if (motion) setMotionEvent(motion);
-    if (command) setMentalCommand(command);
-  }, [location.state]);
+    const handlePerformanceMetrics = ((event: CustomEvent<PerformanceMetricsEvent>) => {
+      console.log('📊 Level3 received performance metrics event:', event.detail);
+      setPerformanceMetrics(event.detail);
+    }) as EventListener;
+    
+    const handleMotion = ((event: CustomEvent<MotionEvent>) => {
+      setMotionEvent(event.detail);
+    }) as EventListener;
+    
+    const handleMentalCommand = ((event: CustomEvent<MentalCommandEvent>) => {
+      setMentalCommand(event.detail);
+    }) as EventListener;
+    
+    window.addEventListener('performance-metrics', handlePerformanceMetrics);
+    window.addEventListener('motion-event', handleMotion);
+    window.addEventListener('mental-command', handleMentalCommand);
+    
+    console.log('✅ Level3 event listeners registered');
+    
+    return () => {
+      window.removeEventListener('performance-metrics', handlePerformanceMetrics);
+      window.removeEventListener('motion-event', handleMotion);
+      window.removeEventListener('mental-command', handleMentalCommand);
+    };
+  }, []);
   
   // Initialize focused images for each headset
   useEffect(() => {
