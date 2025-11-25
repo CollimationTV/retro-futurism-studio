@@ -19,12 +19,12 @@ export const CollectiveExcitementCore = ({
     return () => clearInterval(interval);
   }, []);
   
-  // Color based on excitement level
+  // White glow that intensifies with excitement
   const getColor = () => {
-    if (averageExcitement < 0.3) return { from: '#0ea5e9', to: '#06b6d4' }; // Blue-teal
-    if (averageExcitement < 0.6) return { from: '#eab308', to: '#f59e0b' }; // Yellow-orange
-    if (averageExcitement < 0.8) return { from: '#f97316', to: '#ef4444' }; // Orange-red
-    return { from: '#ef4444', to: '#ec4899' }; // Red-magenta
+    const opacity = 0.5 + (averageExcitement * 0.5); // 0.5 to 1.0
+    const white = `rgba(255, 255, 255, ${opacity})`;
+    const lightGray = `rgba(242, 242, 242, ${opacity})`;
+    return { from: white, to: lightGray };
   };
   
   const colors = getColor();

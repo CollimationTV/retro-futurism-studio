@@ -8,48 +8,47 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Retro futuristic dark theme - deeper blacks */
-    --background: 220 30% 3%;
-    --foreground: 180 100% 90%;
+    /* Clean white aesthetic with dark background */
+    --background: 0 0% 8%;
+    --foreground: 0 0% 95%;
 
-    --card: 220 25% 6%;
-    --card-foreground: 180 100% 90%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 220 25% 6%;
-    --popover-foreground: 180 100% 90%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 95%;
 
-    /* Neon cyan primary */
-    --primary: 180 100% 50%;
-    --primary-foreground: 220 30% 3%;
+    /* White/light gray primary */
+    --primary: 0 0% 95%;
+    --primary-foreground: 0 0% 8%;
 
-    /* Deep blue secondary */
-    --secondary: 220 50% 15%;
-    --secondary-foreground: 180 100% 90%;
+    /* Subtle gray secondary */
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 95%;
 
-    /* Muted dark tones */
-    --muted: 220 20% 10%;
-    --muted-foreground: 180 30% 60%;
+    /* Muted gray tones */
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
 
-    /* Neon magenta accent */
-    --accent: 320 100% 60%;
-    --accent-foreground: 220 30% 3%;
+    /* Subtle blue accent */
+    --accent: 220 15% 85%;
+    --accent-foreground: 0 0% 8%;
 
     --destructive: 0 100% 60%;
-    --destructive-foreground: 220 30% 3%;
+    --destructive-foreground: 0 0% 95%;
 
-    --border: 220 30% 15%;
-    --input: 220 30% 10%;
-    --ring: 180 100% 50%;
+    --border: 0 0% 20%;
+    --input: 0 0% 15%;
+    --ring: 0 0% 95%;
 
     --radius: 0.25rem;
 
-    /* Neon glow colors */
-    --neon-cyan: 180 100% 50%;
-    --neon-magenta: 320 100% 60%;
-    --neon-blue: 220 100% 60%;
+    /* White glow colors */
+    --neon-white: 0 0% 95%;
+    --neon-gray: 0 0% 70%;
     
     /* Grid pattern */
-    --grid-color: 220 30% 10%;
+    --grid-color: 0 0% 15%;
   }
 }
 
@@ -66,25 +65,25 @@ All colors MUST be HSL.
 
 @layer utilities {
   .neon-glow {
-    text-shadow: 0 0 10px hsl(var(--neon-cyan)), 0 0 20px hsl(var(--neon-cyan)), 0 0 30px hsl(var(--neon-cyan));
+    text-shadow: 0 0 10px hsl(var(--neon-white)), 0 0 20px hsl(var(--neon-white)), 0 0 30px hsl(var(--neon-white));
   }
   
-  .neon-glow-magenta {
-    text-shadow: 0 0 10px hsl(var(--neon-magenta)), 0 0 20px hsl(var(--neon-magenta)), 0 0 30px hsl(var(--neon-magenta));
+  .neon-glow-gray {
+    text-shadow: 0 0 10px hsl(var(--neon-gray)), 0 0 20px hsl(var(--neon-gray)), 0 0 30px hsl(var(--neon-gray));
   }
   
   .card-glow {
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.1), 0 0 40px rgba(0, 255, 255, 0.05);
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.1), 0 0 40px rgba(255, 255, 255, 0.05);
   }
   
   .card-glow-active {
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3), 0 0 40px rgba(0, 255, 255, 0.15), 0 0 60px rgba(0, 255, 255, 0.1);
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.3), 0 0 40px rgba(255, 255, 255, 0.15), 0 0 60px rgba(255, 255, 255, 0.1);
   }
   
   .glass-panel {
-    background: rgba(15, 23, 42, 0.7);
+    background: rgba(20, 20, 20, 0.7);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(0, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
   }
   
   .tech-border {

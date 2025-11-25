@@ -51,10 +51,12 @@ export const ArtworkTile = ({
     >
       <div 
         className={`
-          relative overflow-hidden transition-all duration-500 w-64 h-64
+          relative overflow-hidden transition-all duration-500
           ${isSelected ? 'opacity-0 scale-150' : 'opacity-100'}
         `}
         style={{
+          width: '180px',
+          height: '180px',
           transform: isActivating ? `scale(${1 + excitementProgress * 0.15})` : undefined
         }}
       >
@@ -70,45 +72,31 @@ export const ArtworkTile = ({
             }}
           />
           
-          {/* Grid overlay */}
+          {/* Grid overlay - subtle white */}
           <div 
-            className="absolute inset-0 pointer-events-none"
+            className="absolute inset-0 opacity-10 pointer-events-none"
             style={{
               backgroundImage: `
-                linear-gradient(to right, rgba(0, 255, 255, 0.15) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(0, 255, 255, 0.15) 1px, transparent 1px)
+                linear-gradient(to right, hsl(var(--primary) / 0.2) 1px, transparent 1px),
+                linear-gradient(to bottom, hsl(var(--primary) / 0.2) 1px, transparent 1px)
               `,
-              backgroundSize: '20px 20px',
-              opacity: isFocusedByAny ? 1 : 0.3
+              backgroundSize: '10px 10px'
             }}
           />
           
-          {/* Scanline effect */}
-          <div 
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background: 'linear-gradient(transparent 50%, rgba(0, 255, 255, 0.03) 50%)',
-              backgroundSize: '100% 4px'
-            }}
-          />
+          {/* Corner brackets - white */}
+          <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-primary/50" />
+          <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-primary/50" />
+          <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-primary/50" />
+          <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-primary/50" />
           
-          {/* Corner brackets */}
-          <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-primary" />
-          <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-primary" />
-          <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-primary" />
-          <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-primary" />
-          
-          {/* Focus indicator glow */}
+          {/* Focus indicator glow - white pulse */}
           {isFocusedByAny && (
             <div 
-              className="absolute inset-0 pointer-events-none"
+              className="absolute inset-0 pointer-events-none rounded-lg transition-all duration-300 animate-pulse-glow"
               style={{
-                boxShadow: `
-                  inset 0 0 40px ${focusColors[0]}40,
-                  0 0 40px ${focusColors[0]}60,
-                  0 0 80px ${focusColors[0]}40
-                `,
-                border: `2px solid ${focusColors[0]}`
+                boxShadow: '0 0 20px rgba(255,255,255,0.5), 0 0 40px rgba(255,255,255,0.3)',
+                border: '2px solid rgba(255,255,255,0.7)'
               }}
             />
           )}
