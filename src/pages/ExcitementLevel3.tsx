@@ -34,7 +34,7 @@ const ExcitementLevel3 = () => {
   
   // Dynamic selection constants (can be overridden by operator controls)
   const [PUSH_POWER_THRESHOLD, setPushPowerThreshold] = useState(0.30);
-  const [PUSH_HOLD_TIME_MS] = useState(8000);
+  const [PUSH_HOLD_TIME_MS] = useState(4000);
   const [POST_PUSH_DELAY_MS] = useState(3000);
   
   // Session ID for operator controls

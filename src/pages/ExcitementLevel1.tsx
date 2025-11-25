@@ -10,7 +10,7 @@ import { Brain3D } from "@/components/Brain3D";
 
 // Selection parameters
 const PUSH_POWER_THRESHOLD = 0.3;
-const PUSH_HOLD_TIME_MS = 8000;
+const PUSH_HOLD_TIME_MS = 4000;
 
 const ExcitementLevel1 = () => {
   const location = useLocation();
