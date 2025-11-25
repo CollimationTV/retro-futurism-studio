@@ -26,13 +26,15 @@ const ExcitementLevel3 = () => {
   const [selections, setSelections] = useState<Map<string, number>>(new Map());
   const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
   const [focusedImages, setFocusedImages] = useState<Map<string, number>>(new Map()); // headsetId -> imageId
-  const [cursorPosition, setCursorPosition] = useState<Map<string, number>>(new Map()); // headsetId -> 0-1 normalized position
   const [lastPushReleaseTime, setLastPushReleaseTime] = useState<Map<string, number>>(new Map());
+  
+  // Gyro calibration
+  const [gyroMin, setGyroMin] = useState(-1);
+  const [gyroMax, setGyroMax] = useState(1);
   
   // Dynamic selection constants (can be overridden by operator controls)
   const [PUSH_POWER_THRESHOLD, setPushPowerThreshold] = useState(0.30);
   const [PUSH_HOLD_TIME_MS] = useState(8000);
-  const [AUTO_CYCLE_INTERVAL_MS, setAutoCycleIntervalMs] = useState(6000);
   const [POST_PUSH_DELAY_MS] = useState(3000);
   
   // Session ID for operator controls
@@ -47,7 +49,6 @@ const ExcitementLevel3 = () => {
   const handleOperatorControlsChange = (controls: OperatorControls) => {
     console.log('🎛️ Operator controls updated:', controls);
     setPushPowerThreshold(controls.pushSensitivity);
-    setAutoCycleIntervalMs(controls.autoCycleSpeed);
     
     // Handle manual selection
     if (controls.manualSelection.headsetId && 
@@ -73,9 +74,6 @@ const ExcitementLevel3 = () => {
       if (data) {
         if (data.push_sensitivity !== null) {
           setPushPowerThreshold(data.push_sensitivity);
-        }
-        if (data.auto_cycle_speed !== null) {
-          setAutoCycleIntervalMs(data.auto_cycle_speed);
         }
       }
     };
@@ -104,39 +102,43 @@ const ExcitementLevel3 = () => {
     }
   }, [connectedHeadsets, focusedImages.size]);
   
-  // Auto-cycle focused image for each headset at a slow, constant pace
+  // GYRO-BASED CURSOR NAVIGATION (replaces auto-cycling)
   useEffect(() => {
-    if (!connectedHeadsets || connectedHeadsets.length === 0 || excitementLevel3Images.length === 0) return;
-
-    // Check if any headset is currently pushing
-    const anyHeadsetPushing = pushProgress.size > 0;
-    if (anyHeadsetPushing) return;
-
-    // Check if we're in post-push cooldown for any headset
-    const now = Date.now();
-    const inCooldown = Array.from(lastPushReleaseTime.values()).some(
-      releaseTime => now - releaseTime < POST_PUSH_DELAY_MS
-    );
-    if (inCooldown) return;
-
-    const interval = setInterval(() => {
-      setFocusedImages(prev => {
+    if (!motionEvent || !connectedHeadsets || connectedHeadsets.length === 0) return;
+    
+    const { gyroY, headsetId } = motionEvent;
+    
+    // Skip if this headset already completed selection or is pushing
+    if (selections.has(headsetId) || pushProgress.has(headsetId)) return;
+    
+    console.log(`🎮 Gyro navigation for ${headsetId}: gyroY=${gyroY}`);
+    
+    // Auto-calibrate gyro range
+    setGyroMin(prev => Math.min(prev, gyroY));
+    setGyroMax(prev => Math.max(prev, gyroY));
+    
+    // Normalize gyroY to 0-1 range
+    const range = gyroMax - gyroMin;
+    const normalized = range > 0 ? (gyroY - gyroMin) / range : 0.5;
+    
+    // Map to image index (0-14)
+    const imageIndex = Math.floor(normalized * 15) % 15;
+    const targetImageId = excitementLevel3Images[imageIndex].id;
+    
+    console.log(`  → Normalized: ${normalized.toFixed(2)}, Index: ${imageIndex}, ImageID: ${targetImageId}`);
+    
+    // Update focused image if changed
+    setFocusedImages(prev => {
+      const current = prev.get(headsetId);
+      if (current !== targetImageId) {
         const updated = new Map(prev);
-        connectedHeadsets.forEach((headsetId: string) => {
-          const isPushing = pushProgress.has(headsetId);
-          if (selections.has(headsetId) || isPushing) return; // skip completed or pushing
-          
-          const currentImageId = prev.get(headsetId);
-          const currentIndex = excitementLevel3Images.findIndex(img => img.id === currentImageId);
-          const nextIndex = (currentIndex + 1) % excitementLevel3Images.length;
-          updated.set(headsetId, excitementLevel3Images[nextIndex].id);
-        });
+        updated.set(headsetId, targetImageId);
+        console.log(`  ✨ Focus changed to image ${targetImageId}`);
         return updated;
-      });
-    }, AUTO_CYCLE_INTERVAL_MS);
-
-    return () => clearInterval(interval);
-  }, [connectedHeadsets, excitementLevel3Images.length, pushProgress, selections, lastPushReleaseTime, AUTO_CYCLE_INTERVAL_MS, POST_PUSH_DELAY_MS]);
+      }
+      return prev;
+    });
+  }, [motionEvent, connectedHeadsets, selections, pushProgress, gyroMin, gyroMax]);
   
   // Handle PUSH command hold-to-select
   useEffect(() => {
@@ -153,13 +155,17 @@ const ExcitementLevel3 = () => {
       const now = Date.now();
       const existing = pushProgress.get(headsetId);
       
+      console.log(`🔵 PUSH detected: ${headsetId}, power=${pow.toFixed(2)}, focused=${focusedImageId}`);
+      
       // Start or update hold timer for this headset on the currently focused image
       if (!existing || existing.imageId !== focusedImageId) {
         setPushProgress(prev => new Map(prev).set(headsetId, { startTime: now, imageId: focusedImageId }));
+        console.log(`  → Started PUSH hold on image ${focusedImageId}`);
       }
     } else {
       // Push released or below threshold - reset hold progress and record release time
       if (pushProgress.has(headsetId)) {
+        console.log(`  ⭕ PUSH released: ${headsetId}`);
         setLastPushReleaseTime(prev => new Map(prev).set(headsetId, Date.now()));
       }
       setPushProgress(prev => {
@@ -176,7 +182,6 @@ const ExcitementLevel3 = () => {
 
     const interval = setInterval(() => {
       const now = Date.now();
-      let changed = false;
 
       pushProgress.forEach((progress, headsetId) => {
         const duration = now - progress.startTime;
@@ -185,7 +190,6 @@ const ExcitementLevel3 = () => {
           if (!selections.has(headsetId)) {
             console.log(`✨ Headset ${headsetId} selected artwork ${progress.imageId} via PUSH!`);
             setSelections(prev => new Map(prev).set(headsetId, progress.imageId));
-            changed = true;
           }
           // Clear push progress
           setPushProgress(prev => {
@@ -200,11 +204,19 @@ const ExcitementLevel3 = () => {
     return () => clearInterval(interval);
   }, [pushProgress, selections, PUSH_HOLD_TIME_MS]);
   
-  // Update excitement levels for visual feedback
+  // Update excitement levels with DEBUG LOGGING
   useEffect(() => {
     if (!performanceMetrics) return;
     const { excitement, headsetId } = performanceMetrics;
-    setExcitementLevels(prev => new Map(prev).set(headsetId, excitement));
+    
+    console.log(`📊 EXCITEMENT UPDATE: ${headsetId} = ${excitement.toFixed(3)}`);
+    
+    setExcitementLevels(prev => {
+      const updated = new Map(prev).set(headsetId, excitement);
+      console.log(`  → All excitement levels:`, Array.from(updated.entries()));
+      console.log(`  → Average: ${(Array.from(updated.values()).reduce((a,b) => a+b, 0) / updated.size).toFixed(3)}`);
+      return updated;
+    });
   }, [performanceMetrics]);
   
   // Check if all selections complete
@@ -236,11 +248,11 @@ const ExcitementLevel3 = () => {
     <div className="min-h-screen relative overflow-hidden">
       {/* Dense grid background */}
       <div 
-        className="fixed inset-0 pointer-events-none opacity-30"
+        className="fixed inset-0 pointer-events-none opacity-20"
         style={{
           backgroundImage: `
-            linear-gradient(to right, hsl(var(--primary) / 0.12) 1px, transparent 1px),
-            linear-gradient(to bottom, hsl(var(--primary) / 0.12) 1px, transparent 1px)
+            linear-gradient(to right, hsl(var(--primary) / 0.08) 1px, transparent 1px),
+            linear-gradient(to bottom, hsl(var(--primary) / 0.08) 1px, transparent 1px)
           `,
           backgroundSize: '30px 30px'
         }}
@@ -249,8 +261,8 @@ const ExcitementLevel3 = () => {
       {/* Animated Brain Background */}
       <Brain3D excitement={averageExcitement} className="opacity-15 z-0" />
       
-      {/* Futuristic grid overlay with scanlines */}
-      <FuturisticGrid className="opacity-40" />
+      {/* Futuristic grid overlay */}
+      <FuturisticGrid className="opacity-30" />
       
       <Header />
       
@@ -270,10 +282,30 @@ const ExcitementLevel3 = () => {
         totalSelections={connectedHeadsets?.length || 0}
       />
       
+      {/* DEBUG PANEL */}
+      <div className="fixed top-20 right-4 z-50 bg-background/90 border border-primary/30 rounded p-4 text-xs font-mono max-w-xs">
+        <div className="text-primary font-bold mb-2">DEBUG: EXCITEMENT METRICS</div>
+        <div className="space-y-1 text-foreground/70">
+          <div>Stream: {performanceMetrics ? '🟢 ACTIVE' : '🔴 NO DATA'}</div>
+          <div>Avg Excitement: {(averageExcitement * 100).toFixed(1)}%</div>
+          <div className="border-t border-primary/20 my-2 pt-2">
+            <div className="font-semibold mb-1">Per Headset:</div>
+            {connectedHeadsets?.map((hId: string) => (
+              <div key={hId} className="flex justify-between">
+                <span>{hId.slice(0, 8)}:</span>
+                <span className="text-accent">{((excitementLevels.get(hId) || 0) * 100).toFixed(1)}%</span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-primary/20 my-2 pt-2">
+            <div>Last Update: {performanceMetrics ? new Date().toLocaleTimeString() : 'Never'}</div>
+          </div>
+        </div>
+      </div>
+      
       <div className="container mx-auto px-6 py-12">
         {/* Title */}
         <div className="text-center mb-8 relative z-10">
-          {/* Technical frame around title */}
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent" />
           <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent" />
           
@@ -288,7 +320,7 @@ const ExcitementLevel3 = () => {
           </h1>
           <div className="glass-panel inline-block px-8 py-4 mt-6 tech-border">
             <p className="text-lg text-foreground font-mono uppercase tracking-wider">
-              → HOLD PUSH TO LOCK SELECTION
+              → USE HEAD MOTION TO NAVIGATE • PUSH TO SELECT
             </p>
             <div className="flex items-center justify-center gap-4 mt-3 text-sm font-mono">
               <span className="text-primary/80">STATUS:</span>
@@ -311,8 +343,8 @@ const ExcitementLevel3 = () => {
           {connectedHeadsets?.map((headsetId: string, index: number) => {
             const excitement = excitementLevels.get(headsetId) || 0;
             const color = getHeadsetColor(headsetId);
-            const radius = 250 + (index * 50); // Staggered orbits
-            const speed = 15 + (index * 5); // Different speeds
+            const radius = 250 + (index * 50);
+            const speed = 15 + (index * 5);
             
             return (
               <OrbitalExcitementRing
@@ -326,19 +358,19 @@ const ExcitementLevel3 = () => {
             );
           })}
           
-          {/* Artwork tiles in spherical layout */}
+          {/* Artwork tiles in circular layout */}
           <div className="absolute inset-0">
             {excitementLevel3Images.map((image, index) => {
               const position = positions[index];
               const focusedByHeadsets = Array.from(focusedImages.entries())
                 .filter(([_, imgId]) => imgId === image.id)
                 .map(([headsetId]) => headsetId)
-                .filter(hId => !selections.has(hId)); // Exclude headsets that already selected
+                .filter(hId => !selections.has(hId));
               
               const focusColors = focusedByHeadsets.map(hId => getHeadsetColor(hId));
               const isFocusedByAny = focusColors.length > 0;
               
-              // Calculate push progress for focused headsets (no excitement threshold needed)
+              // Calculate push progress
               let maxPushProgress = 0;
               focusedByHeadsets.forEach(headsetId => {
                 const progress = pushProgress.get(headsetId);
@@ -360,7 +392,7 @@ const ExcitementLevel3 = () => {
                   scale={position.scale}
                   zIndex={position.zIndex}
                   excitementProgress={maxPushProgress}
-                  threshold={1} // Normalized 0-1 progress
+                  threshold={1}
                   isSelected={isSelected}
                   isFocusedByAny={isFocusedByAny}
                   focusColors={focusColors}
@@ -368,15 +400,6 @@ const ExcitementLevel3 = () => {
               );
             })}
           </div>
-          
-          {/* Rotating earth animation */}
-          <div 
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              animation: 'rotateEarth 120s linear infinite',
-              transformStyle: 'preserve-3d'
-            }}
-          />
         </div>
         
         {/* Progress indicator */}
@@ -413,22 +436,6 @@ const ExcitementLevel3 = () => {
         >
           → Video
         </button>
-      </div>
-      
-      {/* Animated starfield background */}
-      <div className="fixed inset-0 pointer-events-none z-0 opacity-30">
-        {[...Array(50)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-1 h-1 bg-primary rounded-full"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animation: `twinkle ${2 + Math.random() * 3}s ease-in-out infinite`,
-              animationDelay: `${Math.random() * 2}s`
-            }}
-          />
-        ))}
       </div>
     </div>
   );
