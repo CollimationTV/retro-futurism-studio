@@ -33,9 +33,14 @@ const Index = () => {
   };
   
   const handlePerformanceMetrics = (metrics: PerformanceMetricsEvent) => {
-    console.log(`📊 Index received performance metrics: ${metrics.headsetId}, excitement=${metrics.excitement.toFixed(3)}`);
+    console.log(`📊 Index handlePerformanceMetrics called:`, {
+      headsetId: metrics.headsetId,
+      excitement: metrics.excitement,
+      dispatching: 'window event'
+    });
     setExcitementLevels(prev => new Map(prev).set(metrics.headsetId, metrics.excitement));
     window.dispatchEvent(new CustomEvent('performance-metrics', { detail: metrics }));
+    console.log('✅ Window event dispatched for performance-metrics');
   };
 
   const handleHeadsetsChange = (headsetIds: string[]) => {

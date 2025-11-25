@@ -100,7 +100,12 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onPerformanc
       };
 
       client.onPerformanceMetrics = (event) => {
-        console.log('Performance metrics from', event.headsetId, ':', event);
+        console.log('🔥 MultiHeadsetConnection received performance metrics:', {
+          headsetId: event.headsetId,
+          excitement: event.excitement,
+          engagement: event.engagement,
+          callback: onPerformanceMetrics ? 'YES' : 'NO'
+        });
         onPerformanceMetrics?.(event);
       };
 
