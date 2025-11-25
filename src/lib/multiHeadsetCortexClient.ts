@@ -171,6 +171,13 @@ export class MultiHeadsetCortexClient {
       // met array format: [engagement, excitement, stress, relaxation, interest, focus]
       const [engagement, excitement, stress, relaxation, interest, focus] = message.met;
       
+      console.log('📊 RAW Performance Metrics from Cortex:', {
+        headsetId,
+        sessionId: message.sid,
+        rawMet: message.met,
+        parsed: { engagement, excitement, stress, relaxation, interest, focus }
+      });
+      
       const event: PerformanceMetricsEvent = {
         engagement: engagement || 0,
         excitement: excitement || 0,
@@ -181,6 +188,8 @@ export class MultiHeadsetCortexClient {
         time: message.time,
         headsetId: headsetId
       };
+      
+      console.log('🔥 Dispatching performance metrics event:', event);
       this.onPerformanceMetrics?.(event);
     }
 
@@ -335,13 +344,16 @@ export class MultiHeadsetCortexClient {
       throw new Error(`No session found for headset ${headsetId}`);
     }
 
+    console.log(`🔔 Subscribing to streams for headset ${headsetId}, session: ${session.sessionId}`);
+    
     const result = await this.sendRequest('subscribe', {
       cortexToken: this.authToken,
       session: session.sessionId,
       streams: ['com', 'mot', 'met'] // Mental commands + motion sensors + performance metrics
     });
 
-    console.log(`✅ Subscribed to mental commands and motion for headset ${headsetId}:`, result);
+    console.log(`✅ Subscribed to streams for headset ${headsetId}:`, JSON.stringify(result, null, 2));
+    console.log(`📊 Performance metrics ('met') should now be streaming at 2Hz`);
   }
 
   /**
