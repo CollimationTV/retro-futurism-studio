@@ -37,109 +37,115 @@ const ExcitementLevel1 = () => {
   const SMOOTHING_FACTOR = 0.15; // Lower = more smoothing (0.1-0.3 recommended)
   const DEAD_ZONE = 0.08; // Minimum change required to update focus
 
-  // Gyro-based cursor navigation with smoothing
+  // Listen to live motion events from window
   useEffect(() => {
-    if (!motionEvent) return;
+    const handleMotion = ((event: CustomEvent<MotionEvent>) => {
+      const motionData = event.detail;
+      const headsetId = motionData.headsetId;
     
-    const event = motionEvent as MotionEvent;
-    const headsetId = event.headsetId;
-    
-    // Skip if already selected
-    if (selections.has(headsetId)) return;
-    
-    // Auto-calibrate gyro range
-    const currentRange = gyroRanges.current.get(headsetId) || { min: event.gyroY, max: event.gyroY };
-    currentRange.min = Math.min(currentRange.min, event.gyroY);
-    currentRange.max = Math.max(currentRange.max, event.gyroY);
-    gyroRanges.current.set(headsetId, currentRange);
-    
-    // Normalize gyroY to 0-1 range
-    const range = currentRange.max - currentRange.min;
-    const rawNormalized = range > 0.1 
-      ? Math.max(0, Math.min(1, (event.gyroY - currentRange.min) / range))
-      : 0.5;
-    
-    // Apply exponential moving average for smoothing
-    const prevSmoothed = smoothedGyro.current.get(headsetId) ?? rawNormalized;
-    const newSmoothed = prevSmoothed + SMOOTHING_FACTOR * (rawNormalized - prevSmoothed);
-    smoothedGyro.current.set(headsetId, newSmoothed);
-    
-    // Map to image index with dead zone
-    const imageIndex = Math.floor(newSmoothed * excitementLevel1Images.length);
-    const clampedIndex = Math.max(0, Math.min(excitementLevel1Images.length - 1, imageIndex));
-    const imageId = excitementLevel1Images[clampedIndex].id;
-    
-    // Only update if focus changed (prevents jitter)
-    const currentFocus = focusedImages.get(headsetId);
-    if (currentFocus !== imageId) {
-      // Check if the change is significant enough
-      const currentIndex = excitementLevel1Images.findIndex(img => img.id === currentFocus);
-      const indexDiff = Math.abs(clampedIndex - currentIndex);
+      // Skip if already selected
+      if (selections.has(headsetId)) return;
       
-      // Allow update if it's a new headset or the change is beyond dead zone
-      if (currentFocus === undefined || indexDiff >= 1) {
-        setFocusedImages(prev => {
-          const updated = new Map(prev);
-          updated.set(headsetId, imageId);
-          return updated;
-        });
+      // Auto-calibrate gyro range
+      const currentRange = gyroRanges.current.get(headsetId) || { min: motionData.gyroY, max: motionData.gyroY };
+      currentRange.min = Math.min(currentRange.min, motionData.gyroY);
+      currentRange.max = Math.max(currentRange.max, motionData.gyroY);
+      gyroRanges.current.set(headsetId, currentRange);
+      
+      // Normalize gyroY to 0-1 range
+      const range = currentRange.max - currentRange.min;
+      const rawNormalized = range > 0.1 
+        ? Math.max(0, Math.min(1, (motionData.gyroY - currentRange.min) / range))
+        : 0.5;
+      
+      // Apply exponential moving average for smoothing
+      const prevSmoothed = smoothedGyro.current.get(headsetId) ?? rawNormalized;
+      const newSmoothed = prevSmoothed + SMOOTHING_FACTOR * (rawNormalized - prevSmoothed);
+      smoothedGyro.current.set(headsetId, newSmoothed);
+      
+      // Map to image index with dead zone
+      const imageIndex = Math.floor(newSmoothed * excitementLevel1Images.length);
+      const clampedIndex = Math.max(0, Math.min(excitementLevel1Images.length - 1, imageIndex));
+      const imageId = excitementLevel1Images[clampedIndex].id;
+      
+      // Only update if focus changed (prevents jitter)
+      const currentFocus = focusedImages.get(headsetId);
+      if (currentFocus !== imageId) {
+        // Check if the change is significant enough
+        const currentIndex = excitementLevel1Images.findIndex(img => img.id === currentFocus);
+        const indexDiff = Math.abs(clampedIndex - currentIndex);
+        
+        // Allow update if it's a new headset or the change is beyond dead zone
+        if (currentFocus === undefined || indexDiff >= 1) {
+          setFocusedImages(prev => {
+            const updated = new Map(prev);
+            updated.set(headsetId, imageId);
+            return updated;
+          });
+        }
       }
-    }
-    
-    console.log(`🎯 Gyro navigation ${headsetId}: gyroY=${event.gyroY.toFixed(3)}, smoothed=${newSmoothed.toFixed(2)}, focus=${imageId}`);
-  }, [motionEvent, selections, focusedImages]);
+      
+      console.log(`🎯 Gyro navigation ${headsetId}: gyroY=${motionData.gyroY.toFixed(3)}, smoothed=${newSmoothed.toFixed(2)}, focus=${imageId}`);
+    }) as EventListener;
 
-  // Handle PUSH command for selections
+    window.addEventListener('motion-event', handleMotion);
+    return () => window.removeEventListener('motion-event', handleMotion);
+  }, []);
+
+  // Listen to live mental command events from window
   useEffect(() => {
-    if (!mentalCommand) return;
+    const handleMentalCommand = ((event: CustomEvent<MentalCommandEvent>) => {
+      const commandData = event.detail;
+      const headsetId = commandData.headsetId;
     
-    const event = mentalCommand as MentalCommandEvent;
-    const headsetId = event.headsetId;
-    
-    // Skip if already selected
-    if (selections.has(headsetId)) return;
-    
-    const focusedImageId = focusedImages.get(headsetId);
-    if (focusedImageId === undefined) return;
-    
-    // Detect PUSH command
-    if (event.com === 'push' && event.pow >= PUSH_POWER_THRESHOLD) {
-      // Start or continue PUSH hold
-      if (!pushStartTimes.current.has(headsetId)) {
-        pushStartTimes.current.set(headsetId, Date.now());
-        console.log(`🟢 PUSH started by ${headsetId} on image ${focusedImageId}`);
+      // Skip if already selected
+      if (selections.has(headsetId)) return;
+      
+      const focusedImageId = focusedImages.get(headsetId);
+      if (focusedImageId === undefined) return;
+      
+      // Detect PUSH command
+      if (commandData.com === 'push' && commandData.pow >= PUSH_POWER_THRESHOLD) {
+        // Start or continue PUSH hold
+        if (!pushStartTimes.current.has(headsetId)) {
+          pushStartTimes.current.set(headsetId, Date.now());
+          console.log(`🟢 PUSH started by ${headsetId} on image ${focusedImageId}`);
+        }
+        
+        setIsPushing(prev => new Map(prev).set(headsetId, true));
+        
+        // Calculate progress
+        const startTime = pushStartTimes.current.get(headsetId)!;
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(100, (elapsed / PUSH_HOLD_TIME_MS) * 100);
+        
+        setPushProgress(prev => new Map(prev).set(headsetId, progress));
+        
+        // Complete selection after hold duration
+        if (elapsed >= PUSH_HOLD_TIME_MS) {
+          console.log(`✅ Selection confirmed by ${headsetId}: image ${focusedImageId}`);
+          setSelections(prev => new Map(prev).set(headsetId, focusedImageId));
+          pushStartTimes.current.delete(headsetId);
+          setIsPushing(prev => {
+            const updated = new Map(prev);
+            updated.delete(headsetId);
+            return updated;
+          });
+        }
+      } else {
+        // PUSH released or below threshold - cancel
+        if (pushStartTimes.current.has(headsetId)) {
+          console.log(`🔴 PUSH cancelled by ${headsetId}`);
+          pushStartTimes.current.delete(headsetId);
+        }
+        setIsPushing(prev => new Map(prev).set(headsetId, false));
+        setPushProgress(prev => new Map(prev).set(headsetId, 0));
       }
-      
-      setIsPushing(prev => new Map(prev).set(headsetId, true));
-      
-      // Calculate progress
-      const startTime = pushStartTimes.current.get(headsetId)!;
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(100, (elapsed / PUSH_HOLD_TIME_MS) * 100);
-      
-      setPushProgress(prev => new Map(prev).set(headsetId, progress));
-      
-      // Complete selection after hold duration
-      if (elapsed >= PUSH_HOLD_TIME_MS) {
-        console.log(`✅ Selection confirmed by ${headsetId}: image ${focusedImageId}`);
-        setSelections(prev => new Map(prev).set(headsetId, focusedImageId));
-        pushStartTimes.current.delete(headsetId);
-        setIsPushing(prev => {
-          const updated = new Map(prev);
-          updated.delete(headsetId);
-          return updated;
-        });
-      }
-    } else {
-      // PUSH released or below threshold - cancel
-      if (pushStartTimes.current.has(headsetId)) {
-        console.log(`🔴 PUSH cancelled by ${headsetId}`);
-        pushStartTimes.current.delete(headsetId);
-      }
-      setIsPushing(prev => new Map(prev).set(headsetId, false));
-      setPushProgress(prev => new Map(prev).set(headsetId, 0));
-    }
-  }, [mentalCommand, focusedImages, selections]);
+    }) as EventListener;
+
+    window.addEventListener('mental-command', handleMentalCommand);
+    return () => window.removeEventListener('mental-command', handleMentalCommand);
+  }, []);
 
   // Auto-advance when all headsets have made selections
   useEffect(() => {
@@ -158,7 +164,7 @@ const ExcitementLevel1 = () => {
         });
       }, 1500);
     }
-  }, [selections, connectedHeadsets, navigate, videoJobId, mentalCommand, motionEvent]);
+  }, [selections, connectedHeadsets, navigate, videoJobId]);
 
   return (
     <div className="min-h-screen relative">

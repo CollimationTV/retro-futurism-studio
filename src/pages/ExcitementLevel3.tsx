@@ -17,25 +17,11 @@ import { supabase } from "@/integrations/supabase/client";
 const ExcitementLevel3 = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { metadata, videoJobId, connectedHeadsets, mentalCommand: passedMentalCommand } = location.state || {};
+  const { metadata, videoJobId, connectedHeadsets } = location.state || {};
   
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetricsEvent | null>(null);
-  const [motionEvent, setMotionEvent] = useState<MotionEvent | null>(null);
-  const [mentalCommand, setMentalCommand] = useState<MentalCommandEvent | null>(passedMentalCommand || null);
   const [excitementLevels, setExcitementLevels] = useState<Map<string, number>>(new Map());
   const [selections, setSelections] = useState<Map<string, number>>(new Map());
-  const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
-  const [focusedImages, setFocusedImages] = useState<Map<string, number>>(new Map()); // headsetId -> imageId
-  const [lastPushReleaseTime, setLastPushReleaseTime] = useState<Map<string, number>>(new Map());
-  
-  // Gyro calibration
-  const [gyroMin, setGyroMin] = useState(-1);
-  const [gyroMax, setGyroMax] = useState(1);
-  
-  // Dynamic selection constants (can be overridden by operator controls)
-  const [PUSH_POWER_THRESHOLD, setPushPowerThreshold] = useState(0.30);
-  const [PUSH_HOLD_TIME_MS] = useState(4000);
-  const [POST_PUSH_DELAY_MS] = useState(3000);
   
   // Session ID for operator controls
   const sessionId = videoJobId || `session-${Date.now()}`;
@@ -45,10 +31,9 @@ const ExcitementLevel3 = () => {
   // Calculate average excitement across all headsets
   const averageExcitement = Array.from(excitementLevels.values()).reduce((sum, val) => sum + val, 0) / Math.max(excitementLevels.size, 1);
   
-  // Handle operator controls updates
+  // Handle operator controls updates (manual selection only for Level 3)
   const handleOperatorControlsChange = (controls: OperatorControls) => {
     console.log('🎛️ Operator controls updated:', controls);
-    setPushPowerThreshold(controls.pushSensitivity);
     
     // Handle manual selection
     if (controls.manualSelection.headsetId && 
@@ -62,165 +47,43 @@ const ExcitementLevel3 = () => {
     }
   };
   
-  // Subscribe to operator controls on mount
-  useEffect(() => {
-    const initControls = async () => {
-      const { data } = await supabase
-        .from('operator_controls')
-        .select('*')
-        .eq('session_id', sessionId)
-        .single();
-        
-      if (data) {
-        if (data.push_sensitivity !== null) {
-          setPushPowerThreshold(data.push_sensitivity);
-        }
-      }
-    };
-    
-    initControls();
-  }, [sessionId]);
-  
-  // Listen to window events for real-time performance metrics, motion, and mental commands
+  // Listen to window events for real-time performance metrics ONLY
   useEffect(() => {
     const handlePerformanceMetrics = ((event: CustomEvent<PerformanceMetricsEvent>) => {
       console.log('📊 Level3 received performance metrics event:', event.detail);
       setPerformanceMetrics(event.detail);
     }) as EventListener;
     
-    const handleMotion = ((event: CustomEvent<MotionEvent>) => {
-      setMotionEvent(event.detail);
-    }) as EventListener;
-    
-    const handleMentalCommand = ((event: CustomEvent<MentalCommandEvent>) => {
-      setMentalCommand(event.detail);
-    }) as EventListener;
-    
     window.addEventListener('performance-metrics', handlePerformanceMetrics);
-    window.addEventListener('motion-event', handleMotion);
-    window.addEventListener('mental-command', handleMentalCommand);
     
-    console.log('✅ Level3 event listeners registered');
+    console.log('✅ Level3 performance metrics listener registered');
     
     return () => {
       window.removeEventListener('performance-metrics', handlePerformanceMetrics);
-      window.removeEventListener('motion-event', handleMotion);
-      window.removeEventListener('mental-command', handleMentalCommand);
     };
   }, []);
   
-  // Initialize focused images for each headset
+  // Auto-select first image for each headset after excitement reaches threshold
+  // (Since Level 3 has no PUSH/gyro interaction, we auto-advance based on excitement)
   useEffect(() => {
-    if (connectedHeadsets && connectedHeadsets.length > 0 && focusedImages.size === 0) {
-      const initialFocus = new Map();
+    if (!connectedHeadsets || connectedHeadsets.length === 0) return;
+    
+    // Auto-select after 10 seconds if excitement is moderate (for demo purposes)
+    const timer = setTimeout(() => {
+      const newSelections = new Map(selections);
       connectedHeadsets.forEach((headsetId: string) => {
-        initialFocus.set(headsetId, excitementLevel3Images[0].id);
-      });
-      setFocusedImages(initialFocus);
-    }
-  }, [connectedHeadsets, focusedImages.size]);
-  
-  // GYRO-BASED CURSOR NAVIGATION (replaces auto-cycling)
-  useEffect(() => {
-    if (!motionEvent || !connectedHeadsets || connectedHeadsets.length === 0) return;
-    
-    const { gyroY, headsetId } = motionEvent;
-    
-    // Skip if this headset already completed selection or is pushing
-    if (selections.has(headsetId) || pushProgress.has(headsetId)) return;
-    
-    console.log(`🎮 Gyro navigation for ${headsetId}: gyroY=${gyroY}`);
-    
-    // Auto-calibrate gyro range
-    setGyroMin(prev => Math.min(prev, gyroY));
-    setGyroMax(prev => Math.max(prev, gyroY));
-    
-    // Normalize gyroY to 0-1 range
-    const range = gyroMax - gyroMin;
-    const normalized = range > 0 ? (gyroY - gyroMin) / range : 0.5;
-    
-    // Map to image index (0-14)
-    const imageIndex = Math.floor(normalized * 15) % 15;
-    const targetImageId = excitementLevel3Images[imageIndex].id;
-    
-    console.log(`  → Normalized: ${normalized.toFixed(2)}, Index: ${imageIndex}, ImageID: ${targetImageId}`);
-    
-    // Update focused image if changed
-    setFocusedImages(prev => {
-      const current = prev.get(headsetId);
-      if (current !== targetImageId) {
-        const updated = new Map(prev);
-        updated.set(headsetId, targetImageId);
-        console.log(`  ✨ Focus changed to image ${targetImageId}`);
-        return updated;
-      }
-      return prev;
-    });
-  }, [motionEvent, connectedHeadsets, selections, pushProgress, gyroMin, gyroMax]);
-  
-  // Handle PUSH command hold-to-select
-  useEffect(() => {
-    if (!mentalCommand) return;
-
-    const { com, headsetId, pow } = mentalCommand;
-    
-    if (selections.has(headsetId)) return;
-
-    const focusedImageId = focusedImages.get(headsetId);
-    if (!focusedImageId) return;
-
-    if (com === 'push' && pow >= PUSH_POWER_THRESHOLD) {
-      const now = Date.now();
-      const existing = pushProgress.get(headsetId);
-      
-      console.log(`🔵 PUSH detected: ${headsetId}, power=${pow.toFixed(2)}, focused=${focusedImageId}`);
-      
-      // Start or update hold timer for this headset on the currently focused image
-      if (!existing || existing.imageId !== focusedImageId) {
-        setPushProgress(prev => new Map(prev).set(headsetId, { startTime: now, imageId: focusedImageId }));
-        console.log(`  → Started PUSH hold on image ${focusedImageId}`);
-      }
-    } else {
-      // Push released or below threshold - reset hold progress and record release time
-      if (pushProgress.has(headsetId)) {
-        console.log(`  ⭕ PUSH released: ${headsetId}`);
-        setLastPushReleaseTime(prev => new Map(prev).set(headsetId, Date.now()));
-      }
-      setPushProgress(prev => {
-        const next = new Map(prev);
-        next.delete(headsetId);
-        return next;
-      });
-    }
-  }, [mentalCommand, focusedImages, selections, pushProgress, PUSH_POWER_THRESHOLD]);
-  
-  // Monitor push progress and lock selection after hold duration
-  useEffect(() => {
-    if (pushProgress.size === 0) return;
-
-    const interval = setInterval(() => {
-      const now = Date.now();
-
-      pushProgress.forEach((progress, headsetId) => {
-        const duration = now - progress.startTime;
-        if (duration >= PUSH_HOLD_TIME_MS) {
-          // Hold time reached - lock selection
-          if (!selections.has(headsetId)) {
-            console.log(`✨ Headset ${headsetId} selected artwork ${progress.imageId} via PUSH!`);
-            setSelections(prev => new Map(prev).set(headsetId, progress.imageId));
-          }
-          // Clear push progress
-          setPushProgress(prev => {
-            const next = new Map(prev);
-            next.delete(headsetId);
-            return next;
-          });
+        if (!newSelections.has(headsetId)) {
+          // Select a random image based on their excitement level
+          const excitement = excitementLevels.get(headsetId) || 0.5;
+          const imageIndex = Math.floor(excitement * excitementLevel3Images.length) % excitementLevel3Images.length;
+          newSelections.set(headsetId, excitementLevel3Images[imageIndex].id);
         }
       });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [pushProgress, selections, PUSH_HOLD_TIME_MS]);
+      setSelections(newSelections);
+    }, 10000); // 10 seconds
+    
+    return () => clearTimeout(timer);
+  }, [connectedHeadsets, excitementLevels]);
   
   // Update excitement levels with DEBUG LOGGING
   useEffect(() => {
@@ -252,7 +115,6 @@ const ExcitementLevel3 = () => {
             videoJobId,
             metadata,
             connectedHeadsets,
-            mentalCommand,
             performanceMetrics,
             level3Selections: Array.from(selections.entries()),
             collectiveScore
@@ -380,25 +242,10 @@ const ExcitementLevel3 = () => {
           <div className="absolute inset-0">
             {excitementLevel3Images.map((image, index) => {
               const position = positions[index];
-              const focusedByHeadsets = Array.from(focusedImages.entries())
-                .filter(([_, imgId]) => imgId === image.id)
-                .map(([headsetId]) => headsetId)
-                .filter(hId => !selections.has(hId));
-              
-              const focusColors = focusedByHeadsets.map(hId => getHeadsetColor(hId));
-              const isFocusedByAny = focusColors.length > 0;
-              
-              // Calculate push progress
-              let maxPushProgress = 0;
-              focusedByHeadsets.forEach(headsetId => {
-                const progress = pushProgress.get(headsetId);
-                if (progress && progress.imageId === image.id) {
-                  const elapsed = Date.now() - progress.startTime;
-                  maxPushProgress = Math.max(maxPushProgress, Math.min(elapsed / PUSH_HOLD_TIME_MS, 1));
-                }
-              });
-              
               const isSelected = Array.from(selections.values()).includes(image.id);
+              
+              // Show collective excitement as visual indicator (no push progress)
+              const excitementProgress = averageExcitement;
               
               return (
                 <ArtworkTile
@@ -409,11 +256,11 @@ const ExcitementLevel3 = () => {
                   position={{ x: position.x, y: position.y }}
                   scale={position.scale}
                   zIndex={position.zIndex}
-                  excitementProgress={maxPushProgress}
+                  excitementProgress={excitementProgress}
                   threshold={1}
                   isSelected={isSelected}
-                  isFocusedByAny={isFocusedByAny}
-                  focusColors={focusColors}
+                  isFocusedByAny={false}
+                  focusColors={[]}
                 />
               );
             })}
@@ -437,7 +284,7 @@ const ExcitementLevel3 = () => {
           ← Level 1
         </button>
         <button
-          onClick={() => navigate("/level2", { state: { level1Selections: new Map(), connectedHeadsets, mentalCommand, motionEvent } })}
+          onClick={() => navigate("/level2", { state: { level1Selections: new Map(), connectedHeadsets } })}
           className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
         >
           ← Level 2
