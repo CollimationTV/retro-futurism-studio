@@ -37,42 +37,42 @@ export const PerHeadsetImageGrid = ({
   const [lastCommandReceived, setLastCommandReceived] = useState<{ com: string; pow: number; headsetId: string } | null>(null);
   const [pushFlash, setPushFlash] = useState(false);
   const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
-  const [cursorPosition, setCursorPosition] = useState<Map<string, number>>(new Map()); // headsetId -> 0-1 normalized position
   const [lastPushReleaseTime, setLastPushReleaseTime] = useState<Map<string, number>>(new Map());
 
-  // Cursor and selection sensitivity constants
-  const CURSOR_MOVEMENT_SPEED = 0.00005;
-  const CURSOR_DEAD_ZONE = 0.15;
-  const CURSOR_MAX_STEP = 0.005;
-  const PUSH_POWER_THRESHOLD = 0.30; // Moderate PUSH sensitivity
-  const PUSH_HOLD_TIME_MS = 4000; // 8 seconds hold time
+  // Motion handling state for smoothed rotation/pitch per headset
+  const [smoothedRotation, setSmoothedRotation] = useState<Map<string, number>>(new Map());
+  const [smoothedPitch, setSmoothedPitch] = useState<Map<string, number>>(new Map());
+  const [lastMotionUpdate, setLastMotionUpdate] = useState<Map<string, number>>(new Map());
+
+  // Selection sensitivity constants
+  const ROTATION_THRESHOLD = 15; // degrees (turn head left/right beyond this to move)
+  const PITCH_THRESHOLD = 10; // degrees (tilt head up/down beyond this to move)
+  const MOTION_UPDATE_INTERVAL = 100; // ms between cursor updates (10Hz)
+  const SMOOTHING_FACTOR = 0.3; // 0-1, higher = more smooth but slower response
+  const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
+  const PUSH_HOLD_TIME_MS = 4000; // 4 seconds hold time
   const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
   const POST_PUSH_DELAY_MS = 3000; // 3 second cooldown after releasing push
 
-  // Initialize headset selections and cursor positions
+  // Initialize headset selections
   useEffect(() => {
     const newSelections = new Map<string, HeadsetSelection>();
-    const newCursorPositions = new Map<string, number>();
-    connectedHeadsets.forEach(headsetId => {
-      if (!headsetSelections.has(headsetId)) {
+
+    connectedHeadsets.forEach((headsetId) => {
+      const existing = headsetSelections.get(headsetId);
+      if (existing) {
+        newSelections.set(headsetId, existing);
+      } else {
         newSelections.set(headsetId, {
           headsetId,
           imageId: null,
-          focusedIndex: 0
+          focusedIndex: 4, // start at center cell
         });
-        newCursorPositions.set(headsetId, 0.0); // Start at first image
-      } else {
-        newSelections.set(headsetId, headsetSelections.get(headsetId)!);
-        if (!cursorPosition.has(headsetId)) {
-          newCursorPositions.set(headsetId, 0.0);
-        }
       }
     });
+
     setHeadsetSelections(newSelections);
-    if (newCursorPositions.size > 0) {
-      setCursorPosition(prev => new Map([...prev, ...newCursorPositions]));
-    }
-  }, [connectedHeadsets]);
+  }, [connectedHeadsets, headsetSelections]);
 
   // Handle head turning for smooth cursor-like navigation
   useEffect(() => {
