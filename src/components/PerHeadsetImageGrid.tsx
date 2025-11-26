@@ -44,11 +44,13 @@ export const PerHeadsetImageGrid = ({
   const [smoothedPitch, setSmoothedPitch] = useState<Map<string, number>>(new Map());
   const [lastMotionUpdate, setLastMotionUpdate] = useState<Map<string, number>>(new Map());
 
-  // Selection sensitivity constants
-  const ROTATION_THRESHOLD = 15; // degrees (turn head left/right beyond this to move)
-  const PITCH_THRESHOLD = 10; // degrees (tilt head up/down beyond this to move)
-  const MOTION_UPDATE_INTERVAL = 100; // ms between cursor updates (10Hz)
-  const SMOOTHING_FACTOR = 0.3; // 0-1, higher = more smooth but slower response
+  // Continuous cursor position used by current motion effect (0-1 range per headset)
+  const [cursorPosition, setCursorPosition] = useState<Map<string, number>>(new Map());
+
+  // Motion / selection sensitivity constants
+  const CURSOR_MOVEMENT_SPEED = 0.01; // much higher than 0.00005 so rotation is visible
+  const CURSOR_DEAD_ZONE = 0.05; // smaller dead zone so moderate head turns register
+  const CURSOR_MAX_STEP = 0.15; // allow noticeable jumps but still clamp extremes
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 4000; // 4 seconds hold time
   const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
