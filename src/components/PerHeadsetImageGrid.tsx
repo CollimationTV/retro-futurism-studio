@@ -44,11 +44,11 @@ export const PerHeadsetImageGrid = ({
   const [smoothedPitch, setSmoothedPitch] = useState<Map<string, number>>(new Map());
   const [lastMotionUpdate, setLastMotionUpdate] = useState<Map<string, number>>(new Map());
 
-  // Direct 3x3 grid mapping constants
+  // Direct 3x3 grid mapping constants (matched to Emotiv Gyro Cube demo)
   const ROTATION_THRESHOLD = 12; // degrees (turn head left/right beyond this to move columns)
   const PITCH_THRESHOLD = 8;    // degrees (tilt head up/down beyond this to move rows)
-  const MOTION_UPDATE_INTERVAL = 100; // ms between cursor updates (10Hz)
-  const SMOOTHING_FACTOR = 0.5; // 0-1, higher = more smooth but slower response
+  const MOTION_UPDATE_INTERVAL = 31; // ms between updates (~32Hz to match Gyro Cube)
+  const SMOOTHING_FACTOR = 0.25; // 0-1, tuned for ~1.5 units/sec response speed
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 4000; // 4 seconds hold time
   const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
