@@ -157,9 +157,10 @@ export class MultiHeadsetCortexClient {
     if (message.mot !== undefined && Array.isArray(message.mot)) {
       const headsetId = message.sid ? this.getHeadsetIdBySessionId(message.sid) : 'unknown';
       
-      // Motion data format: [COUNTER_MEMS, INTERPOLATED_MEMS, Q0, Q1, Q2, Q3, ACCX, ACCZ, ACCY, MAGX, MAGY, MAGZ]
+      // 🔧 FIXED: Correct motion data format from Emotiv Cortex API
       // Documentation: https://emotiv.gitbook.io/cortex-api/data-subscription/motion-data
-      const [counter, interp, q0, q1, q2, q3, accX, accZ, accY] = message.mot;
+      // Format: [COUNTER_MEMS, INTERPOLATED_MEMS, Q0, Q1, Q2, Q3, ACCX, ACCY, ACCZ, MAGX, MAGY, MAGZ]
+      const [counter, interp, q0, q1, q2, q3, accX, accY, accZ, magX, magY, magZ] = message.mot;
       
       // Convert quaternion to Euler angles (in degrees)
       // Pitch: vertical head tilt (look up/down) - maps to Y cursor
