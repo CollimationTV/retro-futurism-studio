@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Brain3D } from "@/components/Brain3D";
@@ -21,7 +21,6 @@ const ExcitementLevel3 = () => {
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetricsEvent | null>(null);
   const [artworkScores, setArtworkScores] = useState<Map<number, ArtworkScore>>(new Map());
   const [isComplete, setIsComplete] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
   
   const currentArtwork = artworkAudioPairs[currentArtworkIndex];
   
@@ -92,17 +91,6 @@ const ExcitementLevel3 = () => {
     return () => clearTimeout(timer);
   }, [currentArtworkIndex, isComplete]);
   
-  // Play audio when artwork changes
-  useEffect(() => {
-    if (audioRef.current && currentArtwork) {
-      console.log(`🎵 Playing audio: ${currentArtwork.audioTitle}`);
-      audioRef.current.src = currentArtwork.audioUrl;
-      audioRef.current.play().catch(err => {
-        console.error('Audio playback failed:', err);
-      });
-    }
-  }, [currentArtworkIndex, currentArtwork]);
-  
   // Navigate to next page when complete
   useEffect(() => {
     if (!isComplete) return;
@@ -139,9 +127,6 @@ const ExcitementLevel3 = () => {
       <Brain3D excitement={averageExcitement} className="opacity-15 z-0" />
       
       <Header />
-      
-      {/* Audio element */}
-      <audio ref={audioRef} />
       
       {/* Main content */}
       <div className="container mx-auto px-6 py-12 relative z-10">
@@ -187,7 +172,6 @@ const ExcitementLevel3 = () => {
           {/* Artwork info overlay */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background/95 to-transparent p-6">
             <h2 className="text-3xl font-bold mb-2">{currentArtwork.artworkTitle}</h2>
-            <p className="text-lg text-accent font-mono">🎵 {currentArtwork.audioTitle}</p>
           </div>
           
           {/* Excitement meter overlay */}
