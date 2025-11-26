@@ -95,7 +95,7 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onPerformanc
       };
 
       client.onMotion = (event) => {
-        console.log('Motion from', event.headsetId, '- gyroY:', event.gyroY);
+        console.log('Motion from', event.headsetId, '- pitch:', event.pitch.toFixed(2), 'rotation:', event.rotation.toFixed(2));
         onMotion?.(event);
       };
 

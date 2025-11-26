@@ -27,7 +27,7 @@ const Index = () => {
   };
 
   const handleMotion = (motion: MotionEvent) => {
-    console.log(`🎮 Index received motion: headset=${motion.headsetId.substring(0,8)}, gyroY=${motion.gyroY.toFixed(4)}`);
+    console.log(`🎮 Index received motion: headset=${motion.headsetId.substring(0,8)}, pitch=${motion.pitch.toFixed(2)}°, rotation=${motion.rotation.toFixed(2)}°`);
     setMotionEvent(motion);
     window.dispatchEvent(new CustomEvent('motion-event', { detail: motion }));
   };

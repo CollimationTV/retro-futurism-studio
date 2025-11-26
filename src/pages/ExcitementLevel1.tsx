@@ -7,6 +7,7 @@ import { excitementLevel1Images } from "@/data/excitementImages";
 import { getHeadsetColor } from "@/utils/headsetColors";
 import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
+import { OneEuroFilter, applySensitivityCurve } from "@/utils/OneEuroFilter";
 
 // Selection parameters
 const PUSH_POWER_THRESHOLD = 0.3;
@@ -28,14 +29,15 @@ const ExcitementLevel1 = () => {
   const [pushProgress, setPushProgress] = useState<Map<string, number>>(new Map());
   const [isPushing, setIsPushing] = useState<Map<string, boolean>>(new Map());
   
-  // Gyro calibration per headset
-  const gyroRanges = useRef<Map<string, { min: number; max: number }>>(new Map());
+  // One Euro Filters for smooth cursor control (one per headset, per axis)
+  const pitchFilters = useRef<Map<string, OneEuroFilter>>(new Map());
+  const rotationFilters = useRef<Map<string, OneEuroFilter>>(new Map());
   const pushStartTimes = useRef<Map<string, number>>(new Map());
   
-  // Smoothed gyro values with exponential moving average
-  const smoothedGyro = useRef<Map<string, number>>(new Map());
-  const SMOOTHING_FACTOR = 0.15; // Lower = more smoothing (0.1-0.3 recommended)
-  const DEAD_ZONE = 0.08; // Minimum change required to update focus
+  // Cursor position calibration (center reference point)
+  const centerPitch = useRef<Map<string, number>>(new Map());
+  const centerRotation = useRef<Map<string, number>>(new Map());
+  const SENSITIVITY = 15; // Base cursor sensitivity
 
   // Listen to live motion events from window
   useEffect(() => {
@@ -46,46 +48,59 @@ const ExcitementLevel1 = () => {
       // Skip if already selected
       if (selections.has(headsetId)) return;
       
-      // Auto-calibrate gyro range
-      const currentRange = gyroRanges.current.get(headsetId) || { min: motionData.gyroY, max: motionData.gyroY };
-      currentRange.min = Math.min(currentRange.min, motionData.gyroY);
-      currentRange.max = Math.max(currentRange.max, motionData.gyroY);
-      gyroRanges.current.set(headsetId, currentRange);
+      // Initialize filters for this headset if not exists
+      if (!pitchFilters.current.has(headsetId)) {
+        pitchFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
+        rotationFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
+      }
       
-      // Normalize gyroY to 0-1 range
-      const range = currentRange.max - currentRange.min;
-      const rawNormalized = range > 0.1 
-        ? Math.max(0, Math.min(1, (motionData.gyroY - currentRange.min) / range))
-        : 0.5;
+      // Calibrate center position on first motion
+      if (!centerPitch.current.has(headsetId)) {
+        centerPitch.current.set(headsetId, motionData.pitch);
+        centerRotation.current.set(headsetId, motionData.rotation);
+        console.log(`🎯 Calibrated center for ${headsetId}: pitch=${motionData.pitch.toFixed(2)}°, rotation=${motionData.rotation.toFixed(2)}°`);
+      }
       
-      // Apply exponential moving average for smoothing
-      const prevSmoothed = smoothedGyro.current.get(headsetId) ?? rawNormalized;
-      const newSmoothed = prevSmoothed + SMOOTHING_FACTOR * (rawNormalized - prevSmoothed);
-      smoothedGyro.current.set(headsetId, newSmoothed);
+      // Calculate relative angles from center
+      const relativePitch = motionData.pitch - (centerPitch.current.get(headsetId) || 0);
+      const relativeRotation = motionData.rotation - (centerRotation.current.get(headsetId) || 0);
       
-      // Map to image index with dead zone
-      const imageIndex = Math.floor(newSmoothed * excitementLevel1Images.length);
+      // Apply One Euro Filter for smooth cursor movement
+      const smoothPitch = pitchFilters.current.get(headsetId)!.filter(relativePitch, motionData.time);
+      const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, motionData.time);
+      
+      // Apply sensitivity curves for natural mouse feel
+      const scaledPitch = applySensitivityCurve(smoothPitch, 1.0, 3.0, 20, 15);
+      const scaledRotation = applySensitivityCurve(smoothRotation, 1.0, 3.0, 20, 15);
+      
+      // Map rotation (X axis) to horizontal image position
+      // Rotation ranges approximately -180 to +180 degrees
+      const normalizedX = (scaledRotation * SENSITIVITY) / 180;
+      const clampedX = Math.max(-1, Math.min(1, normalizedX));
+      
+      // Map to grid position (3 columns)
+      const gridX = Math.floor((clampedX + 1) / 2 * 3); // 0, 1, or 2
+      const gridCol = Math.max(0, Math.min(2, gridX));
+      
+      // For now, use middle row (can add pitch-based row selection later)
+      const gridRow = 1; // Middle row
+      
+      // Calculate image index: row * cols + col
+      const imageIndex = gridRow * 3 + gridCol;
       const clampedIndex = Math.max(0, Math.min(excitementLevel1Images.length - 1, imageIndex));
       const imageId = excitementLevel1Images[clampedIndex].id;
       
-      // Only update if focus changed (prevents jitter)
+      // Update focused image
       const currentFocus = focusedImages.get(headsetId);
       if (currentFocus !== imageId) {
-        // Check if the change is significant enough
-        const currentIndex = excitementLevel1Images.findIndex(img => img.id === currentFocus);
-        const indexDiff = Math.abs(clampedIndex - currentIndex);
-        
-        // Allow update if it's a new headset or the change is beyond dead zone
-        if (currentFocus === undefined || indexDiff >= 1) {
-          setFocusedImages(prev => {
-            const updated = new Map(prev);
-            updated.set(headsetId, imageId);
-            return updated;
-          });
-        }
+        setFocusedImages(prev => {
+          const updated = new Map(prev);
+          updated.set(headsetId, imageId);
+          return updated;
+        });
       }
       
-      console.log(`🎯 Gyro navigation ${headsetId}: gyroY=${motionData.gyroY.toFixed(3)}, smoothed=${newSmoothed.toFixed(2)}, focus=${imageId}`);
+      console.log(`🎯 Cursor ${headsetId}: pitch=${smoothPitch.toFixed(1)}°, rotation=${smoothRotation.toFixed(1)}°, focus=${imageId}`);
     }) as EventListener;
 
     window.addEventListener('motion-event', handleMotion);

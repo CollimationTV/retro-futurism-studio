@@ -80,9 +80,9 @@ export const PerHeadsetImageGrid = ({
       console.log('⚠️ No motion event received');
       return;
     }
-    const { gyroY, headsetId } = motionEvent;
+    const { rotation, headsetId } = motionEvent;
     
-    console.log(`🎮 Motion: headset=${headsetId.substring(0,8)}, gyroY=${gyroY.toFixed(4)}`);
+    console.log(`🎮 Motion: headset=${headsetId.substring(0,8)}, rotation=${rotation.toFixed(2)}°`);
     
     const currentSelection = headsetSelections.get(headsetId);
     if (!currentSelection || currentSelection.imageId !== null) return;
@@ -96,21 +96,24 @@ export const PerHeadsetImageGrid = ({
     // Get current cursor position (0-1 normalized)
     const currentPosition = cursorPosition.get(headsetId) ?? 0.0;
     
-    console.log(`📍 Current position: ${currentPosition.toFixed(3)}, gyroY: ${gyroY.toFixed(4)}, dead zone: ${CURSOR_DEAD_ZONE}`);
+    // Normalize rotation (-180 to +180) to movement delta
+    const rotationNormalized = rotation / 180; // -1 to +1
+    
+    console.log(`📍 Current position: ${currentPosition.toFixed(3)}, rotation: ${rotation.toFixed(2)}°, normalized: ${rotationNormalized.toFixed(3)}`);
     
     // Only update if movement exceeds dead zone
-    if (Math.abs(gyroY) < CURSOR_DEAD_ZONE) {
-      console.log(`💤 gyroY ${gyroY.toFixed(4)} below dead zone ${CURSOR_DEAD_ZONE}`);
+    if (Math.abs(rotationNormalized) < CURSOR_DEAD_ZONE) {
+      console.log(`💤 rotation ${rotationNormalized.toFixed(4)} below dead zone ${CURSOR_DEAD_ZONE}`);
       return;
     }
     
     // Calculate delta and clamp to prevent large jumps
-    const rawDelta = gyroY * CURSOR_MOVEMENT_SPEED;
+    const rawDelta = rotationNormalized * CURSOR_MOVEMENT_SPEED;
     const clampedDelta = Math.max(-CURSOR_MAX_STEP, Math.min(CURSOR_MAX_STEP, rawDelta));
     
-    // Calculate new position based on head pan (gyroY)
-    // Positive gyroY = head turned right = cursor moves right
-    // Negative gyroY = head turned left = cursor moves left
+    // Calculate new position based on head pan (rotation)
+    // Positive rotation = head turned right = cursor moves right
+    // Negative rotation = head turned left = cursor moves left
     let newPosition = currentPosition + clampedDelta;
     
     // Clamp position to 0-1 range with wrapping (circular navigation)

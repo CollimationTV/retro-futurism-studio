@@ -85,16 +85,19 @@ const ExcitementLevel3 = () => {
     return () => clearTimeout(timer);
   }, [connectedHeadsets, excitementLevels]);
   
-  // Update excitement levels with DEBUG LOGGING
+  // Update excitement levels from performance metrics (excitement, interest, focus)
   useEffect(() => {
     if (!performanceMetrics) return;
-    const { excitement, headsetId } = performanceMetrics;
+    const { excitement, interest, focus, headsetId } = performanceMetrics;
     
-    console.log(`📊 EXCITEMENT UPDATE: ${headsetId} = ${excitement.toFixed(3)}`);
+    // Calculate combined emotion score from three metrics
+    const combinedScore = (excitement + interest + focus) / 3;
+    
+    console.log(`📊 EMOTION UPDATE: ${headsetId} - excitement=${excitement.toFixed(3)}, interest=${interest.toFixed(3)}, focus=${focus.toFixed(3)}, combined=${combinedScore.toFixed(3)}`);
     
     setExcitementLevels(prev => {
-      const updated = new Map(prev).set(headsetId, excitement);
-      console.log(`  → All excitement levels:`, Array.from(updated.entries()));
+      const updated = new Map(prev).set(headsetId, combinedScore);
+      console.log(`  → All emotion levels:`, Array.from(updated.entries()));
       console.log(`  → Average: ${(Array.from(updated.values()).reduce((a,b) => a+b, 0) / updated.size).toFixed(3)}`);
       return updated;
     });
@@ -200,14 +203,16 @@ const ExcitementLevel3 = () => {
           </h1>
           <div className="glass-panel inline-block px-8 py-4 mt-6 tech-border">
             <p className="text-lg text-foreground font-mono uppercase tracking-wider">
-              → USE HEAD MOTION TO NAVIGATE • PUSH TO SELECT
+              → VISUALIZING COLLECTIVE EMOTIONS
             </p>
             <div className="flex items-center justify-center gap-4 mt-3 text-sm font-mono">
-              <span className="text-primary/80">STATUS:</span>
+              <span className="text-primary/80">EXCITEMENT</span>
+              <span className="text-accent">{(averageExcitement * 100).toFixed(0)}%</span>
+              <span className="text-primary/60">•</span>
+              <span className="text-primary/80">SELECTIONS</span>
               <span className="text-accent">{selections.size}</span>
               <span className="text-primary/60">/</span>
               <span className="text-primary">{connectedHeadsets?.length || 0}</span>
-              <span className="text-primary/60">COMPLETE</span>
             </div>
           </div>
         </div>

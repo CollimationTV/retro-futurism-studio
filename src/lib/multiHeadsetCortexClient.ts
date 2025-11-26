@@ -17,12 +17,12 @@ export interface MentalCommandEvent {
 }
 
 export interface MotionEvent {
-  gyroX: number; // Rotation around X axis
-  gyroY: number; // Rotation around Y axis (head turning left/right)
-  gyroZ: number; // Rotation around Z axis
-  accX: number;  // Acceleration X
-  accY: number;  // Acceleration Y
-  accZ: number;  // Acceleration Z
+  pitch: number;     // Vertical head tilt (look up/down) - Y cursor control
+  roll: number;      // Side-to-side head tilt
+  rotation: number;  // Horizontal head turn (left/right) - X cursor control
+  accX: number;      // Acceleration X
+  accY: number;      // Acceleration Y
+  accZ: number;      // Acceleration Z
   time: number;
   headsetId: string;
 }
@@ -157,25 +157,33 @@ export class MultiHeadsetCortexClient {
     if (message.mot !== undefined && Array.isArray(message.mot)) {
       const headsetId = message.sid ? this.getHeadsetIdBySessionId(message.sid) : 'unknown';
       
-      // mot array format: [Q0, Q1, Q2, Q3, accX, accY, accZ, magX, magY, magZ]
-      // We'll focus on gyro data which comes from quaternions
-      const [q0, q1, q2, q3, accX, accY, accZ] = message.mot;
+      // Motion data format: [COUNTER_MEMS, INTERPOLATED_MEMS, Q0, Q1, Q2, Q3, ACCX, ACCZ, ACCY, MAGX, MAGY, MAGZ]
+      // Documentation: https://emotiv.gitbook.io/cortex-api/data-subscription/motion-data
+      const [counter, interp, q0, q1, q2, q3, accX, accZ, accY] = message.mot;
       
-      // Convert quaternion to Euler angles for easier interpretation
-      // Focus on Y-axis rotation for left/right head turning
-      const gyroY = 2 * (q0 * q2 + q1 * q3);
+      // Convert quaternion to Euler angles (in degrees)
+      // Pitch: vertical head tilt (look up/down) - maps to Y cursor
+      const pitch = Math.asin(Math.max(-1, Math.min(1, 2 * (q0 * q2 - q3 * q1)))) * (180 / Math.PI);
+      
+      // Rotation (Yaw): horizontal head turn (left/right) - maps to X cursor
+      const rotation = Math.atan2(2 * (q0 * q3 + q1 * q2), 1 - 2 * (q2 * q2 + q3 * q3)) * (180 / Math.PI);
+      
+      // Roll: side-to-side head tilt
+      const roll = Math.atan2(2 * (q0 * q1 + q2 * q3), 1 - 2 * (q1 * q1 + q2 * q2)) * (180 / Math.PI);
       
       const event: MotionEvent = {
-        gyroX: 2 * (q0 * q1 - q2 * q3),
-        gyroY: gyroY,
-        gyroZ: 2 * (q0 * q3 + q1 * q2),
+        pitch,
+        roll,
+        rotation,
         accX: accX || 0,
         accY: accY || 0,
         accZ: accZ || 0,
         time: message.time,
-        headsetId: headsetId
+        headsetId
       };
+      
       this.onMotion?.(event);
+      window.dispatchEvent(new CustomEvent('motion-event', { detail: event }));
     }
 
     // Handle performance metrics stream (excitement, engagement, etc.)
