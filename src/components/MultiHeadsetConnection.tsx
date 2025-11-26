@@ -58,17 +58,16 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onPerformanc
     setError(null);
 
     try {
-      await cortexContext.connect(trimmedClientId, trimmedClientSecret);
+      const client = await cortexContext.connect(trimmedClientId, trimmedClientSecret);
       
       toast({
         title: "Connected!",
         description: "Successfully connected to Emotiv Cortex. Now scanning for headsets...",
       });
       
-      // Query available headsets once authenticated
-      if (cortexContext.client) {
-        loadAvailableHeadsets(cortexContext.client);
-      }
+      // Use the returned client directly (no need to wait for React state)
+      console.log('🔍 Loading available headsets with returned client');
+      loadAvailableHeadsets(client);
 
     } catch (err) {
       console.error('Connection error:', err);
@@ -83,9 +82,10 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onPerformanc
 
   const loadAvailableHeadsets = async (client: any) => {
     try {
+      console.log('🔍 Calling client.getAvailableHeadsets()...');
       const headsets = await client.getAvailableHeadsets();
       setAvailableHeadsets(headsets);
-      console.log(`Found ${headsets.length} headset(s)`);
+      console.log(`✅ Found ${headsets.length} headset(s):`, headsets);
       
       if (headsets.length === 0) {
         toast({
@@ -95,9 +95,17 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onPerformanc
         });
       }
     } catch (err) {
-      console.error('Failed to query headsets:', err);
+      console.error('❌ Failed to query headsets:', err);
     }
   };
+
+  // Safety net: Load headsets if they weren't loaded during connect()
+  useEffect(() => {
+    if (cortexContext.status === 'ready' && cortexContext.client && availableHeadsets.length === 0) {
+      console.log('🛡️ Safety net triggered: Loading headsets from useEffect');
+      loadAvailableHeadsets(cortexContext.client);
+    }
+  }, [cortexContext.status, cortexContext.client]);
 
   const handleConnectHeadset = async (headsetId: string) => {
     if (!cortexContext.client) return;

@@ -5,7 +5,7 @@ interface CortexContextType {
   client: MultiHeadsetCortexClient | null;
   status: 'disconnected' | 'connecting' | 'initializing' | 'ready' | 'error';
   connectedHeadsets: string[];
-  connect: (clientId: string, clientSecret: string) => Promise<void>;
+  connect: (clientId: string, clientSecret: string) => Promise<MultiHeadsetCortexClient>;
   disconnect: () => void;
 }
 
@@ -28,10 +28,10 @@ export const CortexProvider = ({ children }: CortexProviderProps) => {
   const [status, setStatus] = useState<'disconnected' | 'connecting' | 'initializing' | 'ready' | 'error'>('disconnected');
   const [connectedHeadsets, setConnectedHeadsets] = useState<string[]>([]);
 
-  const connect = async (clientId: string, clientSecret: string) => {
+  const connect = async (clientId: string, clientSecret: string): Promise<MultiHeadsetCortexClient> => {
     if (client) {
       console.warn('Already connected to Cortex');
-      return;
+      return client;
     }
 
     setStatus('connecting');
@@ -84,9 +84,12 @@ export const CortexProvider = ({ children }: CortexProviderProps) => {
 
     try {
       await newClient.initialize();
+      console.log('✅ CortexContext: Client initialized successfully');
+      return newClient;
     } catch (err) {
       console.error('Failed to initialize Cortex:', err);
       setStatus('error');
+      throw err;
     }
   };
 
