@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Focus, Sparkles, Activity } from "lucide-react";
@@ -39,18 +39,18 @@ export const PerHeadsetImageGrid = ({
   const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
   const [lastPushReleaseTime, setLastPushReleaseTime] = useState<Map<string, number>>(new Map());
 
-  // Motion handling state for smoothed rotation/pitch per headset
-  const [smoothedRotation, setSmoothedRotation] = useState<Map<string, number>>(new Map());
-  const [smoothedPitch, setSmoothedPitch] = useState<Map<string, number>>(new Map());
-  const [lastMotionUpdate, setLastMotionUpdate] = useState<Map<string, number>>(new Map());
+  // Use refs for real-time motion data (no React state delays)
+  const latestMotionData = useRef<Map<string, { rotation: number; pitch: number; timestamp: number }>>(new Map());
+  const smoothedRotation = useRef<Map<string, number>>(new Map());
+  const smoothedPitch = useRef<Map<string, number>>(new Map());
+  const animationFrameId = useRef<number | null>(null);
 
   // Direct 3x3 grid mapping constants tuned for fluid, low-latency feel
   const ROTATION_THRESHOLD = 12; // degrees (turn head left/right beyond this to move columns)
   const PITCH_THRESHOLD = 8;    // degrees (tilt head up/down beyond this to move rows)
-  const MOTION_UPDATE_INTERVAL = 30; // ms between updates (~32Hz to match Gyro Cube)
   const SMOOTHING_FACTOR = 0.25; // light smoothing for responsive movement
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
-  const PUSH_HOLD_TIME_MS = 4000; // 4 seconds hold time for deliberate selection
+  const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
   const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
   const POST_PUSH_DELAY_MS = 3000; // 3 second cooldown after releasing push
 
@@ -81,100 +81,86 @@ export const PerHeadsetImageGrid = ({
     });
   }, [connectedHeadsets]);
 
-  // Handle head motion with direct 3x3 grid mapping
+  // Store incoming motion data (no processing yet)
   useEffect(() => {
-    if (!motionEvent) {
-      console.log('⚠️ No motion event received');
-      return;
-    }
+    if (!motionEvent) return;
     
     const { rotation, pitch, headsetId } = motionEvent;
-    const now = Date.now();
-    
-    // Throttle updates to 10Hz for smoother feel
-    const lastUpdate = lastMotionUpdate.get(headsetId) || 0;
-    if (now - lastUpdate < MOTION_UPDATE_INTERVAL) {
-      return;
-    }
-    setLastMotionUpdate(prev => new Map(prev).set(headsetId, now));
-    
-    console.log(`🎮 MOTION: headset=${headsetId.substring(0,8)}, rotation=${rotation.toFixed(2)}°, pitch=${pitch.toFixed(2)}°`);
-    
-    const currentSelection = headsetSelections.get(headsetId);
-    if (!currentSelection || currentSelection.imageId !== null) return;
+    latestMotionData.current.set(headsetId, {
+      rotation,
+      pitch,
+      timestamp: performance.now()
+    });
+  }, [motionEvent]);
 
-    // FREEZE navigation if this headset is actively pushing
-    if (pushProgress.has(headsetId)) {
-      console.log(`🚫 Motion frozen - PUSH active for ${headsetId.substring(0,8)}`);
-      return;
-    }
+  // 60fps animation loop for real-time cursor control
+  useEffect(() => {
+    const animate = () => {
+      connectedHeadsets.forEach(headsetId => {
+        const motion = latestMotionData.current.get(headsetId);
+        if (!motion) return;
 
-    // Apply exponential smoothing to reduce jitter and make movement fluid
-    const prevRotation = smoothedRotation.get(headsetId) || 0;
-    const prevPitch = smoothedPitch.get(headsetId) || 0;
-    
-    const newRotation = prevRotation * SMOOTHING_FACTOR + rotation * (1 - SMOOTHING_FACTOR);
-    const newPitch = prevPitch * SMOOTHING_FACTOR + pitch * (1 - SMOOTHING_FACTOR);
-    
-    setSmoothedRotation(prev => new Map(prev).set(headsetId, newRotation));
-    setSmoothedPitch(prev => new Map(prev).set(headsetId, newPitch));
-    
-    console.log(`📊 Smoothed: rotation=${newRotation.toFixed(2)}°, pitch=${newPitch.toFixed(2)}°`);
-    
-    // Map rotation and pitch to 3x3 grid (0-8)
-    // Grid layout:
-    // 0 1 2  (top row - head tilted UP)
-    // 3 4 5  (middle row - head level)
-    // 6 7 8  (bottom row - head tilted DOWN)
-    //
-    // Columns: left (head turned LEFT), center, right (head turned RIGHT)
-    
-    let column = 1; // default center
-    if (newRotation < -ROTATION_THRESHOLD) {
-      column = 0; // head turned LEFT → left column
-      console.log(`👈 HEAD LEFT: rotation=${newRotation.toFixed(2)}° → column 0`);
-    } else if (newRotation > ROTATION_THRESHOLD) {
-      column = 2; // head turned RIGHT → right column
-      console.log(`👉 HEAD RIGHT: rotation=${newRotation.toFixed(2)}° → column 2`);
-    }
-    
-    let row = 1; // default middle
-    if (newPitch > PITCH_THRESHOLD) {
-      row = 0; // head tilted UP → top row
-      console.log(`👆 HEAD UP: pitch=${newPitch.toFixed(2)}° → row 0`);
-    } else if (newPitch < -PITCH_THRESHOLD) {
-      row = 2; // head tilted DOWN → bottom row
-      console.log(`👇 HEAD DOWN: pitch=${newPitch.toFixed(2)}° → row 2`);
-    }
-    
-    // Calculate grid index (0-8)
-    const gridIndex = row * 3 + column;
-    
-    console.log(`🎯 Grid position: row=${row}, col=${column} → index=${gridIndex}`);
-    
-    // Update focused image if changed
-    if (gridIndex !== currentSelection.focusedIndex && gridIndex >= 0 && gridIndex < images.length) {
-      console.log(`✅ Headset ${headsetId.substring(0,8)} moved to image ${gridIndex}`);
-      const newSelections = new Map(headsetSelections);
-      newSelections.set(headsetId, {
-        ...currentSelection,
-        focusedIndex: gridIndex
+        const currentSelection = headsetSelections.get(headsetId);
+        if (!currentSelection || currentSelection.imageId !== null) return;
+
+        // FREEZE navigation if this headset is actively pushing
+        if (pushProgress.has(headsetId)) return;
+
+        // Apply exponential smoothing to reduce jitter
+        const prevRotation = smoothedRotation.current.get(headsetId) || 0;
+        const prevPitch = smoothedPitch.current.get(headsetId) || 0;
+        
+        const newRotation = prevRotation * SMOOTHING_FACTOR + motion.rotation * (1 - SMOOTHING_FACTOR);
+        const newPitch = prevPitch * SMOOTHING_FACTOR + motion.pitch * (1 - SMOOTHING_FACTOR);
+        
+        smoothedRotation.current.set(headsetId, newRotation);
+        smoothedPitch.current.set(headsetId, newPitch);
+        
+        // Map rotation and pitch to 3x3 grid (0-8)
+        let column = 1; // default center
+        if (newRotation < -ROTATION_THRESHOLD) {
+          column = 0; // head turned LEFT → left column
+        } else if (newRotation > ROTATION_THRESHOLD) {
+          column = 2; // head turned RIGHT → right column
+        }
+        
+        let row = 1; // default middle
+        if (newPitch > PITCH_THRESHOLD) {
+          row = 0; // head tilted UP → top row
+        } else if (newPitch < -PITCH_THRESHOLD) {
+          row = 2; // head tilted DOWN → bottom row
+        }
+        
+        // Calculate grid index (0-8)
+        const gridIndex = row * 3 + column;
+        
+        // Update focused image if changed
+        if (gridIndex !== currentSelection.focusedIndex && gridIndex >= 0 && gridIndex < images.length) {
+          setHeadsetSelections(prev => {
+            const newSelections = new Map(prev);
+            const current = newSelections.get(headsetId);
+            if (current && current.imageId === null) {
+              newSelections.set(headsetId, {
+                ...current,
+                focusedIndex: gridIndex
+              });
+            }
+            return newSelections;
+          });
+        }
       });
-      setHeadsetSelections(newSelections);
-    }
-  }, [
-    motionEvent, 
-    images.length, 
-    headsetSelections, 
-    pushProgress, 
-    smoothedRotation, 
-    smoothedPitch,
-    lastMotionUpdate,
-    ROTATION_THRESHOLD,
-    PITCH_THRESHOLD,
-    MOTION_UPDATE_INTERVAL,
-    SMOOTHING_FACTOR
-  ]);
+
+      animationFrameId.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameId.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
+    };
+  }, [connectedHeadsets, headsetSelections, pushProgress, images.length, ROTATION_THRESHOLD, PITCH_THRESHOLD, SMOOTHING_FACTOR]);
   
   // Auto-cycle focused image for each headset at a slow, constant pace
   useEffect(() => {
@@ -226,7 +212,7 @@ export const PerHeadsetImageGrid = ({
     }
   }, [mentalCommand]);
 
-  // Handle PUSH command hold-to-select (single-stage: hold for PUSH_HOLD_TIME_MS)
+  // Handle PUSH command hold-to-select
   useEffect(() => {
     if (!mentalCommand) return;
 
@@ -240,21 +226,24 @@ export const PerHeadsetImageGrid = ({
     const existing = pushProgress.get(headsetId);
 
     if (com === "push" && pow >= PUSH_POWER_THRESHOLD) {
-      // Start or continue a hold on the currently focused image
+      // Start or continue hold on currently focused image
       if (!existing || existing.imageId !== focusedImageId) {
         setPushProgress(prev => new Map(prev).set(headsetId, { startTime: now, imageId: focusedImageId }));
       } else {
         const duration = now - existing.startTime;
         if (duration >= PUSH_HOLD_TIME_MS) {
-          // Hold duration reached - lock selection immediately
+          // Hold completed - lock selection
+          console.log(`✅ SELECTION CONFIRMED: Headset ${headsetId.substring(0,8)} selected image ${focusedImageId}`);
+          
           setHeadsetSelections(prev => {
-            const current = prev.get(headsetId);
-            if (!current || current.imageId !== null) return prev;
             const updated = new Map(prev);
-            updated.set(headsetId, {
-              ...current,
-              imageId: existing.imageId,
-            });
+            const current = updated.get(headsetId);
+            if (current && current.imageId === null) {
+              updated.set(headsetId, {
+                ...current,
+                imageId: focusedImageId,
+              });
+            }
             return updated;
           });
 
@@ -270,8 +259,9 @@ export const PerHeadsetImageGrid = ({
         }
       }
     } else {
-      // Push released or below threshold - reset hold progress and record release time
+      // Push released or below threshold - reset
       if (existing) {
+        console.log(`🔄 PUSH RELEASED: Headset ${headsetId.substring(0,8)} released at ${((now - existing.startTime) / 1000).toFixed(1)}s`);
         setLastPushReleaseTime(prev => new Map(prev).set(headsetId, now));
       }
       setPushProgress(prev => {
