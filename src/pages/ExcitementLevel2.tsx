@@ -26,7 +26,6 @@ const ExcitementLevel2 = () => {
   } = location.state || {};
 
   const [selections, setSelections] = useState<Map<string, number>>(new Map());
-  const [cursorPositions, setCursorPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
   const [focusedImages, setFocusedImages] = useState<Map<string, number>>(new Map());
   const [pushProgress, setPushProgress] = useState<Map<string, number>>(new Map());
   const [isPushing, setIsPushing] = useState<Map<string, boolean>>(new Map());
@@ -37,9 +36,12 @@ const ExcitementLevel2 = () => {
   const centerPitch = useRef<Map<string, number>>(new Map());
   const centerRotation = useRef<Map<string, number>>(new Map());
   const imageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const cursorRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   
-  const SENSITIVITY = 2.5;
+  // ULTRA LOW-LATENCY: Direct cursor position storage (no React state for cursor updates)
+  const cursorScreenPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
 
+  // ULTRA LOW-LATENCY: Process motion immediately with direct DOM updates
   useEffect(() => {
     const handleMotion = ((event: CustomEvent<MotionEvent>) => {
       const motionData = event.detail;
@@ -48,9 +50,10 @@ const ExcitementLevel2 = () => {
       if (selections.has(headsetId)) return;
       if (isPushing.get(headsetId)) return;
       
+      // AGGRESSIVE FILTERS for lower latency
       if (!pitchFilters.current.has(headsetId)) {
-        pitchFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
-        rotationFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
+        pitchFilters.current.set(headsetId, new OneEuroFilter(1.5, 0.012, 1.0));
+        rotationFilters.current.set(headsetId, new OneEuroFilter(1.5, 0.012, 1.0));
       }
       
       if (!centerPitch.current.has(headsetId)) {
@@ -61,21 +64,18 @@ const ExcitementLevel2 = () => {
       const relativePitch = motionData.pitch - (centerPitch.current.get(headsetId) || 0);
       const relativeRotation = motionData.rotation - (centerRotation.current.get(headsetId) || 0);
       
-      const smoothPitch = pitchFilters.current.get(headsetId)!.filter(relativePitch, motionData.time);
-      const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, motionData.time);
+      // IMMEDIATE filtering - use performance.now() for high precision
+      const now = performance.now();
+      const smoothPitch = pitchFilters.current.get(headsetId)!.filter(relativePitch, now);
+      const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, now);
       
-      const scaledPitch = applySensitivityCurve(smoothPitch, 1.0, 3.0, 20, 15);
-      const scaledRotation = applySensitivityCurve(smoothRotation, 1.0, 3.0, 20, 15);
+      // DIRECT POSITION MAPPING (not velocity) for instant response
+      const maxAngle = 30; // degrees of head rotation for full screen traversal
+      const screenCenterX = window.innerWidth / 2;
+      const screenCenterY = window.innerHeight / 2;
       
-      // Convert to approximate viewport position
-      const viewportCursorX = 50 + (scaledRotation * SENSITIVITY);
-      const viewportCursorY = 50 + (scaledPitch * SENSITIVITY);
-      const rawClampedX = Math.max(0, Math.min(100, viewportCursorX));
-      const rawClampedY = Math.max(0, Math.min(100, viewportCursorY));
-
-      // Convert to screen pixels
-      let cursorScreenX = (rawClampedX / 100) * window.innerWidth;
-      let cursorScreenY = (rawClampedY / 100) * window.innerHeight;
+      let cursorScreenX = screenCenterX + (smoothRotation / maxAngle) * screenCenterX;
+      let cursorScreenY = screenCenterY + (smoothPitch / maxAngle) * screenCenterY;
 
       // 🔒 Constrain cursor to the 3x3 image grid bounding box
       let minLeft = Infinity;
@@ -95,21 +95,26 @@ const ExcitementLevel2 = () => {
       if (minLeft !== Infinity && maxRight !== -Infinity) {
         cursorScreenX = Math.max(minLeft, Math.min(maxRight, cursorScreenX));
         cursorScreenY = Math.max(minTop, Math.min(maxBottom, cursorScreenY));
+      } else {
+        // Fallback to screen bounds
+        cursorScreenX = Math.max(0, Math.min(window.innerWidth, cursorScreenX));
+        cursorScreenY = Math.max(0, Math.min(window.innerHeight, cursorScreenY));
       }
-
-      const clampedX = (cursorScreenX / window.innerWidth) * 100;
-      const clampedY = (cursorScreenY / window.innerHeight) * 100;
       
-      console.log(`📍 Cursor [${headsetId.slice(-4)}]: pos=(${clampedX.toFixed(1)}, ${clampedY.toFixed(1)}) | pitch=${scaledPitch.toFixed(1)} rot=${scaledRotation.toFixed(1)}`);
+      // Store cursor position in ref (no React state update for cursor!)
+      cursorScreenPositions.current.set(headsetId, { x: cursorScreenX, y: cursorScreenY });
       
-      setCursorPositions(prev => new Map(prev).set(headsetId, { x: clampedX, y: clampedY }));
+      // DIRECT DOM MANIPULATION - bypass React rendering for zero latency
+      const cursorElement = cursorRefs.current.get(headsetId);
+      if (cursorElement) {
+        cursorElement.style.transform = `translate(${cursorScreenX}px, ${cursorScreenY}px)`;
+      }
       
+      // Check which image the cursor is hovering over
       let hoveredImageId: number | undefined;
       for (const [imageId, element] of imageRefs.current.entries()) {
         if (!element) continue;
         const rect = element.getBoundingClientRect();
-        const cursorScreenX = (clampedX / 100) * window.innerWidth;
-        const cursorScreenY = (clampedY / 100) * window.innerHeight;
         
         if (
           cursorScreenX >= rect.left &&
@@ -122,6 +127,7 @@ const ExcitementLevel2 = () => {
         }
       }
       
+      // Only update React state for focus changes (UI feedback only, not cursor position)
       const currentFocus = focusedImages.get(headsetId);
       if (hoveredImageId !== undefined && currentFocus !== hoveredImageId) {
         setFocusedImages(prev => new Map(prev).set(headsetId, hoveredImageId));
@@ -136,7 +142,7 @@ const ExcitementLevel2 = () => {
 
     window.addEventListener('motion-event', handleMotion);
     return () => window.removeEventListener('motion-event', handleMotion);
-  }, [selections, isPushing]);
+  }, [selections, isPushing, focusedImages]);
 
   useEffect(() => {
     const handleMentalCommand = ((event: CustomEvent<MentalCommandEvent>) => {
@@ -288,22 +294,24 @@ const ExcitementLevel2 = () => {
         </div>
       </div>
 
-      {/* Cursor dots */}
-      {Array.from(cursorPositions.entries()).map(([headsetId, pos]) => {
+      {/* ULTRA LOW-LATENCY CURSORS - Direct DOM manipulation via refs */}
+      {connectedHeadsets?.map((headsetId: string) => {
         if (selections.has(headsetId)) return null;
         const color = getHeadsetColor(headsetId);
         return (
           <div
             key={`cursor-${headsetId}`}
-            className="fixed pointer-events-none z-50 transition-all duration-75"
+            ref={(el) => { if (el) cursorRefs.current.set(headsetId, el); }}
+            className="fixed pointer-events-none z-50"
             style={{
-              left: `${pos.x}%`,
-              top: `${pos.y}%`,
-              transform: 'translate(-50%, -50%)'
+              left: 0,
+              top: 0,
+              willChange: 'transform',
+              transform: 'translate(0px, 0px)',
             }}
           >
             <div
-              className="w-8 h-8 rounded-full border-4"
+              className="w-8 h-8 -ml-4 -mt-4 rounded-full border-4"
               style={{
                 borderColor: color,
                 backgroundColor: `${color}40`,
