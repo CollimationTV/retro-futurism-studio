@@ -44,35 +44,42 @@ export const PerHeadsetImageGrid = ({
   const [smoothedPitch, setSmoothedPitch] = useState<Map<string, number>>(new Map());
   const [lastMotionUpdate, setLastMotionUpdate] = useState<Map<string, number>>(new Map());
 
-  // Direct 3x3 grid mapping constants (tuned between fast and slow for fluid feel)
+  // Direct 3x3 grid mapping constants tuned for fluid, low-latency feel
   const ROTATION_THRESHOLD = 12; // degrees (turn head left/right beyond this to move columns)
   const PITCH_THRESHOLD = 8;    // degrees (tilt head up/down beyond this to move rows)
-  const MOTION_UPDATE_INTERVAL = 60; // ms between updates (~16Hz compromise)
-  const SMOOTHING_FACTOR = 0.4; // 0-1, mid smoothing for responsive yet stable movement
+  const MOTION_UPDATE_INTERVAL = 30; // ms between updates (~32Hz to match Gyro Cube)
+  const SMOOTHING_FACTOR = 0.25; // light smoothing for responsive movement
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
-  const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for snappier selection
+  const PUSH_HOLD_TIME_MS = 4000; // 4 seconds hold time for deliberate selection
   const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
   const POST_PUSH_DELAY_MS = 3000; // 3 second cooldown after releasing push
 
   // Initialize headset selections
   useEffect(() => {
-    const newSelections = new Map<string, HeadsetSelection>();
+    setHeadsetSelections(prev => {
+      const updated = new Map(prev);
 
-    connectedHeadsets.forEach((headsetId) => {
-      const existing = headsetSelections.get(headsetId);
-      if (existing) {
-        newSelections.set(headsetId, existing);
-      } else {
-        newSelections.set(headsetId, {
-          headsetId,
-          imageId: null,
-          focusedIndex: 4, // start at center cell
-        });
-      }
+      // Add new headsets with default state
+      connectedHeadsets.forEach(headsetId => {
+        if (!updated.has(headsetId)) {
+          updated.set(headsetId, {
+            headsetId,
+            imageId: null,
+            focusedIndex: 4, // start at center cell
+          });
+        }
+      });
+
+      // Remove headsets that are no longer connected
+      Array.from(updated.keys()).forEach(headsetId => {
+        if (!connectedHeadsets.includes(headsetId)) {
+          updated.delete(headsetId);
+        }
+      });
+
+      return updated;
     });
-
-    setHeadsetSelections(newSelections);
-  }, [connectedHeadsets, headsetSelections]);
+  }, [connectedHeadsets]);
 
   // Handle head motion with direct 3x3 grid mapping
   useEffect(() => {
@@ -224,24 +231,48 @@ export const PerHeadsetImageGrid = ({
     if (!mentalCommand) return;
 
     const { com, headsetId, pow } = mentalCommand;
+    const now = Date.now();
+
     const currentSelection = headsetSelections.get(headsetId);
-    
     if (!currentSelection || currentSelection.imageId !== null) return;
 
     const focusedImageId = images[currentSelection.focusedIndex].id;
+    const existing = pushProgress.get(headsetId);
 
-    if (com === 'push' && pow >= PUSH_POWER_THRESHOLD) {
-      const now = Date.now();
-      const existing = pushProgress.get(headsetId);
-      
-      // Start or update hold timer for this headset on the currently focused image
+    if (com === "push" && pow >= PUSH_POWER_THRESHOLD) {
+      // Start or continue a hold on the currently focused image
       if (!existing || existing.imageId !== focusedImageId) {
         setPushProgress(prev => new Map(prev).set(headsetId, { startTime: now, imageId: focusedImageId }));
+      } else {
+        const duration = now - existing.startTime;
+        if (duration >= PUSH_HOLD_TIME_MS) {
+          // Hold duration reached - lock selection immediately
+          setHeadsetSelections(prev => {
+            const current = prev.get(headsetId);
+            if (!current || current.imageId !== null) return prev;
+            const updated = new Map(prev);
+            updated.set(headsetId, {
+              ...current,
+              imageId: existing.imageId,
+            });
+            return updated;
+          });
+
+          setTriggerParticle(focusedImageId);
+
+          // Clear push state and start cooldown
+          setPushProgress(prev => {
+            const next = new Map(prev);
+            next.delete(headsetId);
+            return next;
+          });
+          setLastPushReleaseTime(prev => new Map(prev).set(headsetId, now));
+        }
       }
     } else {
       // Push released or below threshold - reset hold progress and record release time
-      if (pushProgress.has(headsetId)) {
-        setLastPushReleaseTime(prev => new Map(prev).set(headsetId, Date.now()));
+      if (existing) {
+        setLastPushReleaseTime(prev => new Map(prev).set(headsetId, now));
       }
       setPushProgress(prev => {
         const next = new Map(prev);
@@ -249,46 +280,7 @@ export const PerHeadsetImageGrid = ({
         return next;
       });
     }
-  }, [mentalCommand, images, headsetSelections, pushProgress, PUSH_POWER_THRESHOLD]);
-
-  // Monitor push progress and lock selection after hold duration
-  useEffect(() => {
-    if (pushProgress.size === 0) return;
-
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const newSelections = new Map(headsetSelections);
-      let changed = false;
-
-      pushProgress.forEach((progress, headsetId) => {
-        const duration = now - progress.startTime;
-        if (duration >= PUSH_HOLD_TIME_MS) {
-          // Hold time reached - lock selection
-          const currentSelection = headsetSelections.get(headsetId);
-          if (currentSelection && currentSelection.imageId === null) {
-            newSelections.set(headsetId, {
-              ...currentSelection,
-              imageId: progress.imageId
-            });
-            setTriggerParticle(progress.imageId);
-            changed = true;
-          }
-          // Clear push progress
-          setPushProgress(prev => {
-            const next = new Map(prev);
-            next.delete(headsetId);
-            return next;
-          });
-        }
-      });
-
-      if (changed) {
-        setHeadsetSelections(newSelections);
-      }
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [pushProgress, headsetSelections, PUSH_HOLD_TIME_MS]);
+  }, [mentalCommand, images, headsetSelections, pushProgress, PUSH_POWER_THRESHOLD, PUSH_HOLD_TIME_MS]);
 
   // Check if all selections are complete
   useEffect(() => {
