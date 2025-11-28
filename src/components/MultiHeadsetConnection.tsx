@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,9 +116,6 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onPerformanc
         title: "Headset Connected",
         description: `Successfully connected to headset ${headsetId.substring(0, 8)}...`,
       });
-      
-      // Update connected headsets list
-      updateConnectedHeadsets();
     } catch (err) {
       console.error(`Failed to connect headset ${headsetId}:`, err);
       toast({
@@ -129,16 +126,12 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onPerformanc
     }
   };
 
-  const updateConnectedHeadsets = () => {
+  // Update connected headsets when statuses change
+  useEffect(() => {
     const connectedIds = Array.from(headsetStatuses.entries())
       .filter(([_, status]) => status === 'ready')
       .map(([id, _]) => id);
-    onHeadsetsChange?.(connectedIds);
-  };
-
-  // Update connected headsets when statuses change
-  useEffect(() => {
-    updateConnectedHeadsets();
+    onHeadsetsChangeRef.current?.(connectedIds);
   }, [headsetStatuses]);
 
   const handleDisconnectHeadset = async (headsetId: string) => {
@@ -183,22 +176,38 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onPerformanc
     }
   };
 
-  // Listen to window events from CortexContext
+  // Store callback refs to avoid recreating event listeners
+  const onMentalCommandRef = useRef(onMentalCommand);
+  const onMotionRef = useRef(onMotion);
+  const onPerformanceMetricsRef = useRef(onPerformanceMetrics);
+  const onHeadsetsChangeRef = useRef(onHeadsetsChange);
+  const onConnectionStatusRef = useRef(onConnectionStatus);
+
+  // Update refs when props change (no re-subscription needed)
+  useEffect(() => {
+    onMentalCommandRef.current = onMentalCommand;
+    onMotionRef.current = onMotion;
+    onPerformanceMetricsRef.current = onPerformanceMetrics;
+    onHeadsetsChangeRef.current = onHeadsetsChange;
+    onConnectionStatusRef.current = onConnectionStatus;
+  });
+
+  // Listen to window events from CortexContext - NEVER RE-SUBSCRIBE
   useEffect(() => {
     const handleMentalCommandEvent = (e: CustomEvent) => {
       const event = e.detail as MentalCommandEvent;
       setLastCommands(prev => new Map(prev).set(event.headsetId, event));
-      onMentalCommand?.(event);
+      onMentalCommandRef.current?.(event);
     };
 
     const handleMotionEvent = (e: CustomEvent) => {
       const event = e.detail as MotionEvent;
-      onMotion?.(event);
+      onMotionRef.current?.(event);
     };
 
     const handlePerformanceMetricsEvent = (e: CustomEvent) => {
       const event = e.detail as PerformanceMetricsEvent;
-      onPerformanceMetrics?.(event);
+      onPerformanceMetricsRef.current?.(event);
     };
 
     const handleHeadsetStatusEvent = (e: CustomEvent) => {
@@ -215,17 +224,17 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onPerformanc
       window.removeEventListener('motion-event' as any, handleMotionEvent);
       window.removeEventListener('performance-metrics' as any, handlePerformanceMetricsEvent);
     };
-  }, [onMentalCommand, onMotion, onPerformanceMetrics]);
+  }, []); // Empty deps - never re-subscribe!
 
-  // Sync status from context
+  // Sync status from context - only trigger when STATUS changes
   useEffect(() => {
-    onConnectionStatus?.(cortexContext.status);
-  }, [cortexContext.status, onConnectionStatus]);
+    onConnectionStatusRef.current?.(cortexContext.status);
+  }, [cortexContext.status]);
 
-  // Update connected headsets
+  // Update connected headsets - only trigger when HEADSETS change
   useEffect(() => {
-    onHeadsetsChange?.(cortexContext.connectedHeadsets);
-  }, [cortexContext.connectedHeadsets, onHeadsetsChange]);
+    onHeadsetsChangeRef.current?.(cortexContext.connectedHeadsets);
+  }, [cortexContext.connectedHeadsets]);
 
   const getStatusIcon = (currentStatus: string) => {
     switch (currentStatus) {
