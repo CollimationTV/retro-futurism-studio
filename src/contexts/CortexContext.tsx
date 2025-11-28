@@ -48,17 +48,17 @@ export const CortexProvider = ({ children }: CortexProviderProps) => {
     };
 
     newClient.onMentalCommand = (event: MentalCommandEvent) => {
-      console.log('🧠 CortexContext dispatching mental-command:', event);
+      // High-frequency log removed for performance
       window.dispatchEvent(new CustomEvent('mental-command', { detail: event }));
     };
 
     newClient.onMotion = (event: MotionEvent) => {
-      console.log('🎮 CortexContext dispatching motion-event:', event);
+      // High-frequency log removed for performance
       window.dispatchEvent(new CustomEvent('motion-event', { detail: event }));
     };
 
     newClient.onPerformanceMetrics = (event: PerformanceMetricsEvent) => {
-      console.log('📊 CortexContext dispatching performance-metrics:', event);
+      // High-frequency log removed for performance
       window.dispatchEvent(new CustomEvent('performance-metrics', { detail: event }));
     };
 

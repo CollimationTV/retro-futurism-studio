@@ -118,18 +118,7 @@ export class MultiHeadsetCortexClient {
    * Handle incoming WebSocket messages
    */
   private handleMessage(message: any) {
-    console.log('📨 Received:', message);
-    
-    // 🔍 CRITICAL DEBUG: Log ALL message types
-    if (message.met !== undefined) {
-      console.log('🎯 PERFORMANCE METRICS MESSAGE DETECTED!', message);
-    } else if (message.com !== undefined) {
-      console.log('🧠 Mental command:', message.com);
-    } else if (message.mot !== undefined) {
-      console.log('🎮 Motion:', message.mot);
-    } else {
-      console.log('📋 Other message type:', Object.keys(message));
-    }
+    // High-frequency logs removed for performance
 
     // Handle responses to requests
     if (message.id !== undefined && this.callbacks.has(message.id)) {
@@ -200,13 +189,7 @@ export class MultiHeadsetCortexClient {
         });
       }
       
-      console.log('📊 RAW Performance Metrics from Cortex:', {
-        headsetId,
-        sessionId: message.sid,
-        rawMet: message.met,
-        cols: this.metricsCols,
-        metMap
-      });
+      // High-frequency performance metrics logs removed
       
       // Only use values when their corresponding .isActive flag is true
       const engagement = metMap['eng.isActive'] && metMap['eng'] !== null ? metMap['eng'] : 0;
@@ -228,7 +211,7 @@ export class MultiHeadsetCortexClient {
         headsetId: headsetId
       };
       
-      console.log('🔥 Dispatching performance metrics event:', event);
+      // High-frequency dispatch log removed
       this.onPerformanceMetrics?.(event);
     }
 

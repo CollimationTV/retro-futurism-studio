@@ -82,7 +82,7 @@ export class CortexClient {
    * Handle incoming WebSocket messages
    */
   private handleMessage(message: any) {
-    console.log('📨 Received:', message);
+    // High-frequency log removed for performance
 
     // Handle responses to requests
     if (message.id !== undefined && this.callbacks.has(message.id)) {
