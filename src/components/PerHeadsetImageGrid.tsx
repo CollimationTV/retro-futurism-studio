@@ -48,7 +48,7 @@ export const PerHeadsetImageGrid = ({
 
   // Direct 3x3 grid mapping constants tuned for fluid, low-latency feel
   const ROTATION_THRESHOLD = 12; // degrees (turn head left/right beyond this to move columns)
-  const PITCH_THRESHOLD = 8;    // degrees (tilt head up/down beyond this to move rows)
+  const PITCH_THRESHOLD = 4;    // degrees (tilt head up/down beyond this to move rows) - lowered for easier detection
   const SMOOTHING_FACTOR = 0.25; // light smoothing for responsive movement
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
