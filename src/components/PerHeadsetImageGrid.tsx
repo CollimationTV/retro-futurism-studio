@@ -44,6 +44,7 @@ export const PerHeadsetImageGrid = ({
   const smoothedRotation = useRef<Map<string, number>>(new Map());
   const smoothedPitch = useRef<Map<string, number>>(new Map());
   const animationFrameId = useRef<number | null>(null);
+  const [debugMotion, setDebugMotion] = useState<{ rotation: number; pitch: number; row: number; column: number } | null>(null);
 
   // Direct 3x3 grid mapping constants tuned for fluid, low-latency feel
   const ROTATION_THRESHOLD = 12; // degrees (turn head left/right beyond this to move columns)
@@ -133,7 +134,12 @@ export const PerHeadsetImageGrid = ({
         
         // Calculate grid index (0-8)
         const gridIndex = row * 3 + column;
-        
+
+        // Update debug display (throttled to avoid excessive re-renders)
+        if (connectedHeadsets[0] === headsetId) {
+          setDebugMotion({ rotation: newRotation, pitch: newPitch, row, column });
+        }
+
         // Update focused image if changed
         if (gridIndex !== currentSelection.focusedIndex && gridIndex >= 0 && gridIndex < images.length) {
           setHeadsetSelections(prev => {
@@ -390,6 +396,35 @@ export const PerHeadsetImageGrid = ({
                   {' '}({Math.round(lastCommandReceived.pow * 100)}%)
                   {' '}from {lastCommandReceived.headsetId.substring(0, 8)}...
                 </span>
+              </div>
+            )}
+
+            {/* Motion Debug HUD */}
+            {debugMotion && (
+              <div className="flex items-center justify-center gap-6 p-3 rounded-lg border border-primary/50 bg-primary/5 backdrop-blur-sm font-mono text-xs">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-muted-foreground">ROTATION (L/R)</span>
+                  <span className={`font-bold ${Math.abs(debugMotion.rotation) > ROTATION_THRESHOLD ? 'text-primary' : 'text-foreground'}`}>
+                    {debugMotion.rotation.toFixed(1)}°
+                  </span>
+                  <span className="text-xs text-muted-foreground">({ROTATION_THRESHOLD}° threshold)</span>
+                </div>
+                <div className="h-12 w-px bg-border" />
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-muted-foreground">PITCH (U/D)</span>
+                  <span className={`font-bold ${Math.abs(debugMotion.pitch) > PITCH_THRESHOLD ? 'text-primary' : 'text-foreground'}`}>
+                    {debugMotion.pitch.toFixed(1)}°
+                  </span>
+                  <span className="text-xs text-muted-foreground">({PITCH_THRESHOLD}° threshold)</span>
+                </div>
+                <div className="h-12 w-px bg-border" />
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-muted-foreground">GRID POSITION</span>
+                  <span className="font-bold text-primary">
+                    Row {debugMotion.row}, Col {debugMotion.column}
+                  </span>
+                  <span className="text-xs text-muted-foreground">({debugMotion.row * 3 + debugMotion.column})</span>
+                </div>
               </div>
             )}
           </div>
