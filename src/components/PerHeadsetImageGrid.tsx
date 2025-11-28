@@ -85,8 +85,9 @@ export const PerHeadsetImageGrid = ({
   // Store incoming motion data (no processing yet)
   useEffect(() => {
     if (!motionEvent) return;
-    
+
     const { rotation, pitch, headsetId } = motionEvent;
+    console.log(`📍 Motion received: headset=${headsetId.substring(0,8)}, rotation=${rotation.toFixed(2)}°, pitch=${pitch.toFixed(2)}°`);
     latestMotionData.current.set(headsetId, {
       rotation,
       pitch,
@@ -404,21 +405,21 @@ export const PerHeadsetImageGrid = ({
               </div>
             )}
 
-            {/* Motion Debug HUD */}
-            {debugMotion && (
+            {/* Motion Debug HUD - Always show when headsets connected */}
+            {connectedHeadsets.length > 0 && (
               <div className="flex items-center justify-center gap-6 p-3 rounded-lg border border-primary/50 bg-primary/5 backdrop-blur-sm font-mono text-xs">
                 <div className="flex flex-col items-center gap-1">
                   <span className="text-muted-foreground">ROTATION (L/R)</span>
-                  <span className={`font-bold ${Math.abs(debugMotion.rotation) > ROTATION_THRESHOLD ? 'text-primary' : 'text-foreground'}`}>
-                    {debugMotion.rotation.toFixed(1)}°
+                  <span className={`font-bold ${debugMotion && Math.abs(debugMotion.rotation) > ROTATION_THRESHOLD ? 'text-primary' : 'text-foreground'}`}>
+                    {debugMotion ? debugMotion.rotation.toFixed(1) : '0.0'}°
                   </span>
                   <span className="text-xs text-muted-foreground">({ROTATION_THRESHOLD}° threshold)</span>
                 </div>
                 <div className="h-12 w-px bg-border" />
                 <div className="flex flex-col items-center gap-1">
                   <span className="text-muted-foreground">PITCH (U/D)</span>
-                  <span className={`font-bold ${Math.abs(debugMotion.pitch) > PITCH_THRESHOLD ? 'text-primary' : 'text-foreground'}`}>
-                    {debugMotion.pitch.toFixed(1)}°
+                  <span className={`font-bold ${debugMotion && Math.abs(debugMotion.pitch) > PITCH_THRESHOLD ? 'text-primary' : 'text-foreground'}`}>
+                    {debugMotion ? debugMotion.pitch.toFixed(1) : '0.0'}°
                   </span>
                   <span className="text-xs text-muted-foreground">({PITCH_THRESHOLD}° threshold)</span>
                 </div>
@@ -426,9 +427,9 @@ export const PerHeadsetImageGrid = ({
                 <div className="flex flex-col items-center gap-1">
                   <span className="text-muted-foreground">GRID POSITION</span>
                   <span className="font-bold text-primary">
-                    Row {debugMotion.row}, Col {debugMotion.column}
+                    {debugMotion ? `Row ${debugMotion.row}, Col ${debugMotion.column}` : 'No data'}
                   </span>
-                  <span className="text-xs text-muted-foreground">({debugMotion.row * 3 + debugMotion.column})</span>
+                  <span className="text-xs text-muted-foreground">{debugMotion ? `(${debugMotion.row * 3 + debugMotion.column})` : ''}</span>
                 </div>
               </div>
             )}
