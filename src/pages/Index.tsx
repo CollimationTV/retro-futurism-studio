@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
@@ -21,30 +21,26 @@ const Index = () => {
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'ready' | 'error'>('disconnected');
   const [excitementLevels, setExcitementLevels] = useState<Map<string, number>>(new Map());
 
-  const handleMentalCommand = (command: MentalCommandEvent) => {
+  const handleMentalCommand = useCallback((command: MentalCommandEvent) => {
     setMentalCommand(command);
-  };
+  }, []);
 
-  const handleMotion = (motion: MotionEvent) => {
-    console.log(`🎮 Index received motion: headset=${motion.headsetId.substring(0,8)}, pitch=${motion.pitch.toFixed(2)}°, rotation=${motion.rotation.toFixed(2)}°`);
+  const handleMotion = useCallback((motion: MotionEvent) => {
+    // High-frequency console.log removed for performance
     setMotionEvent(motion);
-  };
+  }, []);
   
-  const handlePerformanceMetrics = (metrics: PerformanceMetricsEvent) => {
-    console.log(`📊 Index handlePerformanceMetrics called:`, {
-      headsetId: metrics.headsetId,
-      excitement: metrics.excitement
-    });
+  const handlePerformanceMetrics = useCallback((metrics: PerformanceMetricsEvent) => {
     setExcitementLevels(prev => new Map(prev).set(metrics.headsetId, metrics.excitement));
-  };
+  }, []);
 
-  const handleHeadsetsChange = (headsetIds: string[]) => {
+  const handleHeadsetsChange = useCallback((headsetIds: string[]) => {
     setConnectedHeadsets(headsetIds);
-  };
+  }, []);
 
-  const handleConnectionStatus = (status: 'disconnected' | 'connecting' | 'initializing' | 'ready' | 'error') => {
+  const handleConnectionStatus = useCallback((status: 'disconnected' | 'connecting' | 'initializing' | 'ready' | 'error') => {
     setConnectionStatus(status === 'initializing' ? 'connecting' : status as any);
-  };
+  }, []);
 
   const handleAllSelected = (selections: Map<string, number>) => {
     navigate("/level2", {
