@@ -40,19 +40,28 @@ const ExcitementLevel1 = () => {
   // ULTRA LOW-LATENCY: Direct cursor position storage (no React state for cursor updates)
   const cursorScreenPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
 
+  // Store state in refs to avoid useEffect re-creation
+  const selectionsRef = useRef(selections);
+  const isPushingRef = useRef(isPushing);
+  const focusedImagesRef = useRef(focusedImages);
+  
+  useEffect(() => { selectionsRef.current = selections; }, [selections]);
+  useEffect(() => { isPushingRef.current = isPushing; }, [isPushing]);
+  useEffect(() => { focusedImagesRef.current = focusedImages; }, [focusedImages]);
+
   // ULTRA LOW-LATENCY: Process motion immediately with direct DOM updates
   useEffect(() => {
     const handleMotion = ((event: CustomEvent<MotionEvent>) => {
       const motionData = event.detail;
       const headsetId = motionData.headsetId;
     
-      if (selections.has(headsetId)) return;
-      if (isPushing.get(headsetId)) return; // Freeze cursor during push
+      if (selectionsRef.current.has(headsetId)) return;
+      if (isPushingRef.current.get(headsetId)) return; // Freeze cursor during push
       
-      // AGGRESSIVE FILTERS for lower latency
+      // MORE AGGRESSIVE FILTERS for even lower latency
       if (!pitchFilters.current.has(headsetId)) {
-        pitchFilters.current.set(headsetId, new OneEuroFilter(1.5, 0.012, 1.0));
-        rotationFilters.current.set(headsetId, new OneEuroFilter(1.5, 0.012, 1.0));
+        pitchFilters.current.set(headsetId, new OneEuroFilter(3.0, 0.001, 1.0));
+        rotationFilters.current.set(headsetId, new OneEuroFilter(3.0, 0.001, 1.0));
       }
       
       if (!centerPitch.current.has(headsetId)) {
@@ -69,7 +78,7 @@ const ExcitementLevel1 = () => {
       const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, now);
       
       // DIRECT POSITION MAPPING (not velocity) for instant response
-      const maxAngle = 30; // degrees of head rotation for full screen traversal
+      const maxAngle = 15; // Reduced from 30° for faster, more responsive cursor movement
       const screenCenterX = window.innerWidth / 2;
       const screenCenterY = window.innerHeight / 2;
       
@@ -127,7 +136,7 @@ const ExcitementLevel1 = () => {
       }
       
       // Only update React state for focus changes (UI feedback only, not cursor position)
-      const currentFocus = focusedImages.get(headsetId);
+      const currentFocus = focusedImagesRef.current.get(headsetId);
       if (hoveredImageId !== undefined && currentFocus !== hoveredImageId) {
         setFocusedImages(prev => new Map(prev).set(headsetId, hoveredImageId));
       } else if (hoveredImageId === undefined && currentFocus !== undefined) {
@@ -141,7 +150,7 @@ const ExcitementLevel1 = () => {
 
     window.addEventListener('motion-event', handleMotion);
     return () => window.removeEventListener('motion-event', handleMotion);
-  }, [selections, isPushing, focusedImages]);
+  }, []); // Empty deps - use refs instead of state
 
   useEffect(() => {
     const handleMentalCommand = ((event: CustomEvent<MentalCommandEvent>) => {

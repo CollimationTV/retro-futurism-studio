@@ -30,6 +30,15 @@ const ExcitementLevel2 = () => {
   const [pushProgress, setPushProgress] = useState<Map<string, number>>(new Map());
   const [isPushing, setIsPushing] = useState<Map<string, boolean>>(new Map());
   
+  // Store state in refs to avoid useEffect re-creation
+  const selectionsRef = useRef(selections);
+  const isPushingRef = useRef(isPushing);
+  const focusedImagesRef = useRef(focusedImages);
+  
+  useEffect(() => { selectionsRef.current = selections; }, [selections]);
+  useEffect(() => { isPushingRef.current = isPushing; }, [isPushing]);
+  useEffect(() => { focusedImagesRef.current = focusedImages; }, [focusedImages]);
+  
   const pitchFilters = useRef<Map<string, OneEuroFilter>>(new Map());
   const rotationFilters = useRef<Map<string, OneEuroFilter>>(new Map());
   const pushStartTimes = useRef<Map<string, number>>(new Map());
@@ -68,13 +77,13 @@ const ExcitementLevel2 = () => {
       lastMotionTime.current.set(headsetId, now);
       motionEventCount.current.set(headsetId, (motionEventCount.current.get(headsetId) || 0) + 1);
       
-      if (selections.has(headsetId)) return;
-      if (isPushing.get(headsetId)) return;
+      if (selectionsRef.current.has(headsetId)) return;
+      if (isPushingRef.current.get(headsetId)) return;
       
-      // AGGRESSIVE FILTERS for lower latency
+      // MORE AGGRESSIVE FILTERS for even lower latency
       if (!pitchFilters.current.has(headsetId)) {
-        pitchFilters.current.set(headsetId, new OneEuroFilter(1.5, 0.012, 1.0));
-        rotationFilters.current.set(headsetId, new OneEuroFilter(1.5, 0.012, 1.0));
+        pitchFilters.current.set(headsetId, new OneEuroFilter(3.0, 0.001, 1.0));
+        rotationFilters.current.set(headsetId, new OneEuroFilter(3.0, 0.001, 1.0));
       }
       
       if (!centerPitch.current.has(headsetId)) {
@@ -90,7 +99,7 @@ const ExcitementLevel2 = () => {
       const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, now);
       
       // DIRECT POSITION MAPPING (not velocity) for instant response
-      const maxAngle = 30; // degrees of head rotation for full screen traversal
+      const maxAngle = 15; // Reduced from 30° for faster, more responsive cursor movement
       const screenCenterX = window.innerWidth / 2;
       const screenCenterY = window.innerHeight / 2;
       
@@ -148,7 +157,7 @@ const ExcitementLevel2 = () => {
       }
       
       // Only update React state for focus changes (UI feedback only, not cursor position)
-      const currentFocus = focusedImages.get(headsetId);
+      const currentFocus = focusedImagesRef.current.get(headsetId);
       if (hoveredImageId !== undefined && currentFocus !== hoveredImageId) {
         setFocusedImages(prev => new Map(prev).set(headsetId, hoveredImageId));
       } else if (hoveredImageId === undefined && currentFocus !== undefined) {
@@ -183,7 +192,7 @@ const ExcitementLevel2 = () => {
       window.removeEventListener('motion-event', handleMotion);
       window.removeEventListener('recalibrate-center', handleRecalibrate);
     };
-  }, [selections, isPushing, focusedImages, connectedHeadsets]);
+  }, []); // Empty deps - use refs instead of state
 
   useEffect(() => {
     const handleMentalCommand = ((event: CustomEvent<MentalCommandEvent>) => {
