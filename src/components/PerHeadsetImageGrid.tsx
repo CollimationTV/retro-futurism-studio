@@ -110,26 +110,31 @@ export const PerHeadsetImageGrid = ({
         // Apply exponential smoothing to reduce jitter
         const prevRotation = smoothedRotation.current.get(headsetId) || 0;
         const prevPitch = smoothedPitch.current.get(headsetId) || 0;
-        
-        const newRotation = prevRotation * SMOOTHING_FACTOR + motion.rotation * (1 - SMOOTHING_FACTOR);
-        const newPitch = prevPitch * SMOOTHING_FACTOR + motion.pitch * (1 - SMOOTHING_FACTOR);
-        
+
+        // SWAPPED: The headset reports pitch/rotation swapped, so we fix it here
+        // What headset calls "rotation" is actually pitch (nod up/down)
+        // What headset calls "pitch" is actually rotation (turn left/right)
+        const newRotation = prevRotation * SMOOTHING_FACTOR + motion.pitch * (1 - SMOOTHING_FACTOR);
+        const newPitch = prevPitch * SMOOTHING_FACTOR + motion.rotation * (1 - SMOOTHING_FACTOR);
+
         smoothedRotation.current.set(headsetId, newRotation);
         smoothedPitch.current.set(headsetId, newPitch);
-        
-        // Map rotation and pitch to 3x3 grid (0-8)
+
+        // Map to 3x3 grid (0-8)
+        // Rotation (turn head left/right) → controls columns (left/right grid movement)
         let column = 1; // default center
         if (newRotation < -ROTATION_THRESHOLD) {
           column = 0; // head turned LEFT → left column
         } else if (newRotation > ROTATION_THRESHOLD) {
           column = 2; // head turned RIGHT → right column
         }
-        
+
+        // Pitch (nod up/down) → controls rows (up/down grid movement)
         let row = 1; // default middle
         if (newPitch > PITCH_THRESHOLD) {
-          row = 0; // head tilted UP → top row
+          row = 0; // head nodded UP → top row
         } else if (newPitch < -PITCH_THRESHOLD) {
-          row = 2; // head tilted DOWN → bottom row
+          row = 2; // head nodded DOWN → bottom row
         }
         
         // Calculate grid index (0-8)
