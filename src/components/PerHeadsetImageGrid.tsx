@@ -60,7 +60,7 @@ export const PerHeadsetImageGrid = ({
   }, [pushProgress]);
 
   // Sensitivity controls - adjustable via UI
-  const [rotationThreshold, setRotationThreshold] = useState(1.5); // Lower default for less neck strain
+  const [rotationThreshold, setRotationThreshold] = useState(0.6); // Very small tilt needed for up/down
   const [pitchThreshold, setPitchThreshold] = useState(2.5);
   const [rollThreshold, setRollThreshold] = useState(3);
   const [manualSelectionMode, setManualSelectionMode] = useState(false); // Operator override for stuck players
