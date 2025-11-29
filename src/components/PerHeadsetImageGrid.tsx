@@ -58,8 +58,8 @@ export const PerHeadsetImageGrid = ({
   }, [pushProgress]);
 
   // Sustained tilt counter settings
-  const [tiltThreshold, setTiltThreshold] = useState(0.1); // Raw motion value to detect tilt
-  const [framesToTrigger, setFramesToTrigger] = useState(3); // Sustained frames before moving
+  const [tiltThreshold, setTiltThreshold] = useState(0.3); // Raw motion value to detect tilt
+  const [framesToTrigger, setFramesToTrigger] = useState(12); // Sustained frames before moving
   const [manualSelectionMode, setManualSelectionMode] = useState(false); // Operator override for stuck players
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
@@ -457,32 +457,32 @@ export const PerHeadsetImageGrid = ({
                  <label className="text-sm font-mono text-muted-foreground">Tilt Threshold</label>
                  <span className="text-sm font-mono text-primary">{tiltThreshold.toFixed(2)}</span>
                </div>
-               <input
-                 type="range"
-                 min="0.05"
-                 max="0.5"
-                 step="0.05"
-                 value={tiltThreshold}
-                 onChange={(e) => setTiltThreshold(Number(e.target.value))}
-                 className="w-full"
-               />
-               <p className="text-xs text-muted-foreground">
-                 Lower = more sensitive (detects smaller head tilts)
-               </p>
-             </div>
+                <input
+                  type="range"
+                  min="0.05"
+                  max="1.0"
+                  step="0.05"
+                  value={tiltThreshold}
+                  onChange={(e) => setTiltThreshold(Number(e.target.value))}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Lower = more sensitive (detects smaller head tilts)
+                </p>
+              </div>
 
-             <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
-               <div className="flex items-center justify-between">
-                 <label className="text-sm font-mono text-muted-foreground">Frames to Trigger</label>
-                 <span className="text-sm font-mono text-primary">{framesToTrigger}</span>
-               </div>
-               <input
-                 type="range"
-                 min="1"
-                 max="10"
-                 step="1"
-                 value={framesToTrigger}
-                 onChange={(e) => setFramesToTrigger(Number(e.target.value))}
+              <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-mono text-muted-foreground">Frames to Trigger</label>
+                  <span className="text-sm font-mono text-primary">{framesToTrigger}</span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="30"
+                  step="1"
+                  value={framesToTrigger}
+                  onChange={(e) => setFramesToTrigger(Number(e.target.value))}
                  className="w-full"
                />
                <p className="text-xs text-muted-foreground">
