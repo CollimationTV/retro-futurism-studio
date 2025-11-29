@@ -44,10 +44,23 @@ export const PerHeadsetImageGrid = ({
   const smoothedRotation = useRef<Map<string, number>>(new Map());
   const smoothedPitch = useRef<Map<string, number>>(new Map());
   const animationFrameId = useRef<number | null>(null);
+  
+  // Refs to avoid effect dependency loops
+  const headsetSelectionsRef = useRef<Map<string, HeadsetSelection>>(new Map());
+  const pushProgressRef = useRef<Map<string, { startTime: number; imageId: number }>>(new Map());
+  
+  // Keep refs in sync with state
+  useEffect(() => {
+    headsetSelectionsRef.current = headsetSelections;
+  }, [headsetSelections]);
+
+  useEffect(() => {
+    pushProgressRef.current = pushProgress;
+  }, [pushProgress]);
 
   // Direct 3x3 grid mapping constants tuned for fluid, low-latency feel
-  const ROTATION_THRESHOLD = 2; // degrees (turn head left/right beyond this to move columns) - 1/3 effort
-  const PITCH_THRESHOLD = 1.5;    // degrees (tilt head up/down beyond this to move rows) - 1/3 effort
+  const ROTATION_THRESHOLD = 2; // degrees (turn head left/right beyond this to move columns) - comfortable
+  const PITCH_THRESHOLD = 3;    // degrees (tilt head up/down beyond this to move rows) - less sensitive for comfort
   const SMOOTHING_FACTOR = 0.5; // Higher smoothing for fluid cursor movement like Emotiv Gyro visualizer
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
@@ -225,11 +238,11 @@ if (newRotation > ROTATION_THRESHOLD) {
     const { com, headsetId, pow } = mentalCommand;
     const now = Date.now();
 
-    const currentSelection = headsetSelections.get(headsetId);
+    const currentSelection = headsetSelectionsRef.current.get(headsetId);
     if (!currentSelection || currentSelection.imageId !== null) return;
 
     const focusedImageId = images[currentSelection.focusedIndex].id;
-    const existing = pushProgress.get(headsetId);
+    const existing = pushProgressRef.current.get(headsetId);
 
     if (com === "push" && pow >= PUSH_POWER_THRESHOLD) {
       // Start or continue hold on currently focused image
@@ -276,7 +289,7 @@ if (newRotation > ROTATION_THRESHOLD) {
         return next;
       });
     }
-  }, [mentalCommand, images, headsetSelections, pushProgress, PUSH_POWER_THRESHOLD, PUSH_HOLD_TIME_MS]);
+  }, [mentalCommand, images, PUSH_POWER_THRESHOLD, PUSH_HOLD_TIME_MS]);
 
   // Check if all selections are complete
   useEffect(() => {
