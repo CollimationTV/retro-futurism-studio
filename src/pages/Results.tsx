@@ -140,7 +140,7 @@ const Results = () => {
                       <div className="aspect-video relative">
                         <img
                           src={image.url}
-                          alt={image.title}
+                          alt={`Level 1 Selection`}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute top-2 left-2">
@@ -157,7 +157,13 @@ const Results = () => {
                         </div>
                       </div>
                       <div className="p-4 bg-card">
-                        <p className="text-sm font-semibold text-center">{image.title}</p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {image.metadata.map((tag, i) => (
+                            <span key={i} className="px-2 py-1 bg-primary/20 border border-primary/50 rounded text-xs font-mono">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </Card>
                   );
@@ -184,7 +190,7 @@ const Results = () => {
                       <div className="aspect-video relative">
                         <img
                           src={image.url}
-                          alt={image.title}
+                          alt={`Level 2 Selection`}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute top-2 left-2">
@@ -201,7 +207,13 @@ const Results = () => {
                         </div>
                       </div>
                       <div className="p-4 bg-card">
-                        <p className="text-sm font-semibold text-center">{image.title}</p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {image.metadata.map((tag, i) => (
+                            <span key={i} className="px-2 py-1 bg-primary/20 border border-primary/50 rounded text-xs font-mono">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </Card>
                   );

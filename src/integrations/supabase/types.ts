@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      images: {
+        Row: {
+          created_at: string | null
+          id: string
+          level: number
+          metadata_tag_1: string
+          metadata_tag_2: string
+          metadata_tag_3: string
+          position: number
+          updated_at: string | null
+          url: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          level: number
+          metadata_tag_1: string
+          metadata_tag_2: string
+          metadata_tag_3: string
+          position: number
+          updated_at?: string | null
+          url: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          level?: number
+          metadata_tag_1?: string
+          metadata_tag_2?: string
+          metadata_tag_3?: string
+          position?: number
+          updated_at?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
       operator_controls: {
         Row: {
           auto_cycle_speed: number | null
@@ -47,6 +83,42 @@ export type Database = {
           push_sensitivity?: number | null
           session_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      videos: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          metadata_tag_1: string
+          metadata_tag_2: string
+          metadata_tag_3: string
+          title: string
+          updated_at: string | null
+          url: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata_tag_1: string
+          metadata_tag_2: string
+          metadata_tag_3: string
+          title: string
+          updated_at?: string | null
+          url: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata_tag_1?: string
+          metadata_tag_2?: string
+          metadata_tag_3?: string
+          title?: string
+          updated_at?: string | null
+          url?: string
         }
         Relationships: []
       }

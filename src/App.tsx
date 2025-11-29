@@ -9,6 +9,7 @@ import SecondSelection from "./pages/SecondSelection";
 import Results from "./pages/Results";
 import ExcitementLevel3 from "./pages/ExcitementLevel3";
 import VideoOutput from "./pages/VideoOutput";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/results" element={<Results />} />
             <Route path="/excitement-level-3" element={<ExcitementLevel3 />} />
             <Route path="/video-output" element={<VideoOutput />} />
+            <Route path="/admin" element={<Admin />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

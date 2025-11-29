@@ -639,9 +639,9 @@ export const PerHeadsetImageGrid = ({
                   }}
                 >
                 <div className="aspect-video relative">
-                  <img
-                    src={image.url}
-                    alt={image.title || `Image ${image.id}`}
+                <img
+                  src={image.url}
+                  alt={`Image ${image.id}`}
                     className={`w-full h-full object-cover`}
                     style={{
                       opacity: pushProgressValue !== undefined ? 1 - pushProgressValue : 1,
@@ -720,12 +720,6 @@ export const PerHeadsetImageGrid = ({
                     </div>
                   )}
                 </div>
-
-                {image.title && (
-                  <div className="p-3 bg-card/80 backdrop-blur-sm">
-                    <p className="text-sm font-semibold text-center">{image.title}</p>
-                  </div>
-                )}
               </Card>
             );
           })}

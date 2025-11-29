@@ -111,7 +111,7 @@ export const SelectableImageGrid = ({
                 <div className="aspect-video relative">
                   <img
                     src={image.url}
-                    alt={image.title || `Image ${image.id}`}
+                    alt={`Image ${image.id}`}
                     className="w-full h-full object-cover"
                   />
                   
@@ -137,12 +137,6 @@ export const SelectableImageGrid = ({
                     </div>
                   )}
                 </div>
-
-                {image.title && (
-                  <div className="p-3 bg-card/80 backdrop-blur-sm">
-                    <p className="text-sm font-semibold text-center">{image.title}</p>
-                  </div>
-                )}
               </Card>
             );
           })}
