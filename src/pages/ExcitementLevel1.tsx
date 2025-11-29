@@ -9,7 +9,6 @@ import { getHeadsetColor } from "@/utils/headsetColors";
 import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
 import { OneEuroFilter, applySensitivityCurve } from "@/utils/OneEuroFilter";
-import { SensitivityControls } from "@/components/SensitivityControls";
 
 const PUSH_POWER_THRESHOLD = 0.3;
 const PUSH_HOLD_TIME_MS = 4000;
@@ -30,20 +29,11 @@ const ExcitementLevel1 = () => {
   const [pushProgress, setPushProgress] = useState<Map<string, number>>(new Map());
   const [isPushing, setIsPushing] = useState<Map<string, boolean>>(new Map());
   
-  // Sensitivity controls state
-  const [rotationThreshold, setRotationThreshold] = useState(0.2);
-  const [pitchThreshold, setPitchThreshold] = useState(0.3);
-  const [rollThreshold, setRollThreshold] = useState(0.3);
-  const [maxAngle, setMaxAngle] = useState(30);
-  const [smoothingFactor, setSmoothingFactor] = useState(0.7);
-  
   const pitchFilters = useRef<Map<string, OneEuroFilter>>(new Map());
   const rotationFilters = useRef<Map<string, OneEuroFilter>>(new Map());
-  const rollFilters = useRef<Map<string, OneEuroFilter>>(new Map());
   const pushStartTimes = useRef<Map<string, number>>(new Map());
   const centerPitch = useRef<Map<string, number>>(new Map());
   const centerRotation = useRef<Map<string, number>>(new Map());
-  const centerRoll = useRef<Map<string, number>>(new Map());
   const imageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const cursorRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   
@@ -68,38 +58,31 @@ const ExcitementLevel1 = () => {
       if (selectionsRef.current.has(headsetId)) return;
       if (isPushingRef.current.get(headsetId)) return; // Freeze cursor during push
       
-      // SMOOTHING FILTERS for slow, deliberate cursor movement
+      // SMOOTHING FILTERS for fluid cursor movement like Emotiv Gyro visualizer
       if (!pitchFilters.current.has(headsetId)) {
-        const minCutoff = 0.5;
-        const beta = 0.001;
-        pitchFilters.current.set(headsetId, new OneEuroFilter(minCutoff, beta, 1.0));
-        rotationFilters.current.set(headsetId, new OneEuroFilter(minCutoff, beta, 1.0));
-        rollFilters.current.set(headsetId, new OneEuroFilter(minCutoff, beta, 1.0));
+        pitchFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0)); // More smoothing for fluid feel
+        rotationFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
       }
       
       if (!centerPitch.current.has(headsetId)) {
         centerPitch.current.set(headsetId, motionData.pitch);
         centerRotation.current.set(headsetId, motionData.rotation);
-        centerRoll.current.set(headsetId, motionData.roll);
       }
       
       const relativePitch = motionData.pitch - (centerPitch.current.get(headsetId) || 0);
       const relativeRotation = motionData.rotation - (centerRotation.current.get(headsetId) || 0);
-      const relativeRoll = motionData.roll - (centerRoll.current.get(headsetId) || 0);
       
       // IMMEDIATE filtering - use performance.now() for high precision
       const now = performance.now();
       const smoothPitch = pitchFilters.current.get(headsetId)!.filter(relativePitch, now);
       const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, now);
-      const smoothRoll = rollFilters.current.get(headsetId)!.filter(relativeRoll, now);
       
       // DIRECT POSITION MAPPING (not velocity) for instant response
+      const maxAngle = 3; // Lower angle = higher sensitivity - reduced for 1/3 effort (smaller movements)
       const screenCenterX = window.innerWidth / 2;
       const screenCenterY = window.innerHeight / 2;
       
-      // Combine pitch and roll for X-axis (horizontal movement)
-      // Combine rotation for Y-axis (vertical movement)
-      let cursorScreenX = screenCenterX + ((smoothPitch + smoothRoll * 0.5) / maxAngle) * screenCenterX;
+      let cursorScreenX = screenCenterX + (smoothPitch / maxAngle) * screenCenterX;
       let cursorScreenY = screenCenterY + (smoothRotation / maxAngle) * screenCenterY;
 
       // 🔒 Constrain cursor to the 3x3 image grid bounding box
@@ -376,19 +359,6 @@ const ExcitementLevel1 = () => {
           </div>
         </div>
       </div>
-
-      <SensitivityControls
-        rotationThreshold={rotationThreshold}
-        pitchThreshold={pitchThreshold}
-        rollThreshold={rollThreshold}
-        maxAngle={maxAngle}
-        smoothingFactor={smoothingFactor}
-        onRotationChange={setRotationThreshold}
-        onPitchChange={setPitchThreshold}
-        onRollChange={setRollThreshold}
-        onMaxAngleChange={setMaxAngle}
-        onSmoothingChange={setSmoothingFactor}
-      />
 
       <div className="fixed inset-0 pointer-events-none z-30 overflow-hidden">
         <div className="absolute w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent animate-scan-line" />
