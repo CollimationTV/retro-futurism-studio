@@ -58,8 +58,8 @@ export const PerHeadsetImageGrid = ({
   }, [pushProgress]);
 
   // Sustained tilt counter settings
-  const [tiltThreshold, setTiltThreshold] = useState(0.3); // Raw motion value to detect tilt
-  const [framesToTrigger, setFramesToTrigger] = useState(12); // Sustained frames before moving
+  const [tiltThreshold, setTiltThreshold] = useState(0.5); // Raw motion value to detect tilt
+  const [framesToTrigger, setFramesToTrigger] = useState(21); // Sustained frames before moving
   const [manualSelectionMode, setManualSelectionMode] = useState(false); // Operator override for stuck players
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
@@ -253,6 +253,9 @@ export const PerHeadsetImageGrid = ({
     }
   }, [mentalCommand]);
 
+  // Track which headsets are actively pushing
+  const activePushHeadsets = useRef<Set<string>>(new Set());
+
   // Handle PUSH command hold-to-select
   useEffect(() => {
     if (!mentalCommand) return;
@@ -267,6 +270,9 @@ export const PerHeadsetImageGrid = ({
     const existing = pushProgressRef.current.get(headsetId);
 
     if (com === "push" && pow >= PUSH_POWER_THRESHOLD) {
+      // Mark headset as actively pushing
+      activePushHeadsets.current.add(headsetId);
+      
       // Start or continue hold on currently focused image
       if (!existing || existing.imageId !== focusedImageId) {
         setPushProgress(prev => new Map(prev).set(headsetId, { startTime: now, imageId: focusedImageId }));
@@ -297,21 +303,57 @@ export const PerHeadsetImageGrid = ({
             return next;
           });
           setLastPushReleaseTime(prev => new Map(prev).set(headsetId, now));
+          activePushHeadsets.current.delete(headsetId);
         }
       }
     } else {
-      // Push released or below threshold - reset
+      // Push released or below threshold - mark as not actively pushing
+      // But don't immediately clear progress - let decay handle it
+      activePushHeadsets.current.delete(headsetId);
       if (existing) {
         console.log(`🔄 PUSH RELEASED: Headset ${headsetId.substring(0,8)} released at ${((now - existing.startTime) / 1000).toFixed(1)}s`);
         setLastPushReleaseTime(prev => new Map(prev).set(headsetId, now));
       }
-      setPushProgress(prev => {
-        const next = new Map(prev);
-        next.delete(headsetId);
-        return next;
-      });
     }
   }, [mentalCommand, images, PUSH_POWER_THRESHOLD, PUSH_HOLD_TIME_MS]);
+
+  // Gradual decay of push progress when not actively pushing
+  useEffect(() => {
+    const DECAY_INTERVAL_MS = 50; // Decay every 50ms
+    const DECAY_AMOUNT_MS = 150; // Reduce by 150ms each tick (~2 seconds to fully decay)
+    
+    const decayInterval = setInterval(() => {
+      setPushProgress(prev => {
+        const updated = new Map(prev);
+        let hasChanges = false;
+        
+        for (const [headsetId, progress] of updated.entries()) {
+          // Only decay if headset is not actively pushing
+          if (!activePushHeadsets.current.has(headsetId)) {
+            const elapsed = Date.now() - progress.startTime;
+            const decayed = elapsed - DECAY_AMOUNT_MS;
+            
+            if (decayed <= 0) {
+              // Fully decayed - remove
+              updated.delete(headsetId);
+              hasChanges = true;
+            } else {
+              // Adjust start time to simulate decay
+              updated.set(headsetId, {
+                ...progress,
+                startTime: progress.startTime + DECAY_AMOUNT_MS
+              });
+              hasChanges = true;
+            }
+          }
+        }
+        
+        return hasChanges ? updated : prev;
+      });
+    }, DECAY_INTERVAL_MS);
+    
+    return () => clearInterval(decayInterval);
+  }, []);
 
   // Check if all selections are complete
   useEffect(() => {
