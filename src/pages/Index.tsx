@@ -65,7 +65,7 @@ const Index = () => {
   // Calculate average excitement for brain visualization
   const averageExcitement = Array.from(excitementLevels.values()).reduce((sum, val) => sum + val, 0) / Math.max(excitementLevels.size, 1);
   
-  console.log(`🧠 Brain excitement: ${(averageExcitement * 100).toFixed(1)}%, levels:`, Object.fromEntries(excitementLevels));
+  // console.log(`🧠 Brain excitement: ${(averageExcitement * 100).toFixed(1)}%, levels:`, Object.fromEntries(excitementLevels));
 
   return (
     <div className="min-h-screen relative">
