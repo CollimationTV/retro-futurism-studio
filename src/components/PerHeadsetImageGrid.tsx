@@ -41,10 +41,7 @@ export const PerHeadsetImageGrid = ({
 
   // Use refs for real-time motion data (no React state delays)
   const latestMotionData = useRef<Map<string, { rotation: number; pitch: number; roll: number; timestamp: number }>>(new Map());
-  const smoothedRotation = useRef<Map<string, number>>(new Map());
-  const smoothedPitch = useRef<Map<string, number>>(new Map());
-  const smoothedRoll = useRef<Map<string, number>>(new Map());
-  const lastStepTime = useRef<Map<string, number>>(new Map()); // Track last step time for cooldown
+  const tiltCounters = useRef<Map<string, number>>(new Map()); // Sustained tilt counter per headset
   const animationFrameId = useRef<number | null>(null);
   
   // Refs to avoid effect dependency loops
@@ -60,11 +57,10 @@ export const PerHeadsetImageGrid = ({
     pushProgressRef.current = pushProgress;
   }, [pushProgress]);
 
-  // Discrete step sensitivity - minimal movement to trigger step
-  const [stepThreshold, setStepThreshold] = useState(3.0); // Single threshold for all directions
+  // Sustained tilt counter settings
+  const [tiltThreshold, setTiltThreshold] = useState(0.1); // Raw motion value to detect tilt
+  const [framesToTrigger, setFramesToTrigger] = useState(3); // Sustained frames before moving
   const [manualSelectionMode, setManualSelectionMode] = useState(false); // Operator override for stuck players
-  const SMOOTHING_FACTOR = 0.5; // Smoothing to reduce jitter
-  const STEP_COOLDOWN_MS = 400; // Cooldown between steps to prevent double-triggers
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
   const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
@@ -110,11 +106,9 @@ export const PerHeadsetImageGrid = ({
     });
   }, [motionEvent]);
 
-  // Discrete step detection - each head movement steps to adjacent box
+  // Horizontal-only sustained tilt navigation
   useEffect(() => {
     const animate = () => {
-      const now = performance.now();
-      
       connectedHeadsets.forEach(headsetId => {
         const motion = latestMotionData.current.get(headsetId);
         if (!motion) return;
@@ -125,72 +119,27 @@ export const PerHeadsetImageGrid = ({
         // FREEZE navigation if this headset is actively pushing
         if (pushProgress.has(headsetId)) return;
 
-        // Check cooldown - prevent rapid double-triggers
-        const lastStep = lastStepTime.current.get(headsetId) || 0;
-        if (now - lastStep < STEP_COOLDOWN_MS) return;
+        const tiltCounter = tiltCounters.current.get(headsetId) || 0;
+        
+        // Convert current index to row/col
+        const currentRow = Math.floor(currentSelection.focusedIndex / 3);
+        const currentCol = currentSelection.focusedIndex % 3;
 
-        // Apply exponential smoothing to reduce jitter
-        const prevRotation = smoothedRotation.current.get(headsetId) || 0;
-        const prevPitch = smoothedPitch.current.get(headsetId) || 0;
-        
-        // SWAPPED: The headset reports pitch/rotation swapped, so we fix it here
-        // What headset calls "rotation" is actually pitch (nod up/down)
-        // What headset calls "pitch" is actually rotation (turn left/right)
-        
-        const DEAD_ZONE = 0.05;
-        const SENSITIVE_RANGE = 0.3;
-        
-        // Process up/down axis (motion.pitch → vertical movement)
-        let pitchValue = motion.pitch;
-        if (Math.abs(pitchValue) < DEAD_ZONE) pitchValue = 0;
-        pitchValue = Math.max(-SENSITIVE_RANGE, Math.min(SENSITIVE_RANGE, pitchValue));
-        const scaledPitch = (pitchValue / SENSITIVE_RANGE) * 1000;
-        
-        // Process left/right axis (motion.rotation → horizontal movement)
-        let rotationValue = motion.rotation;
-        if (Math.abs(rotationValue) < DEAD_ZONE) rotationValue = 0;
-        rotationValue = Math.max(-SENSITIVE_RANGE, Math.min(SENSITIVE_RANGE, rotationValue));
-        const scaledRotation = (rotationValue / SENSITIVE_RANGE) * 1000;
-        
-        const newRotation = prevRotation * SMOOTHING_FACTOR + scaledPitch * (1 - SMOOTHING_FACTOR);
-        const newPitch = prevPitch * SMOOTHING_FACTOR + scaledRotation * (1 - SMOOTHING_FACTOR);
-        
-        smoothedRotation.current.set(headsetId, newRotation);
-        smoothedPitch.current.set(headsetId, newPitch);
-        
-        // Detect discrete steps - check if motion crosses threshold in any direction
-        let rowDelta = 0;
-        let colDelta = 0;
-        
-        // Up/Down detection (rotation axis)
-        if (newRotation > stepThreshold) {
-          rowDelta = -1; // Move UP
-        } else if (newRotation < -stepThreshold) {
-          rowDelta = 1; // Move DOWN
-        }
-        
-        // Left/Right detection (pitch axis)
-        if (newPitch < -stepThreshold) {
-          colDelta = -1; // Move LEFT
-        } else if (newPitch > stepThreshold) {
-          colDelta = 1; // Move RIGHT
-        }
-        
-        // If motion detected in any direction, step to adjacent box
-        if (rowDelta !== 0 || colDelta !== 0) {
-          // Convert current index to row/col
-          const currentRow = Math.floor(currentSelection.focusedIndex / 3);
-          const currentCol = currentSelection.focusedIndex % 3;
+        // Detect sustained rightward tilt
+        if (motion.rotation > tiltThreshold) {
+          const newCount = tiltCounter + 1;
+          tiltCounters.current.set(headsetId, newCount);
           
-          // Calculate new position with boundary clamping
-          const newRow = Math.max(0, Math.min(2, currentRow + rowDelta));
-          const newCol = Math.max(0, Math.min(2, currentCol + colDelta));
-          
-          // Convert back to grid index
-          const newIndex = newRow * 3 + newCol;
-          
-          // Only update if position actually changed (we hit a boundary)
-          if (newIndex !== currentSelection.focusedIndex && newIndex >= 0 && newIndex < images.length) {
+          if (newCount >= framesToTrigger) {
+            // Move RIGHT, wrap to next row if needed
+            let newCol = currentCol + 1;
+            let newRow = currentRow;
+            if (newCol >= 3) {
+              newCol = 0;
+              newRow = (newRow + 1) % 3;
+            }
+            const newIndex = newRow * 3 + newCol;
+            
             setHeadsetSelections(prev => {
               const newSelections = new Map(prev);
               const current = newSelections.get(headsetId);
@@ -203,9 +152,42 @@ export const PerHeadsetImageGrid = ({
               return newSelections;
             });
             
-            // Record step time for cooldown
-            lastStepTime.current.set(headsetId, now);
+            tiltCounters.current.set(headsetId, 0); // Reset counter after move
           }
+        } 
+        // Detect sustained leftward tilt
+        else if (motion.rotation < -tiltThreshold) {
+          const newCount = tiltCounter + 1;
+          tiltCounters.current.set(headsetId, newCount);
+          
+          if (newCount >= framesToTrigger) {
+            // Move LEFT, wrap to prev row if needed
+            let newCol = currentCol - 1;
+            let newRow = currentRow;
+            if (newCol < 0) {
+              newCol = 2;
+              newRow = (newRow - 1 + 3) % 3;
+            }
+            const newIndex = newRow * 3 + newCol;
+            
+            setHeadsetSelections(prev => {
+              const newSelections = new Map(prev);
+              const current = newSelections.get(headsetId);
+              if (current && current.imageId === null) {
+                newSelections.set(headsetId, {
+                  ...current,
+                  focusedIndex: newIndex
+                });
+              }
+              return newSelections;
+            });
+            
+            tiltCounters.current.set(headsetId, 0); // Reset counter after move
+          }
+        }
+        // Head returned to neutral - reset counter
+        else {
+          tiltCounters.current.set(headsetId, 0);
         }
       });
 
@@ -219,7 +201,7 @@ export const PerHeadsetImageGrid = ({
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [connectedHeadsets, headsetSelections, pushProgress, images.length, stepThreshold, SMOOTHING_FACTOR, STEP_COOLDOWN_MS]);
+  }, [connectedHeadsets, headsetSelections, pushProgress, tiltThreshold, framesToTrigger]);
   
   // Auto-cycle focused image for each headset at a slow, constant pace
   useEffect(() => {
@@ -453,41 +435,60 @@ export const PerHeadsetImageGrid = ({
           <p className="text-muted-foreground mb-4">{description}</p>
           
           <div className="flex flex-col gap-3">
-          <div className={`flex items-center justify-center gap-6 p-4 rounded-lg border ${pushFlash ? 'border-primary bg-primary/20 scale-105' : 'border-primary/30 bg-card/50'} backdrop-blur-sm transition-all duration-300`}>
-             <div className="flex items-center gap-2">
-                <Focus className="h-5 w-5 text-primary" />
-                <span className="text-sm font-mono">
-                  Tilt head UP/DOWN or LEFT/RIGHT to navigate • Hold <span className="text-primary font-bold">PUSH</span> to select
-                </span>
-             </div>
-             <div className="h-4 w-px bg-border" />
-             <div className="flex items-center gap-2">
-                 <CheckCircle2 className="h-5 w-5 text-primary" />
+             <div className={`flex items-center justify-center gap-6 p-4 rounded-lg border ${pushFlash ? 'border-primary bg-primary/20 scale-105' : 'border-primary/30 bg-card/50'} backdrop-blur-sm transition-all duration-300`}>
+              <div className="flex items-center gap-2">
+                 <Focus className="h-5 w-5 text-primary" />
                  <span className="text-sm font-mono">
-                   Selected: <span className="text-primary font-bold">{selectedCount}/{connectedHeadsets.length}</span>
+                   Tilt head LEFT or RIGHT to navigate • Hold <span className="text-primary font-bold">PUSH</span> to select
                  </span>
-               </div>
-            </div>
-
-            {/* Step Sensitivity Control - How much head movement needed to step */}
-            <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-mono text-muted-foreground">Step Sensitivity (All Directions)</label>
-                <span className="text-sm font-mono text-primary">{stepThreshold.toFixed(1)}°</span>
               </div>
-              <input
-                type="range"
-                min="0.5"
-                max="15"
-                step="0.5"
-                value={stepThreshold}
-                onChange={(e) => setStepThreshold(Number(e.target.value))}
-                className="w-full"
-              />
-              <p className="text-xs text-muted-foreground">
-                Lower = more sensitive (less head movement needed) • Higher = less sensitive (more movement needed)
-              </p>
-            </div>
+              <div className="h-4 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-mono">
+                    Selected: <span className="text-primary font-bold">{selectedCount}/{connectedHeadsets.length}</span>
+                  </span>
+                </div>
+             </div>
+
+             {/* Tilt Sensitivity Controls */}
+             <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
+               <div className="flex items-center justify-between">
+                 <label className="text-sm font-mono text-muted-foreground">Tilt Threshold</label>
+                 <span className="text-sm font-mono text-primary">{tiltThreshold.toFixed(2)}</span>
+               </div>
+               <input
+                 type="range"
+                 min="0.05"
+                 max="0.5"
+                 step="0.05"
+                 value={tiltThreshold}
+                 onChange={(e) => setTiltThreshold(Number(e.target.value))}
+                 className="w-full"
+               />
+               <p className="text-xs text-muted-foreground">
+                 Lower = more sensitive (detects smaller head tilts)
+               </p>
+             </div>
+
+             <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
+               <div className="flex items-center justify-between">
+                 <label className="text-sm font-mono text-muted-foreground">Frames to Trigger</label>
+                 <span className="text-sm font-mono text-primary">{framesToTrigger}</span>
+               </div>
+               <input
+                 type="range"
+                 min="1"
+                 max="10"
+                 step="1"
+                 value={framesToTrigger}
+                 onChange={(e) => setFramesToTrigger(Number(e.target.value))}
+                 className="w-full"
+               />
+               <p className="text-xs text-muted-foreground">
+                 Lower = faster (fewer sustained frames needed) • Higher = more deliberate
+               </p>
+             </div>
 
             {/* Manual Selection Mode Toggle */}
             <div className="flex items-center justify-center gap-3 p-3 rounded-lg border border-accent/50 bg-accent/10 backdrop-blur-sm">
