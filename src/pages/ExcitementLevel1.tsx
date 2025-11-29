@@ -78,11 +78,10 @@ const ExcitementLevel1 = () => {
       const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, now);
       
       // DIRECT POSITION MAPPING (not velocity) for instant response
-      const maxAngle = 8; // Lower angle = higher sensitivity (smaller head movements reach screen edges)
+      const maxAngle = 15; // Reduced from 30° for faster, more responsive cursor movement
       const screenCenterX = window.innerWidth / 2;
       const screenCenterY = window.innerHeight / 2;
       
-      // SWAPPED: pitch controls X (horizontal), rotation controls Y (vertical)
       let cursorScreenX = screenCenterX + (smoothPitch / maxAngle) * screenCenterX;
       let cursorScreenY = screenCenterY + (smoothRotation / maxAngle) * screenCenterY;
 
