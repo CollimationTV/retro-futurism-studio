@@ -96,15 +96,15 @@ export const PerHeadsetImageGrid = ({
     });
   }, [connectedHeadsets]);
 
-  // Store incoming motion data (no processing yet)
+  // Store incoming motion data (ONLY horizontal/rotation - ignore pitch and roll)
   useEffect(() => {
     if (!motionEvent) return;
     
-    const { rotation, pitch, roll, headsetId } = motionEvent;
+    const { rotation, headsetId } = motionEvent;
     latestMotionData.current.set(headsetId, {
-      rotation,
-      pitch,
-      roll: roll || 0,
+      rotation, // Only use horizontal head movement
+      pitch: 0, // Explicitly ignore vertical movement
+      roll: 0,  // Explicitly ignore roll
       timestamp: performance.now()
     });
   }, [motionEvent]);
