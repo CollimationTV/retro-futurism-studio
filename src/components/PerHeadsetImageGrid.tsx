@@ -60,9 +60,10 @@ export const PerHeadsetImageGrid = ({
   }, [pushProgress]);
 
   // Sensitivity controls - adjustable via UI
-  const [rotationThreshold, setRotationThreshold] = useState(2);
-  const [pitchThreshold, setPitchThreshold] = useState(3);
+  const [rotationThreshold, setRotationThreshold] = useState(1.5); // Lower default for less neck strain
+  const [pitchThreshold, setPitchThreshold] = useState(2.5);
   const [rollThreshold, setRollThreshold] = useState(3);
+  const [manualSelectionMode, setManualSelectionMode] = useState(false); // Operator override for stuck players
   const SMOOTHING_FACTOR = 0.5; // Higher smoothing for fluid cursor movement like Emotiv Gyro visualizer
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
@@ -371,6 +372,35 @@ export const PerHeadsetImageGrid = ({
 
   const selectedCount = Array.from(headsetSelections.values()).filter(s => s.imageId !== null).length;
 
+  // Manual selection handler for operator override
+  const handleManualSelection = (imageId: number) => {
+    if (!manualSelectionMode) return;
+    
+    // Select this image for the first headset that hasn't selected yet
+    const unselectedHeadset = connectedHeadsets.find(headsetId => {
+      const selection = headsetSelections.get(headsetId);
+      return selection && selection.imageId === null;
+    });
+
+    if (unselectedHeadset) {
+      console.log(`🖱️ MANUAL SELECTION: Operator selected image ${imageId} for headset ${unselectedHeadset.substring(0,8)}`);
+      
+      setHeadsetSelections(prev => {
+        const updated = new Map(prev);
+        const current = updated.get(unselectedHeadset);
+        if (current && current.imageId === null) {
+          updated.set(unselectedHeadset, {
+            ...current,
+            imageId: imageId,
+          });
+        }
+        return updated;
+      });
+
+      setTriggerParticle(imageId);
+    }
+  };
+
   return (
     <section className="py-12 px-6 bg-background/50 relative overflow-hidden">
       {/* Cinematic overlay when all selections complete */}
@@ -418,8 +448,8 @@ export const PerHeadsetImageGrid = ({
                 <label className="text-xs font-mono text-muted-foreground">Rotation (Up/Down)</label>
                 <input
                   type="range"
-                  min="1"
-                  max="10"
+                  min="0.5"
+                  max="20"
                   step="0.5"
                   value={rotationThreshold}
                   onChange={(e) => setRotationThreshold(Number(e.target.value))}
@@ -431,8 +461,8 @@ export const PerHeadsetImageGrid = ({
                 <label className="text-xs font-mono text-muted-foreground">Pitch (Left/Right)</label>
                 <input
                   type="range"
-                  min="1"
-                  max="10"
+                  min="0.5"
+                  max="20"
                   step="0.5"
                   value={pitchThreshold}
                   onChange={(e) => setPitchThreshold(Number(e.target.value))}
@@ -444,8 +474,8 @@ export const PerHeadsetImageGrid = ({
                 <label className="text-xs font-mono text-muted-foreground">Roll (Tilt Side)</label>
                 <input
                   type="range"
-                  min="1"
-                  max="10"
+                  min="0.5"
+                  max="20"
                   step="0.5"
                   value={rollThreshold}
                   onChange={(e) => setRollThreshold(Number(e.target.value))}
@@ -453,6 +483,21 @@ export const PerHeadsetImageGrid = ({
                 />
                 <span className="text-xs font-mono text-primary">{rollThreshold.toFixed(1)}°</span>
               </div>
+            </div>
+
+            {/* Manual Selection Mode Toggle */}
+            <div className="flex items-center justify-center gap-3 p-3 rounded-lg border border-accent/50 bg-accent/10 backdrop-blur-sm">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={manualSelectionMode}
+                  onChange={(e) => setManualSelectionMode(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm font-mono text-accent">
+                  🖱️ Manual Selection Mode {manualSelectionMode && '(ACTIVE - Click images to select)'}
+                </span>
+              </label>
             </div>
 
             {/* Real-time command indicator */}
@@ -500,16 +545,19 @@ export const PerHeadsetImageGrid = ({
             return (
               <Card
                 key={image.id}
+                onClick={() => handleManualSelection(image.id)}
                 className={`
                   relative overflow-hidden cursor-pointer
                   ${isSelected ? 'border-2 shadow-2xl' : 'border-border'}
                   ${isFocused && !isSelected ? 'border-2 shadow-lg' : ''}
+                  ${manualSelectionMode && !isSelected ? 'hover:border-accent hover:scale-105' : ''}
                 `}
                 style={{
                   borderColor: isFocused || isSelected ? headsetColor : undefined,
                   boxShadow: isFocused || isSelected ? `0 20px 40px -15px ${headsetColor}40` : undefined,
                   transform: isFocused && !isSelected ? 'scale(1.05)' : 'scale(1)',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth easing
+                  cursor: manualSelectionMode && !isSelected ? 'pointer' : 'default',
                 }}
               >
                 <div className="aspect-video relative">
