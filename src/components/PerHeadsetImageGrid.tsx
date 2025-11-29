@@ -59,9 +59,9 @@ export const PerHeadsetImageGrid = ({
   }, [pushProgress]);
 
   // Direct 3x3 grid mapping constants tuned for fluid, low-latency feel
-  const ROTATION_THRESHOLD = 2; // degrees (turn head left/right beyond this to move columns) - comfortable
-  const PITCH_THRESHOLD = 3;    // degrees (tilt head up/down beyond this to move rows) - less sensitive for comfort
-  const SMOOTHING_FACTOR = 0.5; // Higher smoothing for fluid cursor movement like Emotiv Gyro visualizer
+  const ROTATION_THRESHOLD = 0.2; // degrees (turn head left/right beyond this to move columns) - 10% sensitivity
+  const PITCH_THRESHOLD = 0.3;    // degrees (tilt head up/down beyond this to move rows) - 10% sensitivity
+  const SMOOTHING_FACTOR = 0.7; // Higher smoothing for slow, deliberate cursor movement
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
   const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
