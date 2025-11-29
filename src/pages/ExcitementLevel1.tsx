@@ -58,10 +58,10 @@ const ExcitementLevel1 = () => {
       if (selectionsRef.current.has(headsetId)) return;
       if (isPushingRef.current.get(headsetId)) return; // Freeze cursor during push
       
-      // SMOOTHING FILTERS for fluid cursor movement like Emotiv Gyro visualizer
+      // SMOOTHING FILTERS for slow, deliberate cursor movement
       if (!pitchFilters.current.has(headsetId)) {
-        pitchFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0)); // More smoothing for fluid feel
-        rotationFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
+        pitchFilters.current.set(headsetId, new OneEuroFilter(0.5, 0.001, 1.0)); // Heavy smoothing for deliberate feel
+        rotationFilters.current.set(headsetId, new OneEuroFilter(0.5, 0.001, 1.0));
       }
       
       if (!centerPitch.current.has(headsetId)) {
@@ -78,7 +78,7 @@ const ExcitementLevel1 = () => {
       const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, now);
       
       // DIRECT POSITION MAPPING (not velocity) for instant response
-      const maxAngle = 3; // Lower angle = higher sensitivity - reduced for 1/3 effort (smaller movements)
+      const maxAngle = 30; // Higher angle = slower cursor movement for deliberate control
       const screenCenterX = window.innerWidth / 2;
       const screenCenterY = window.innerHeight / 2;
       
