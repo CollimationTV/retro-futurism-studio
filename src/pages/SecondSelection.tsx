@@ -45,11 +45,13 @@ const SecondSelection = () => {
   }, []);
 
   const handleAllSelected = (selections: Map<string, number>) => {
-    navigate("/results", {
+    navigate("/excitement-level-3", {
       state: {
         level1Selections,
         level2Selections: selections,
-        connectedHeadsets
+        connectedHeadsets,
+        mentalCommand,
+        motionEvent
       }
     });
   };
@@ -78,7 +80,7 @@ const SecondSelection = () => {
                 Selection Progress
               </div>
               <div className="text-2xl font-bold" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-                Level 2 of 2
+                Level 2 of 3
               </div>
             </div>
 
@@ -100,8 +102,8 @@ const SecondSelection = () => {
         motionEvent={motionEvent}
         connectedHeadsets={connectedHeadsets || []}
         onAllSelected={handleAllSelected}
-        title="Select Your Image - Level 2"
-        description="Each user selects one more image using mind control"
+        title="Level 2: Elements"
+        description="Select an element that speaks to you"
       />
     </div>
 
@@ -114,16 +116,10 @@ const SecondSelection = () => {
           ← Level 1
         </button>
         <button
-          onClick={() => navigate("/excitement-level-3", { state: { connectedHeadsets, mentalCommand, motionEvent } })}
+          onClick={() => navigate("/excitement-level-3", { state: { level1Selections: new Map(), level2Selections: new Map(), connectedHeadsets, mentalCommand, motionEvent } })}
           className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
         >
           → Level 3
-        </button>
-        <button
-          onClick={() => navigate("/audio-emotion", { state: { connectedHeadsets } })}
-          className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
-        >
-          → Audio
         </button>
         <button
           onClick={() => navigate("/video-output")}
