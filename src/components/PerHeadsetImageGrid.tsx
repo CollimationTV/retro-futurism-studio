@@ -136,8 +136,25 @@ export const PerHeadsetImageGrid = ({
         // SWAPPED: The headset reports pitch/rotation swapped, so we fix it here
         // What headset calls "rotation" is actually pitch (nod up/down)
         // What headset calls "pitch" is actually rotation (turn left/right)
-        // Apply 1000x multiplier to pitch for up/down sensitivity
-        const newRotation = prevRotation * SMOOTHING_FACTOR + (motion.pitch * 1000) * (1 - SMOOTHING_FACTOR);
+        
+        // Apply range mapping with dead zone and clamping for up/down sensitivity
+        let pitchValue = motion.pitch;
+        
+        // Dead zone - ignore tiny movements to eliminate jitter
+        const DEAD_ZONE = 0.05;
+        if (Math.abs(pitchValue) < DEAD_ZONE) {
+          pitchValue = 0;
+        }
+        
+        // Clamp to sensitive range - smaller head movements produce larger responses
+        const PITCH_RANGE = 0.3;
+        pitchValue = Math.max(-PITCH_RANGE, Math.min(PITCH_RANGE, pitchValue));
+        
+        // Map from narrow input range (-0.3 to 0.3) to large output scale
+        // This makes a 0.3° tilt produce ~1000 output, easily crossing the threshold
+        const scaledPitch = (pitchValue / PITCH_RANGE) * 1000;
+        
+        const newRotation = prevRotation * SMOOTHING_FACTOR + scaledPitch * (1 - SMOOTHING_FACTOR);
         const newPitch = prevPitch * SMOOTHING_FACTOR + motion.rotation * (1 - SMOOTHING_FACTOR);
         
         smoothedRotation.current.set(headsetId, newRotation);
