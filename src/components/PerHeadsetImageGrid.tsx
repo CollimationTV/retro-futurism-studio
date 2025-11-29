@@ -44,6 +44,7 @@ export const PerHeadsetImageGrid = ({
   const smoothedRotation = useRef<Map<string, number>>(new Map());
   const smoothedPitch = useRef<Map<string, number>>(new Map());
   const smoothedRoll = useRef<Map<string, number>>(new Map());
+  const lastStepTime = useRef<Map<string, number>>(new Map()); // Track last step time for cooldown
   const animationFrameId = useRef<number | null>(null);
   
   // Refs to avoid effect dependency loops
@@ -59,18 +60,11 @@ export const PerHeadsetImageGrid = ({
     pushProgressRef.current = pushProgress;
   }, [pushProgress]);
 
-  // Sensitivity controls - adjustable via UI
-  const [rotationThreshold, setRotationThreshold] = useState(0.6); // Very small tilt needed for up/down
-  const [pitchThreshold, setPitchThreshold] = useState(2.5);
-  const [rollThreshold, setRollThreshold] = useState(3);
-  
-  // Axis scale multipliers - amplify raw motion values
-  const [rotationScale, setRotationScale] = useState(5.0); // Amplify up/down (pitch axis) - default 5x
-  const [pitchScale, setPitchScale] = useState(1.0); // Left/right already works well - default 1x
-  const [rollScale, setRollScale] = useState(1.0); // Roll tilt - default 1x
-  
+  // Discrete step sensitivity - minimal movement to trigger step
+  const [stepThreshold, setStepThreshold] = useState(3.0); // Single threshold for all directions
   const [manualSelectionMode, setManualSelectionMode] = useState(false); // Operator override for stuck players
-  const SMOOTHING_FACTOR = 0.5; // Higher smoothing for fluid cursor movement like Emotiv Gyro visualizer
+  const SMOOTHING_FACTOR = 0.5; // Smoothing to reduce jitter
+  const STEP_COOLDOWN_MS = 400; // Cooldown between steps to prevent double-triggers
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
   const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
@@ -116,9 +110,11 @@ export const PerHeadsetImageGrid = ({
     });
   }, [motionEvent]);
 
-  // 60fps animation loop for real-time cursor control
+  // Discrete step detection - each head movement steps to adjacent box
   useEffect(() => {
     const animate = () => {
+      const now = performance.now();
+      
       connectedHeadsets.forEach(headsetId => {
         const motion = latestMotionData.current.get(headsetId);
         if (!motion) return;
@@ -129,67 +125,71 @@ export const PerHeadsetImageGrid = ({
         // FREEZE navigation if this headset is actively pushing
         if (pushProgress.has(headsetId)) return;
 
+        // Check cooldown - prevent rapid double-triggers
+        const lastStep = lastStepTime.current.get(headsetId) || 0;
+        if (now - lastStep < STEP_COOLDOWN_MS) return;
+
         // Apply exponential smoothing to reduce jitter
         const prevRotation = smoothedRotation.current.get(headsetId) || 0;
         const prevPitch = smoothedPitch.current.get(headsetId) || 0;
-        const prevRoll = smoothedRoll.current.get(headsetId) || 0;
         
         // SWAPPED: The headset reports pitch/rotation swapped, so we fix it here
         // What headset calls "rotation" is actually pitch (nod up/down)
         // What headset calls "pitch" is actually rotation (turn left/right)
         const newRotation = prevRotation * SMOOTHING_FACTOR + motion.pitch * (1 - SMOOTHING_FACTOR);
         const newPitch = prevPitch * SMOOTHING_FACTOR + motion.rotation * (1 - SMOOTHING_FACTOR);
-        const newRoll = prevRoll * SMOOTHING_FACTOR + motion.roll * (1 - SMOOTHING_FACTOR);
-
         
         smoothedRotation.current.set(headsetId, newRotation);
         smoothedPitch.current.set(headsetId, newPitch);
-        smoothedRoll.current.set(headsetId, newRoll);
         
-        // Apply axis scale multipliers to amplify motion values
-        const scaledRotation = newRotation * rotationScale;
-        const scaledPitch = newPitch * pitchScale;
-        const scaledRoll = newRoll * rollScale;
+        // Detect discrete steps - check if motion crosses threshold in any direction
+        let rowDelta = 0;
+        let colDelta = 0;
         
-        // Map rotation, pitch, and roll to 3x3 grid (0-8)
-        // pitch controls column, rotation controls row, roll adds bias
-        let column = 1; // default center
-        if (scaledPitch < -pitchThreshold) {
-          column = 0; // head tilted LEFT → left column
-        } else if (scaledPitch > pitchThreshold) {
-          column = 2; // head tilted RIGHT → right column
+        // Up/Down detection (rotation axis)
+        if (newRotation > stepThreshold) {
+          rowDelta = -1; // Move UP
+        } else if (newRotation < -stepThreshold) {
+          rowDelta = 1; // Move DOWN
         }
-
-        let row = 1; // default middle
-        if (scaledRotation > rotationThreshold) {
-          row = 0; // head turned UP → top row
-        } else if (scaledRotation < -rotationThreshold) {
-          row = 2; // head turned DOWN → bottom row
-        }
-
-        // Roll modifies the selection - adds diagonal bias
-        if (Math.abs(scaledRoll) > rollThreshold) {
-          if (scaledRoll > 0 && column < 2) column++; // roll right → shift column right
-          if (scaledRoll < 0 && column > 0) column--; // roll left → shift column left
-        }
-
         
-        // Calculate grid index (0-8)
-        const gridIndex = row * 3 + column;
+        // Left/Right detection (pitch axis)
+        if (newPitch < -stepThreshold) {
+          colDelta = -1; // Move LEFT
+        } else if (newPitch > stepThreshold) {
+          colDelta = 1; // Move RIGHT
+        }
         
-        // Update focused image if changed
-        if (gridIndex !== currentSelection.focusedIndex && gridIndex >= 0 && gridIndex < images.length) {
-          setHeadsetSelections(prev => {
-            const newSelections = new Map(prev);
-            const current = newSelections.get(headsetId);
-            if (current && current.imageId === null) {
-              newSelections.set(headsetId, {
-                ...current,
-                focusedIndex: gridIndex
-              });
-            }
-            return newSelections;
-          });
+        // If motion detected in any direction, step to adjacent box
+        if (rowDelta !== 0 || colDelta !== 0) {
+          // Convert current index to row/col
+          const currentRow = Math.floor(currentSelection.focusedIndex / 3);
+          const currentCol = currentSelection.focusedIndex % 3;
+          
+          // Calculate new position with boundary clamping
+          const newRow = Math.max(0, Math.min(2, currentRow + rowDelta));
+          const newCol = Math.max(0, Math.min(2, currentCol + colDelta));
+          
+          // Convert back to grid index
+          const newIndex = newRow * 3 + newCol;
+          
+          // Only update if position actually changed (we hit a boundary)
+          if (newIndex !== currentSelection.focusedIndex && newIndex >= 0 && newIndex < images.length) {
+            setHeadsetSelections(prev => {
+              const newSelections = new Map(prev);
+              const current = newSelections.get(headsetId);
+              if (current && current.imageId === null) {
+                newSelections.set(headsetId, {
+                  ...current,
+                  focusedIndex: newIndex
+                });
+              }
+              return newSelections;
+            });
+            
+            // Record step time for cooldown
+            lastStepTime.current.set(headsetId, now);
+          }
         }
       });
 
@@ -203,7 +203,7 @@ export const PerHeadsetImageGrid = ({
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [connectedHeadsets, headsetSelections, pushProgress, images.length, rotationThreshold, pitchThreshold, rollThreshold, rotationScale, pitchScale, rollScale, SMOOTHING_FACTOR]);
+  }, [connectedHeadsets, headsetSelections, pushProgress, images.length, stepThreshold, SMOOTHING_FACTOR, STEP_COOLDOWN_MS]);
   
   // Auto-cycle focused image for each headset at a slow, constant pace
   useEffect(() => {
@@ -453,90 +453,24 @@ export const PerHeadsetImageGrid = ({
                </div>
             </div>
 
-            {/* Sensitivity Controls - Thresholds */}
-            <div className="grid grid-cols-3 gap-4 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-mono text-muted-foreground">Rotation Threshold (Up/Down)</label>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="30"
-                  step="0.5"
-                  value={rotationThreshold}
-                  onChange={(e) => setRotationThreshold(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="text-xs font-mono text-primary">{rotationThreshold.toFixed(1)}°</span>
+            {/* Step Sensitivity Control - How much head movement needed to step */}
+            <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-mono text-muted-foreground">Step Sensitivity (All Directions)</label>
+                <span className="text-sm font-mono text-primary">{stepThreshold.toFixed(1)}°</span>
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-mono text-muted-foreground">Pitch Threshold (Left/Right)</label>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="30"
-                  step="0.5"
-                  value={pitchThreshold}
-                  onChange={(e) => setPitchThreshold(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="text-xs font-mono text-primary">{pitchThreshold.toFixed(1)}°</span>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-mono text-muted-foreground">Roll Threshold (Tilt Side)</label>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="30"
-                  step="0.5"
-                  value={rollThreshold}
-                  onChange={(e) => setRollThreshold(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="text-xs font-mono text-primary">{rollThreshold.toFixed(1)}°</span>
-              </div>
-            </div>
-
-            {/* Axis Scale Controls - Motion Amplification */}
-            <div className="grid grid-cols-3 gap-4 p-4 rounded-lg border border-accent/30 bg-accent/5 backdrop-blur-sm">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-mono text-accent">Rotation Scale (Up/Down Amplify)</label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="10"
-                  step="0.5"
-                  value={rotationScale}
-                  onChange={(e) => setRotationScale(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="text-xs font-mono text-accent">{rotationScale.toFixed(1)}x</span>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-mono text-accent">Pitch Scale (Left/Right Amplify)</label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="10"
-                  step="0.5"
-                  value={pitchScale}
-                  onChange={(e) => setPitchScale(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="text-xs font-mono text-accent">{pitchScale.toFixed(1)}x</span>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-mono text-accent">Roll Scale (Tilt Side Amplify)</label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="10"
-                  step="0.5"
-                  value={rollScale}
-                  onChange={(e) => setRollScale(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="text-xs font-mono text-accent">{rollScale.toFixed(1)}x</span>
-              </div>
+              <input
+                type="range"
+                min="0.5"
+                max="15"
+                step="0.5"
+                value={stepThreshold}
+                onChange={(e) => setStepThreshold(Number(e.target.value))}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                Lower = more sensitive (less head movement needed) • Higher = less sensitive (more movement needed)
+              </p>
             </div>
 
             {/* Manual Selection Mode Toggle */}
