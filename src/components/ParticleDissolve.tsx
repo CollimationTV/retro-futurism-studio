@@ -23,7 +23,7 @@ export const ParticleDissolve = ({ trigger, onComplete }: ParticleDissolveProps)
   useEffect(() => {
     if (!trigger || isAnimating) return;
 
-    console.log('🎆 Particle effect triggered!');
+    // console.log('🎆 Particle effect triggered!');
     setIsAnimating(true);
     
     // Create more particles for better visibility

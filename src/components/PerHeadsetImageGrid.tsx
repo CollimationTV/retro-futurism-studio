@@ -211,7 +211,7 @@ export const PerHeadsetImageGrid = ({
   useEffect(() => {
     if (!mentalCommand) return;
     
-    console.log('Mental command received:', mentalCommand);
+    // console.log('Mental command received:', mentalCommand);
     setLastCommandReceived({
       com: mentalCommand.com,
       pow: mentalCommand.pow,
