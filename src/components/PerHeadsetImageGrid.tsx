@@ -5,6 +5,8 @@ import { CheckCircle2, Focus, Sparkles, Activity } from "lucide-react";
 import { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { ImageData } from "@/data/imageData";
 import { ParticleDissolve } from "./ParticleDissolve";
+import { getHeadsetColor } from "@/utils/headsetColors";
+import { motion } from "framer-motion";
 
 interface HeadsetSelection {
   headsetId: string;
@@ -61,6 +63,7 @@ export const PerHeadsetImageGrid = ({
   const [tiltThreshold, setTiltThreshold] = useState(0.5); // Raw motion value to detect tilt
   const [framesToTrigger, setFramesToTrigger] = useState(21); // Sustained frames before moving
   const [manualSelectionMode, setManualSelectionMode] = useState(false); // Operator override for stuck players
+  const [decaySpeed, setDecaySpeed] = useState(75); // Decay amount in ms per tick (lower = slower decay)
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
   const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
@@ -320,7 +323,7 @@ export const PerHeadsetImageGrid = ({
   // Gradual decay of push progress when not actively pushing
   useEffect(() => {
     const DECAY_INTERVAL_MS = 50; // Decay every 50ms
-    const DECAY_AMOUNT_MS = 150; // Reduce by 150ms each tick (~2 seconds to fully decay)
+    const DECAY_AMOUNT_MS = decaySpeed; // Adjustable decay speed
     
     const decayInterval = setInterval(() => {
       setPushProgress(prev => {
@@ -353,7 +356,7 @@ export const PerHeadsetImageGrid = ({
     }, DECAY_INTERVAL_MS);
     
     return () => clearInterval(decayInterval);
-  }, []);
+  }, [decaySpeed]);
 
   // Check if all selections are complete
   useEffect(() => {
@@ -407,18 +410,6 @@ export const PerHeadsetImageGrid = ({
     });
 
     return { isSelected, isFocused, headsetId, pushProgress: pushProgressValue };
-  };
-
-  const getHeadsetColor = (headsetId: string): string => {
-    const colors = [
-      'hsl(var(--primary))',
-      'hsl(142, 76%, 36%)',
-      'hsl(217, 91%, 60%)',
-      'hsl(280, 67%, 55%)',
-      'hsl(25, 95%, 53%)',
-    ];
-    const index = connectedHeadsets.indexOf(headsetId) % colors.length;
-    return colors[index];
   };
 
   const selectedCount = Array.from(headsetSelections.values()).filter(s => s.imageId !== null).length;
@@ -532,6 +523,25 @@ export const PerHeadsetImageGrid = ({
                </p>
              </div>
 
+             <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
+               <div className="flex items-center justify-between">
+                 <label className="text-sm font-mono text-muted-foreground">Push Decay Speed (ms)</label>
+                 <span className="text-sm font-mono text-primary">{decaySpeed}</span>
+               </div>
+               <input
+                 type="range"
+                 min="25"
+                 max="300"
+                 step="25"
+                 value={decaySpeed}
+                 onChange={(e) => setDecaySpeed(Number(e.target.value))}
+                 className="w-full"
+               />
+               <p className="text-xs text-muted-foreground">
+                 Lower = slower decay (more time to resume push) • Higher = faster decay
+               </p>
+             </div>
+
             {/* Manual Selection Mode Toggle */}
             <div className="flex items-center justify-center gap-3 p-3 rounded-lg border border-accent/50 bg-accent/10 backdrop-blur-sm">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -589,24 +599,27 @@ export const PerHeadsetImageGrid = ({
             const { isSelected, isFocused, headsetId, pushProgress: pushProgressValue } = getImageStatus(image.id);
             const headsetColor = headsetId ? getHeadsetColor(headsetId) : 'hsl(var(--primary))';
 
-            return (
-              <Card
-                key={image.id}
-                onClick={() => handleManualSelection(image.id)}
-                className={`
-                  relative overflow-hidden cursor-pointer
-                  ${isSelected ? 'border-2 shadow-2xl' : 'border-border'}
-                  ${isFocused && !isSelected ? 'border-2 shadow-lg' : ''}
-                  ${manualSelectionMode && !isSelected ? 'hover:border-accent hover:scale-105' : ''}
-                `}
-                style={{
-                  borderColor: isFocused || isSelected ? headsetColor : undefined,
-                  boxShadow: isFocused || isSelected ? `0 20px 40px -15px ${headsetColor}40` : undefined,
-                  transform: isFocused && !isSelected ? 'scale(1.05)' : 'scale(1)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth easing
-                  cursor: manualSelectionMode && !isSelected ? 'pointer' : 'default',
-                }}
-              >
+              return (
+                <Card
+                  key={image.id}
+                  onClick={() => handleManualSelection(image.id)}
+                  className={`
+                    relative overflow-hidden cursor-pointer
+                    ${isSelected ? 'border-2 shadow-2xl' : 'border-border'}
+                    ${isFocused && !isSelected ? 'border-4 shadow-lg' : ''}
+                    ${manualSelectionMode && !isSelected ? 'hover:border-accent hover:scale-105' : ''}
+                  `}
+                  style={{
+                    borderColor: isFocused || isSelected ? headsetColor : undefined,
+                    boxShadow: isFocused || isSelected 
+                      ? `0 0 30px ${headsetColor}, 0 0 60px ${headsetColor}, 0 20px 40px -15px ${headsetColor}40, inset 0 0 20px ${headsetColor}40` 
+                      : undefined,
+                    transform: isFocused && !isSelected ? 'scale(1.05)' : 'scale(1)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    cursor: manualSelectionMode && !isSelected ? 'pointer' : 'default',
+                    animation: isFocused && !isSelected ? 'pulse 1.5s ease-in-out infinite' : undefined,
+                  }}
+                >
                 <div className="aspect-video relative">
                   <img
                     src={image.url}
