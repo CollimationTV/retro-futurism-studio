@@ -136,8 +136,8 @@ export const PerHeadsetImageGrid = ({
         // SWAPPED: The headset reports pitch/rotation swapped, so we fix it here
         // What headset calls "rotation" is actually pitch (nod up/down)
         // What headset calls "pitch" is actually rotation (turn left/right)
-        // Apply 100x multiplier to pitch for up/down sensitivity
-        const newRotation = prevRotation * SMOOTHING_FACTOR + (motion.pitch * 100) * (1 - SMOOTHING_FACTOR);
+        // Apply 1000x multiplier to pitch for up/down sensitivity
+        const newRotation = prevRotation * SMOOTHING_FACTOR + (motion.pitch * 1000) * (1 - SMOOTHING_FACTOR);
         const newPitch = prevPitch * SMOOTHING_FACTOR + motion.rotation * (1 - SMOOTHING_FACTOR);
         
         smoothedRotation.current.set(headsetId, newRotation);
