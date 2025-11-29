@@ -63,6 +63,12 @@ export const PerHeadsetImageGrid = ({
   const [rotationThreshold, setRotationThreshold] = useState(0.6); // Very small tilt needed for up/down
   const [pitchThreshold, setPitchThreshold] = useState(2.5);
   const [rollThreshold, setRollThreshold] = useState(3);
+  
+  // Axis scale multipliers - amplify raw motion values
+  const [rotationScale, setRotationScale] = useState(5.0); // Amplify up/down (pitch axis) - default 5x
+  const [pitchScale, setPitchScale] = useState(1.0); // Left/right already works well - default 1x
+  const [rollScale, setRollScale] = useState(1.0); // Roll tilt - default 1x
+  
   const [manualSelectionMode, setManualSelectionMode] = useState(false); // Operator override for stuck players
   const SMOOTHING_FACTOR = 0.5; // Higher smoothing for fluid cursor movement like Emotiv Gyro visualizer
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
@@ -140,26 +146,31 @@ export const PerHeadsetImageGrid = ({
         smoothedPitch.current.set(headsetId, newPitch);
         smoothedRoll.current.set(headsetId, newRoll);
         
+        // Apply axis scale multipliers to amplify motion values
+        const scaledRotation = newRotation * rotationScale;
+        const scaledPitch = newPitch * pitchScale;
+        const scaledRoll = newRoll * rollScale;
+        
         // Map rotation, pitch, and roll to 3x3 grid (0-8)
         // pitch controls column, rotation controls row, roll adds bias
         let column = 1; // default center
-        if (newPitch < -pitchThreshold) {
+        if (scaledPitch < -pitchThreshold) {
           column = 0; // head tilted LEFT → left column
-        } else if (newPitch > pitchThreshold) {
+        } else if (scaledPitch > pitchThreshold) {
           column = 2; // head tilted RIGHT → right column
         }
 
         let row = 1; // default middle
-        if (newRotation > rotationThreshold) {
+        if (scaledRotation > rotationThreshold) {
           row = 0; // head turned UP → top row
-        } else if (newRotation < -rotationThreshold) {
+        } else if (scaledRotation < -rotationThreshold) {
           row = 2; // head turned DOWN → bottom row
         }
 
         // Roll modifies the selection - adds diagonal bias
-        if (Math.abs(newRoll) > rollThreshold) {
-          if (newRoll > 0 && column < 2) column++; // roll right → shift column right
-          if (newRoll < 0 && column > 0) column--; // roll left → shift column left
+        if (Math.abs(scaledRoll) > rollThreshold) {
+          if (scaledRoll > 0 && column < 2) column++; // roll right → shift column right
+          if (scaledRoll < 0 && column > 0) column--; // roll left → shift column left
         }
 
         
@@ -192,7 +203,7 @@ export const PerHeadsetImageGrid = ({
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [connectedHeadsets, headsetSelections, pushProgress, images.length, rotationThreshold, pitchThreshold, rollThreshold, SMOOTHING_FACTOR]);
+  }, [connectedHeadsets, headsetSelections, pushProgress, images.length, rotationThreshold, pitchThreshold, rollThreshold, rotationScale, pitchScale, rollScale, SMOOTHING_FACTOR]);
   
   // Auto-cycle focused image for each headset at a slow, constant pace
   useEffect(() => {
@@ -442,10 +453,10 @@ export const PerHeadsetImageGrid = ({
                </div>
             </div>
 
-            {/* Sensitivity Controls */}
+            {/* Sensitivity Controls - Thresholds */}
             <div className="grid grid-cols-3 gap-4 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-mono text-muted-foreground">Rotation (Up/Down)</label>
+                <label className="text-xs font-mono text-muted-foreground">Rotation Threshold (Up/Down)</label>
                 <input
                   type="range"
                   min="0.1"
@@ -458,7 +469,7 @@ export const PerHeadsetImageGrid = ({
                 <span className="text-xs font-mono text-primary">{rotationThreshold.toFixed(1)}°</span>
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-mono text-muted-foreground">Pitch (Left/Right)</label>
+                <label className="text-xs font-mono text-muted-foreground">Pitch Threshold (Left/Right)</label>
                 <input
                   type="range"
                   min="0.1"
@@ -471,7 +482,7 @@ export const PerHeadsetImageGrid = ({
                 <span className="text-xs font-mono text-primary">{pitchThreshold.toFixed(1)}°</span>
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-mono text-muted-foreground">Roll (Tilt Side)</label>
+                <label className="text-xs font-mono text-muted-foreground">Roll Threshold (Tilt Side)</label>
                 <input
                   type="range"
                   min="0.1"
@@ -482,6 +493,49 @@ export const PerHeadsetImageGrid = ({
                   className="w-full"
                 />
                 <span className="text-xs font-mono text-primary">{rollThreshold.toFixed(1)}°</span>
+              </div>
+            </div>
+
+            {/* Axis Scale Controls - Motion Amplification */}
+            <div className="grid grid-cols-3 gap-4 p-4 rounded-lg border border-accent/30 bg-accent/5 backdrop-blur-sm">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-mono text-accent">Rotation Scale (Up/Down Amplify)</label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="10"
+                  step="0.5"
+                  value={rotationScale}
+                  onChange={(e) => setRotationScale(Number(e.target.value))}
+                  className="w-full"
+                />
+                <span className="text-xs font-mono text-accent">{rotationScale.toFixed(1)}x</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-mono text-accent">Pitch Scale (Left/Right Amplify)</label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="10"
+                  step="0.5"
+                  value={pitchScale}
+                  onChange={(e) => setPitchScale(Number(e.target.value))}
+                  className="w-full"
+                />
+                <span className="text-xs font-mono text-accent">{pitchScale.toFixed(1)}x</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-mono text-accent">Roll Scale (Tilt Side Amplify)</label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="10"
+                  step="0.5"
+                  value={rollScale}
+                  onChange={(e) => setRollScale(Number(e.target.value))}
+                  className="w-full"
+                />
+                <span className="text-xs font-mono text-accent">{rollScale.toFixed(1)}x</span>
               </div>
             </div>
 
