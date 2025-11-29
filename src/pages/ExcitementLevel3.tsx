@@ -164,14 +164,20 @@ const ExcitementLevel3 = () => {
         <div className="relative w-full max-w-6xl mx-auto aspect-video rounded-lg overflow-hidden border-2 border-primary/30 shadow-2xl">
           <img
             src={currentArtwork.artworkUrl}
-            alt={currentArtwork.artworkTitle}
+            alt={`Artwork ${currentArtwork.id}`}
             className="w-full h-full object-cover animate-fade-in"
             key={currentArtwork.id}
           />
           
-          {/* Artwork info overlay */}
+          {/* Metadata overlay */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background/95 to-transparent p-6">
-            <h2 className="text-3xl font-bold mb-2">{currentArtwork.artworkTitle}</h2>
+            <div className="flex gap-3">
+              {currentArtwork.metadata.map((tag, i) => (
+                <span key={i} className="px-3 py-1 bg-primary/20 border border-primary/50 rounded text-sm font-mono">
+                  {tag}
+                </span>
+              ))}
+            </div>
           </div>
           
           {/* Excitement meter overlay */}
