@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Focus, Sparkles, Activity } from "lucide-react";
+import { CheckCircle2, Focus, Sparkles, Activity, Settings } from "lucide-react";
 import { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { ImageData } from "@/data/imageData";
 import { ParticleDissolve } from "./ParticleDissolve";
@@ -64,6 +64,7 @@ export const PerHeadsetImageGrid = ({
   const [framesToTrigger, setFramesToTrigger] = useState(21); // Sustained frames before moving
   const [manualSelectionMode, setManualSelectionMode] = useState(false); // Operator override for stuck players
   const [decaySpeed, setDecaySpeed] = useState(75); // Decay amount in ms per tick (lower = slower decay)
+  const [showSettings, setShowSettings] = useState(false); // Toggle settings panel visibility
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
   const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
@@ -400,9 +401,9 @@ export const PerHeadsetImageGrid = ({
       if (images[selection.focusedIndex]?.id === imageId) {
         isFocused = true;
         
-        // Check push progress (only show during hold phase, not arming)
+        // Check push progress ONLY when actively pushing (not during decay)
         const progress = pushProgress.get(hId);
-        if (progress && progress.imageId === imageId) {
+        if (progress && progress.imageId === imageId && activePushHeadsets.current.has(hId)) {
           const duration = Date.now() - progress.startTime;
           pushProgressValue = Math.min(duration / PUSH_HOLD_TIME_MS, 1); // 0 to 1 over hold duration
         }
@@ -484,78 +485,95 @@ export const PerHeadsetImageGrid = ({
                 </div>
              </div>
 
-             {/* Tilt Sensitivity Controls */}
-             <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
-               <div className="flex items-center justify-between">
-                 <label className="text-sm font-mono text-muted-foreground">Tilt Threshold</label>
-                 <span className="text-sm font-mono text-primary">{tiltThreshold.toFixed(2)}</span>
-               </div>
-                <input
-                  type="range"
-                  min="0.05"
-                  max="1.0"
-                  step="0.05"
-                  value={tiltThreshold}
-                  onChange={(e) => setTiltThreshold(Number(e.target.value))}
-                  className="w-full"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Lower = more sensitive (detects smaller head tilts)
-                </p>
-              </div>
 
-              <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-mono text-muted-foreground">Frames to Trigger</label>
-                  <span className="text-sm font-mono text-primary">{framesToTrigger}</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="30"
-                  step="1"
-                  value={framesToTrigger}
-                  onChange={(e) => setFramesToTrigger(Number(e.target.value))}
-                 className="w-full"
-               />
-               <p className="text-xs text-muted-foreground">
-                 Lower = faster (fewer sustained frames needed) • Higher = more deliberate
-               </p>
-             </div>
-
-             <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
-               <div className="flex items-center justify-between">
-                 <label className="text-sm font-mono text-muted-foreground">Push Decay Speed (ms)</label>
-                 <span className="text-sm font-mono text-primary">{decaySpeed}</span>
-               </div>
-               <input
-                 type="range"
-                 min="25"
-                 max="300"
-                 step="25"
-                 value={decaySpeed}
-                 onChange={(e) => setDecaySpeed(Number(e.target.value))}
-                 className="w-full"
-               />
-               <p className="text-xs text-muted-foreground">
-                 Lower = slower decay (more time to resume push) • Higher = faster decay
-               </p>
-             </div>
-
-            {/* Manual Selection Mode Toggle */}
-            <div className="flex items-center justify-center gap-3 p-3 rounded-lg border border-accent/50 bg-accent/10 backdrop-blur-sm">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={manualSelectionMode}
-                  onChange={(e) => setManualSelectionMode(e.target.checked)}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm font-mono text-accent">
-                  🖱️ Manual Selection Mode {manualSelectionMode && '(ACTIVE - Click images to select)'}
-                </span>
-              </label>
+             {/* Settings Panel Toggle */}
+            <div className="flex items-center justify-center">
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className="px-4 py-2 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm hover:bg-card/70 transition-all flex items-center gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                <span className="text-sm font-mono">{showSettings ? 'Hide' : 'Show'} Settings</span>
+              </button>
             </div>
+
+            {/* Collapsible Settings Panel */}
+            {showSettings && (
+              <div className="flex flex-col gap-3 animate-fade-in">
+                {/* Tilt Sensitivity Controls */}
+                <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-mono text-muted-foreground">Tilt Threshold</label>
+                    <span className="text-sm font-mono text-primary">{tiltThreshold.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.05"
+                    max="1.0"
+                    step="0.05"
+                    value={tiltThreshold}
+                    onChange={(e) => setTiltThreshold(Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Lower = more sensitive (detects smaller head tilts)
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-mono text-muted-foreground">Frames to Trigger</label>
+                    <span className="text-sm font-mono text-primary">{framesToTrigger}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="30"
+                    step="1"
+                    value={framesToTrigger}
+                    onChange={(e) => setFramesToTrigger(Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Lower = faster (fewer sustained frames needed) • Higher = more deliberate
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-mono text-muted-foreground">Push Decay Speed (ms)</label>
+                    <span className="text-sm font-mono text-primary">{decaySpeed}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="25"
+                    max="300"
+                    step="25"
+                    value={decaySpeed}
+                    onChange={(e) => setDecaySpeed(Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Lower = slower decay (more time to resume push) • Higher = faster decay
+                  </p>
+                </div>
+
+                {/* Manual Selection Mode Toggle */}
+                <div className="flex items-center justify-center gap-3 p-3 rounded-lg border border-accent/50 bg-accent/10 backdrop-blur-sm">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={manualSelectionMode}
+                      onChange={(e) => setManualSelectionMode(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm font-mono text-accent">
+                      🖱️ Manual Selection Mode {manualSelectionMode && '(ACTIVE - Click images to select)'}
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
 
             {/* Real-time command indicator */}
             {lastCommandReceived && (
