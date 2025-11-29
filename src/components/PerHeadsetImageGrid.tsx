@@ -448,8 +448,8 @@ export const PerHeadsetImageGrid = ({
                 <label className="text-xs font-mono text-muted-foreground">Rotation (Up/Down)</label>
                 <input
                   type="range"
-                  min="0.5"
-                  max="20"
+                  min="0.1"
+                  max="30"
                   step="0.5"
                   value={rotationThreshold}
                   onChange={(e) => setRotationThreshold(Number(e.target.value))}
@@ -461,8 +461,8 @@ export const PerHeadsetImageGrid = ({
                 <label className="text-xs font-mono text-muted-foreground">Pitch (Left/Right)</label>
                 <input
                   type="range"
-                  min="0.5"
-                  max="20"
+                  min="0.1"
+                  max="30"
                   step="0.5"
                   value={pitchThreshold}
                   onChange={(e) => setPitchThreshold(Number(e.target.value))}
@@ -474,8 +474,8 @@ export const PerHeadsetImageGrid = ({
                 <label className="text-xs font-mono text-muted-foreground">Roll (Tilt Side)</label>
                 <input
                   type="range"
-                  min="0.5"
-                  max="20"
+                  min="0.1"
+                  max="30"
                   step="0.5"
                   value={rollThreshold}
                   onChange={(e) => setRollThreshold(Number(e.target.value))}
