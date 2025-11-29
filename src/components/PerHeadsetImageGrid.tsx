@@ -46,9 +46,9 @@ export const PerHeadsetImageGrid = ({
   const animationFrameId = useRef<number | null>(null);
 
   // Direct 3x3 grid mapping constants tuned for fluid, low-latency feel
-  const ROTATION_THRESHOLD = 8; // degrees (turn head left/right beyond this to move columns)
-  const PITCH_THRESHOLD = 3;    // degrees (tilt head up/down beyond this to move rows)
-  const SMOOTHING_FACTOR = 0.25; // light smoothing for responsive movement
+  const ROTATION_THRESHOLD = 2; // degrees (turn head left/right beyond this to move columns) - 1/3 effort
+  const PITCH_THRESHOLD = 1.5;    // degrees (tilt head up/down beyond this to move rows) - 1/3 effort
+  const SMOOTHING_FACTOR = 0.5; // Higher smoothing for fluid cursor movement like Emotiv Gyro visualizer
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
   const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
