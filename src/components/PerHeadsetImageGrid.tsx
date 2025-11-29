@@ -5,6 +5,7 @@ import { CheckCircle2, Focus, Sparkles, Activity } from "lucide-react";
 import { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { ImageData } from "@/data/imageData";
 import { ParticleDissolve } from "./ParticleDissolve";
+import { OneEuroFilter } from "@/utils/OneEuroFilter";
 
 interface HeadsetSelection {
   headsetId: string;
@@ -41,10 +42,23 @@ export const PerHeadsetImageGrid = ({
 
   // Use refs for real-time motion data (no React state delays)
   const latestMotionData = useRef<Map<string, { rotation: number; pitch: number; roll: number; timestamp: number }>>(new Map());
-  const smoothedRotation = useRef<Map<string, number>>(new Map());
-  const smoothedPitch = useRef<Map<string, number>>(new Map());
-  const smoothedRoll = useRef<Map<string, number>>(new Map());
   const animationFrameId = useRef<number | null>(null);
+  
+  // Refs for continuous cursor control
+  const imageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const cursorRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const cursorScreenPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
+  
+  // Calibration refs (neutral head position)
+  const centerPitch = useRef<Map<string, number>>(new Map());
+  const centerRotation = useRef<Map<string, number>>(new Map());
+  const centerRoll = useRef<Map<string, number>>(new Map());
+  const isCalibrated = useRef<Map<string, boolean>>(new Map());
+  
+  // OneEuroFilter instances per headset
+  const pitchFilters = useRef<Map<string, OneEuroFilter>>(new Map());
+  const rotationFilters = useRef<Map<string, OneEuroFilter>>(new Map());
+  const rollFilters = useRef<Map<string, OneEuroFilter>>(new Map());
   
   // Refs to avoid effect dependency loops
   const headsetSelectionsRef = useRef<Map<string, HeadsetSelection>>(new Map());
@@ -60,11 +74,8 @@ export const PerHeadsetImageGrid = ({
   }, [pushProgress]);
 
   // Sensitivity controls - adjustable via UI
-  const [rotationThreshold, setRotationThreshold] = useState(0.6); // Very small tilt needed for up/down
-  const [pitchThreshold, setPitchThreshold] = useState(2.5);
-  const [rollThreshold, setRollThreshold] = useState(3);
+  const [maxAngle, setMaxAngle] = useState(3); // degrees - how much head movement = full screen travel
   const [manualSelectionMode, setManualSelectionMode] = useState(false); // Operator override for stuck players
-  const SMOOTHING_FACTOR = 0.5; // Higher smoothing for fluid cursor movement like Emotiv Gyro visualizer
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
   const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
@@ -110,8 +121,11 @@ export const PerHeadsetImageGrid = ({
     });
   }, [motionEvent]);
 
-  // 60fps animation loop for real-time cursor control
+  // 60fps animation loop for continuous cursor control
   useEffect(() => {
+    const gridContainer = document.querySelector('.image-grid-container');
+    if (!gridContainer) return;
+
     const animate = () => {
       connectedHeadsets.forEach(headsetId => {
         const motion = latestMotionData.current.get(headsetId);
@@ -123,58 +137,86 @@ export const PerHeadsetImageGrid = ({
         // FREEZE navigation if this headset is actively pushing
         if (pushProgress.has(headsetId)) return;
 
-        // Apply exponential smoothing to reduce jitter
-        const prevRotation = smoothedRotation.current.get(headsetId) || 0;
-        const prevPitch = smoothedPitch.current.get(headsetId) || 0;
-        const prevRoll = smoothedRoll.current.get(headsetId) || 0;
-        
-        // SWAPPED: The headset reports pitch/rotation swapped, so we fix it here
-        // What headset calls "rotation" is actually pitch (nod up/down)
-        // What headset calls "pitch" is actually rotation (turn left/right)
-        const newRotation = prevRotation * SMOOTHING_FACTOR + motion.pitch * (1 - SMOOTHING_FACTOR);
-        const newPitch = prevPitch * SMOOTHING_FACTOR + motion.rotation * (1 - SMOOTHING_FACTOR);
-        const newRoll = prevRoll * SMOOTHING_FACTOR + motion.roll * (1 - SMOOTHING_FACTOR);
-
-        
-        smoothedRotation.current.set(headsetId, newRotation);
-        smoothedPitch.current.set(headsetId, newPitch);
-        smoothedRoll.current.set(headsetId, newRoll);
-        
-        // Map rotation, pitch, and roll to 3x3 grid (0-8)
-        // pitch controls column, rotation controls row, roll adds bias
-        let column = 1; // default center
-        if (newPitch < -pitchThreshold) {
-          column = 0; // head tilted LEFT → left column
-        } else if (newPitch > pitchThreshold) {
-          column = 2; // head tilted RIGHT → right column
+        // Initialize filters if needed
+        if (!pitchFilters.current.has(headsetId)) {
+          pitchFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
+          rotationFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
+          rollFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
         }
 
-        let row = 1; // default middle
-        if (newRotation > rotationThreshold) {
-          row = 0; // head turned UP → top row
-        } else if (newRotation < -rotationThreshold) {
-          row = 2; // head turned DOWN → bottom row
+        // Auto-calibrate on first motion event
+        if (!isCalibrated.current.get(headsetId)) {
+          centerPitch.current.set(headsetId, motion.pitch);
+          centerRotation.current.set(headsetId, motion.rotation);
+          centerRoll.current.set(headsetId, motion.roll);
+          isCalibrated.current.set(headsetId, true);
+          
+          // Initialize cursor position at center
+          const rect = gridContainer.getBoundingClientRect();
+          cursorScreenPositions.current.set(headsetId, {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2
+          });
+          return;
         }
 
-        // Roll modifies the selection - adds diagonal bias
-        if (Math.abs(newRoll) > rollThreshold) {
-          if (newRoll > 0 && column < 2) column++; // roll right → shift column right
-          if (newRoll < 0 && column > 0) column--; // roll left → shift column left
+        // Get calibrated relative angles
+        const relativePitch = motion.pitch - (centerPitch.current.get(headsetId) || 0);
+        const relativeRotation = motion.rotation - (centerRotation.current.get(headsetId) || 0);
+
+        // Apply OneEuroFilter smoothing
+        const pitchFilter = pitchFilters.current.get(headsetId)!;
+        const rotationFilter = rotationFilters.current.get(headsetId)!;
+        
+        const smoothPitch = pitchFilter.filter(relativePitch, motion.timestamp);
+        const smoothRotation = rotationFilter.filter(relativeRotation, motion.timestamp);
+
+        // Map angles to screen coordinates
+        const gridRect = gridContainer.getBoundingClientRect();
+        const centerX = gridRect.left + gridRect.width / 2;
+        const centerY = gridRect.top + gridRect.height / 2;
+
+        // pitch controls X (left/right), rotation controls Y (up/down)
+        let cursorX = centerX + (smoothPitch / maxAngle) * (gridRect.width / 2);
+        let cursorY = centerY + (smoothRotation / maxAngle) * (gridRect.height / 2);
+
+        // Constrain cursor to grid bounds
+        cursorX = Math.max(gridRect.left, Math.min(gridRect.right, cursorX));
+        cursorY = Math.max(gridRect.top, Math.min(gridRect.bottom, cursorY));
+
+        // Store position
+        cursorScreenPositions.current.set(headsetId, { x: cursorX, y: cursorY });
+
+        // Direct DOM manipulation for cursor (zero latency)
+        const cursorEl = cursorRefs.current.get(headsetId);
+        if (cursorEl) {
+          cursorEl.style.transform = `translate(${cursorX}px, ${cursorY}px)`;
         }
 
-        
-        // Calculate grid index (0-8)
-        const gridIndex = row * 3 + column;
-        
+        // Hover detection - find which image the cursor overlaps
+        let hoveredIndex = -1;
+        imageRefs.current.forEach((imgEl, imageId) => {
+          const imgRect = imgEl.getBoundingClientRect();
+          if (
+            cursorX >= imgRect.left &&
+            cursorX <= imgRect.right &&
+            cursorY >= imgRect.top &&
+            cursorY <= imgRect.bottom
+          ) {
+            // Find index in images array
+            hoveredIndex = images.findIndex(img => img.id === imageId);
+          }
+        });
+
         // Update focused image if changed
-        if (gridIndex !== currentSelection.focusedIndex && gridIndex >= 0 && gridIndex < images.length) {
+        if (hoveredIndex !== -1 && hoveredIndex !== currentSelection.focusedIndex) {
           setHeadsetSelections(prev => {
             const newSelections = new Map(prev);
             const current = newSelections.get(headsetId);
             if (current && current.imageId === null) {
               newSelections.set(headsetId, {
                 ...current,
-                focusedIndex: gridIndex
+                focusedIndex: hoveredIndex
               });
             }
             return newSelections;
@@ -192,7 +234,7 @@ export const PerHeadsetImageGrid = ({
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [connectedHeadsets, headsetSelections, pushProgress, images.length, rotationThreshold, pitchThreshold, rollThreshold, SMOOTHING_FACTOR]);
+  }, [connectedHeadsets, headsetSelections, pushProgress, images, maxAngle]);
   
   // Auto-cycle focused image for each headset at a slow, constant pace
   useEffect(() => {
@@ -443,46 +485,25 @@ export const PerHeadsetImageGrid = ({
             </div>
 
             {/* Sensitivity Controls */}
-            <div className="grid grid-cols-3 gap-4 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-mono text-muted-foreground">Rotation (Up/Down)</label>
+            <div className="flex flex-col gap-2 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
+              <label className="text-xs font-mono text-muted-foreground">
+                Head Sensitivity (Lower = more sensitive)
+              </label>
+              <div className="flex items-center gap-4">
                 <input
                   type="range"
-                  min="0.5"
-                  max="20"
+                  min="1"
+                  max="15"
                   step="0.5"
-                  value={rotationThreshold}
-                  onChange={(e) => setRotationThreshold(Number(e.target.value))}
-                  className="w-full"
+                  value={maxAngle}
+                  onChange={(e) => setMaxAngle(Number(e.target.value))}
+                  className="flex-1"
                 />
-                <span className="text-xs font-mono text-primary">{rotationThreshold.toFixed(1)}°</span>
+                <span className="text-xs font-mono text-primary w-12">{maxAngle.toFixed(1)}°</span>
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-mono text-muted-foreground">Pitch (Left/Right)</label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="20"
-                  step="0.5"
-                  value={pitchThreshold}
-                  onChange={(e) => setPitchThreshold(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="text-xs font-mono text-primary">{pitchThreshold.toFixed(1)}°</span>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-mono text-muted-foreground">Roll (Tilt Side)</label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="20"
-                  step="0.5"
-                  value={rollThreshold}
-                  onChange={(e) => setRollThreshold(Number(e.target.value))}
-                  className="w-full"
-                />
-                <span className="text-xs font-mono text-primary">{rollThreshold.toFixed(1)}°</span>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                How much head movement needed to reach screen edge
+              </p>
             </div>
 
             {/* Manual Selection Mode Toggle */}
@@ -537,7 +558,33 @@ export const PerHeadsetImageGrid = ({
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Visual cursor dots */}
+        {connectedHeadsets.map(headsetId => {
+          const selection = headsetSelections.get(headsetId);
+          const hasSelected = selection?.imageId !== null;
+          if (hasSelected) return null; // Hide cursor after selection
+          
+          return (
+            <div
+              key={`cursor-${headsetId}`}
+              ref={(el) => {
+                if (el) cursorRefs.current.set(headsetId, el);
+              }}
+              className="fixed pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2"
+              style={{
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                backgroundColor: getHeadsetColor(headsetId),
+                boxShadow: `0 0 20px ${getHeadsetColor(headsetId)}`,
+                left: 0,
+                top: 0,
+              }}
+            />
+          );
+        })}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 image-grid-container">
           {images.map((image, index) => {
             const { isSelected, isFocused, headsetId, pushProgress: pushProgressValue } = getImageStatus(image.id);
             const headsetColor = headsetId ? getHeadsetColor(headsetId) : 'hsl(var(--primary))';
@@ -545,6 +592,9 @@ export const PerHeadsetImageGrid = ({
             return (
               <Card
                 key={image.id}
+                ref={(el) => {
+                  if (el) imageRefs.current.set(image.id, el);
+                }}
                 onClick={() => handleManualSelection(image.id)}
                 className={`
                   relative overflow-hidden cursor-pointer
