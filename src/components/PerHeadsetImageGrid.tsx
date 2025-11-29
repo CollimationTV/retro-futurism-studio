@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Focus, Sparkles, Activity, Settings } from "lucide-react";
+import { CheckCircle2, Focus, Sparkles, Activity, Settings, Compass } from "lucide-react";
 import { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { ImageData } from "@/data/imageData";
 import { ParticleDissolve } from "./ParticleDissolve";
 import { getHeadsetColor } from "@/utils/headsetColors";
 import { motion } from "framer-motion";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface HeadsetSelection {
   headsetId: string;
@@ -40,6 +41,20 @@ export const PerHeadsetImageGrid = ({
   const [pushFlash, setPushFlash] = useState(false);
   const [pushProgress, setPushProgress] = useState<Map<string, { startTime: number; imageId: number }>>(new Map());
   const [lastPushReleaseTime, setLastPushReleaseTime] = useState<Map<string, number>>(new Map());
+  const [showSettings, setShowSettings] = useState(false);
+  const [neutralCalibration, setNeutralCalibration] = useState<Map<string, number>>(new Map()); // Stores neutral rotation per headset
+
+  // Use global settings from context
+  const {
+    tiltThreshold,
+    setTiltThreshold,
+    framesToTrigger,
+    setFramesToTrigger,
+    decaySpeed,
+    setDecaySpeed,
+    manualSelectionMode,
+    setManualSelectionMode
+  } = useSettings();
 
   // Use refs for real-time motion data (no React state delays)
   const latestMotionData = useRef<Map<string, { rotation: number; pitch: number; roll: number; timestamp: number }>>(new Map());
@@ -49,6 +64,7 @@ export const PerHeadsetImageGrid = ({
   // Refs to avoid effect dependency loops
   const headsetSelectionsRef = useRef<Map<string, HeadsetSelection>>(new Map());
   const pushProgressRef = useRef<Map<string, { startTime: number; imageId: number }>>(new Map());
+  const activePushHeadsets = useRef<Set<string>>(new Set());
   
   // Keep refs in sync with state
   useEffect(() => {
@@ -59,16 +75,20 @@ export const PerHeadsetImageGrid = ({
     pushProgressRef.current = pushProgress;
   }, [pushProgress]);
 
-  // Sustained tilt counter settings
-  const [tiltThreshold, setTiltThreshold] = useState(0.5); // Raw motion value to detect tilt
-  const [framesToTrigger, setFramesToTrigger] = useState(21); // Sustained frames before moving
-  const [manualSelectionMode, setManualSelectionMode] = useState(false); // Operator override for stuck players
-  const [decaySpeed, setDecaySpeed] = useState(75); // Decay amount in ms per tick (lower = slower decay)
-  const [showSettings, setShowSettings] = useState(false); // Toggle settings panel visibility
-  const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
-  const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
-  const AUTO_CYCLE_INTERVAL_MS = 6000; // 6 seconds between image advances
-  const POST_PUSH_DELAY_MS = 3000; // 3 second cooldown after releasing push
+  const PUSH_POWER_THRESHOLD = 0.3;
+  const PUSH_HOLD_TIME_MS = 3000;
+  const AUTO_CYCLE_INTERVAL_MS = 6000;
+  const POST_PUSH_DELAY_MS = 3000;
+
+  // Orient Front: Calibrate neutral head position
+  const handleOrientFront = () => {
+    const newCalibration = new Map<string, number>();
+    latestMotionData.current.forEach((motion, headsetId) => {
+      newCalibration.set(headsetId, motion.rotation);
+    });
+    setNeutralCalibration(newCalibration);
+    console.log('🧭 ORIENT FRONT: Calibrated neutral positions', Object.fromEntries(newCalibration));
+  };
 
   // Initialize headset selections
   useEffect(() => {
@@ -125,12 +145,16 @@ export const PerHeadsetImageGrid = ({
 
         const tiltCounter = tiltCounters.current.get(headsetId) || 0;
         
+        // Get calibrated neutral position for this headset
+        const neutralRotation = neutralCalibration.get(headsetId) || 0;
+        const calibratedRotation = motion.rotation - neutralRotation;
+        
         // Convert current index to row/col
         const currentRow = Math.floor(currentSelection.focusedIndex / 3);
         const currentCol = currentSelection.focusedIndex % 3;
 
-        // Detect sustained rightward tilt
-        if (motion.rotation > tiltThreshold) {
+        // Detect sustained rightward tilt (using calibrated rotation)
+        if (calibratedRotation > tiltThreshold) {
           const newCount = tiltCounter + 1;
           tiltCounters.current.set(headsetId, newCount);
           
@@ -159,8 +183,8 @@ export const PerHeadsetImageGrid = ({
             tiltCounters.current.set(headsetId, 0); // Reset counter after move
           }
         } 
-        // Detect sustained leftward tilt
-        else if (motion.rotation < -tiltThreshold) {
+        // Detect sustained leftward tilt (using calibrated rotation)
+        else if (calibratedRotation < -tiltThreshold) {
           const newCount = tiltCounter + 1;
           tiltCounters.current.set(headsetId, newCount);
           
@@ -256,9 +280,6 @@ export const PerHeadsetImageGrid = ({
       setTimeout(() => setPushFlash(false), 300);
     }
   }, [mentalCommand]);
-
-  // Track which headsets are actively pushing
-  const activePushHeadsets = useRef<Set<string>>(new Set());
 
   // Handle PUSH command hold-to-select
   useEffect(() => {
@@ -486,8 +507,16 @@ export const PerHeadsetImageGrid = ({
              </div>
 
 
-             {/* Settings Panel Toggle */}
-            <div className="flex items-center justify-center">
+             {/* Settings Panel Toggle & Orient Front Button */}
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={handleOrientFront}
+                className="px-4 py-2 rounded-lg border border-accent/50 bg-accent/20 hover:bg-accent/30 backdrop-blur-sm transition-all flex items-center gap-2"
+              >
+                <Compass className="h-4 w-4" />
+                <span className="text-sm font-mono">Orient Front</span>
+              </button>
+              
               <button
                 onClick={() => setShowSettings(!showSettings)}
                 className="px-4 py-2 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm hover:bg-card/70 transition-all flex items-center gap-2"
@@ -500,6 +529,12 @@ export const PerHeadsetImageGrid = ({
             {/* Collapsible Settings Panel */}
             {showSettings && (
               <div className="flex flex-col gap-3 animate-fade-in">
+                <div className="p-3 rounded-lg border border-primary/30 bg-primary/10 backdrop-blur-sm">
+                  <p className="text-xs font-mono text-primary text-center">
+                    ⚙️ MASTER CONTROLS - Apply to all levels
+                  </p>
+                </div>
+                
                 {/* Tilt Sensitivity Controls */}
                 <div className="flex flex-col gap-3 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
                   <div className="flex items-center justify-between">
@@ -508,15 +543,15 @@ export const PerHeadsetImageGrid = ({
                   </div>
                   <input
                     type="range"
-                    min="0.05"
-                    max="1.0"
-                    step="0.05"
+                    min="0.1"
+                    max="2.0"
+                    step="0.1"
                     value={tiltThreshold}
                     onChange={(e) => setTiltThreshold(Number(e.target.value))}
                     className="w-full"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Lower = more sensitive (detects smaller head tilts)
+                    Lower = more sensitive (detects smaller head tilts) • Higher = less sensitive
                   </p>
                 </div>
 
