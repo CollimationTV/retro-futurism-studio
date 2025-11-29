@@ -130,18 +130,19 @@ export const PerHeadsetImageGrid = ({
         smoothedPitch.current.set(headsetId, newPitch);
         
         // Map rotation and pitch to 3x3 grid (0-8)
+        // SWAPPED: pitch controls column, rotation controls row
         let column = 1; // default center
-        if (newRotation < -ROTATION_THRESHOLD) {
-          column = 0; // head turned LEFT → left column
-        } else if (newRotation > ROTATION_THRESHOLD) {
-          column = 2; // head turned RIGHT → right column
+        if (newPitch < -PITCH_THRESHOLD) {
+          column = 0; // head tilted LEFT → left column
+        } else if (newPitch > PITCH_THRESHOLD) {
+          column = 2; // head tilted RIGHT → right column
         }
         
         let row = 1; // default middle
-        if (newPitch > PITCH_THRESHOLD) {
-          row = 0; // head tilted UP → top row
-        } else if (newPitch < -PITCH_THRESHOLD) {
-          row = 2; // head tilted DOWN → bottom row
+        if (newRotation > ROTATION_THRESHOLD) {
+          row = 0; // head turned UP → top row
+        } else if (newRotation < -ROTATION_THRESHOLD) {
+          row = 2; // head turned DOWN → bottom row
         }
         
         // Calculate grid index (0-8)

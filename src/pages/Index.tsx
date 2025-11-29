@@ -19,7 +19,6 @@ const Index = () => {
   const [motionEvent, setMotionEvent] = useState<MotionEvent | null>(null);
   const [connectedHeadsets, setConnectedHeadsets] = useState<string[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'ready' | 'error'>('disconnected');
-  const [excitementLevels, setExcitementLevels] = useState<Map<string, number>>(new Map());
 
   const handleMentalCommand = useCallback((command: MentalCommandEvent) => {
     setMentalCommand(command);
@@ -28,10 +27,6 @@ const Index = () => {
   const handleMotion = useCallback((motion: MotionEvent) => {
     // High-frequency console.log removed for performance
     setMotionEvent(motion);
-  }, []);
-  
-  const handlePerformanceMetrics = useCallback((metrics: PerformanceMetricsEvent) => {
-    setExcitementLevels(prev => new Map(prev).set(metrics.headsetId, metrics.excitement));
   }, []);
 
   const handleHeadsetsChange = useCallback((headsetIds: string[]) => {
@@ -62,18 +57,13 @@ const Index = () => {
     }
   }, [connectionStatus, connectedHeadsets.length]);
 
-  // Calculate average excitement for brain visualization
-  const averageExcitement = Array.from(excitementLevels.values()).reduce((sum, val) => sum + val, 0) / Math.max(excitementLevels.size, 1);
-  
-  // console.log(`🧠 Brain excitement: ${(averageExcitement * 100).toFixed(1)}%, levels:`, Object.fromEntries(excitementLevels));
-
   return (
     <div className="min-h-screen relative">
       {/* Futuristic Grid Overlay */}
       <FuturisticGrid className="z-0" />
       
       {/* Animated Brain Background */}
-      <Brain3D excitement={averageExcitement} className="opacity-30 z-0" />
+      <Brain3D excitement={0.5} className="opacity-30 z-0" />
       
       <Header />
       <Hero />
@@ -83,7 +73,6 @@ const Index = () => {
         <MultiHeadsetConnection
           onMentalCommand={handleMentalCommand}
           onMotion={handleMotion}
-          onPerformanceMetrics={handlePerformanceMetrics}
           onHeadsetsChange={handleHeadsetsChange}
           onConnectionStatus={handleConnectionStatus}
         />

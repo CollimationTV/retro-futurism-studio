@@ -15,7 +15,6 @@ const SecondSelection = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const imageGridRef = useRef<HTMLDivElement>(null);
-  const [excitementLevel, setExcitementLevel] = useState(0);
   
   // Get state from first selection (reuse existing connection)
   const { 
@@ -24,14 +23,6 @@ const SecondSelection = () => {
     mentalCommand, 
     motionEvent 
   } = location.state || {};
-
-  // Track excitement from mental commands
-  useEffect(() => {
-    if (mentalCommand) {
-      const cmd = mentalCommand as MentalCommandEvent;
-      setExcitementLevel(cmd.pow || 0);
-    }
-  }, [mentalCommand]);
 
   useEffect(() => {
     if (!level1Selections || !connectedHeadsets) {
@@ -66,7 +57,7 @@ const SecondSelection = () => {
   return (
     <div className="min-h-screen relative">
       {/* Animated Brain Background */}
-      <Brain3D excitement={excitementLevel} className="opacity-20 z-0" />
+      <Brain3D excitement={0.5} className="opacity-20 z-0" />
       
       <Header />
       
