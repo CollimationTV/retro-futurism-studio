@@ -40,9 +40,10 @@ export const PerHeadsetImageGrid = ({
   const [lastPushReleaseTime, setLastPushReleaseTime] = useState<Map<string, number>>(new Map());
 
   // Use refs for real-time motion data (no React state delays)
-  const latestMotionData = useRef<Map<string, { rotation: number; pitch: number; timestamp: number }>>(new Map());
+  const latestMotionData = useRef<Map<string, { rotation: number; pitch: number; roll: number; timestamp: number }>>(new Map());
   const smoothedRotation = useRef<Map<string, number>>(new Map());
   const smoothedPitch = useRef<Map<string, number>>(new Map());
+  const smoothedRoll = useRef<Map<string, number>>(new Map());
   const animationFrameId = useRef<number | null>(null);
   
   // Refs to avoid effect dependency loops
@@ -58,9 +59,10 @@ export const PerHeadsetImageGrid = ({
     pushProgressRef.current = pushProgress;
   }, [pushProgress]);
 
-  // Direct 3x3 grid mapping constants tuned for fluid, low-latency feel
-  const ROTATION_THRESHOLD = 2; // degrees (turn head left/right beyond this to move columns) - comfortable
-  const PITCH_THRESHOLD = 3;    // degrees (tilt head up/down beyond this to move rows) - less sensitive for comfort
+  // Sensitivity controls - adjustable via UI
+  const [rotationThreshold, setRotationThreshold] = useState(2);
+  const [pitchThreshold, setPitchThreshold] = useState(3);
+  const [rollThreshold, setRollThreshold] = useState(3);
   const SMOOTHING_FACTOR = 0.5; // Higher smoothing for fluid cursor movement like Emotiv Gyro visualizer
   const PUSH_POWER_THRESHOLD = 0.3; // Moderate PUSH sensitivity
   const PUSH_HOLD_TIME_MS = 3000; // 3 seconds hold time for deliberate selection
@@ -98,10 +100,11 @@ export const PerHeadsetImageGrid = ({
   useEffect(() => {
     if (!motionEvent) return;
     
-    const { rotation, pitch, headsetId } = motionEvent;
+    const { rotation, pitch, roll, headsetId } = motionEvent;
     latestMotionData.current.set(headsetId, {
       rotation,
       pitch,
+      roll: roll || 0,
       timestamp: performance.now()
     });
   }, [motionEvent]);
@@ -122,32 +125,41 @@ export const PerHeadsetImageGrid = ({
         // Apply exponential smoothing to reduce jitter
         const prevRotation = smoothedRotation.current.get(headsetId) || 0;
         const prevPitch = smoothedPitch.current.get(headsetId) || 0;
+        const prevRoll = smoothedRoll.current.get(headsetId) || 0;
         
         // SWAPPED: The headset reports pitch/rotation swapped, so we fix it here
         // What headset calls "rotation" is actually pitch (nod up/down)
         // What headset calls "pitch" is actually rotation (turn left/right)
         const newRotation = prevRotation * SMOOTHING_FACTOR + motion.pitch * (1 - SMOOTHING_FACTOR);
         const newPitch = prevPitch * SMOOTHING_FACTOR + motion.rotation * (1 - SMOOTHING_FACTOR);
+        const newRoll = prevRoll * SMOOTHING_FACTOR + motion.roll * (1 - SMOOTHING_FACTOR);
 
         
         smoothedRotation.current.set(headsetId, newRotation);
         smoothedPitch.current.set(headsetId, newPitch);
+        smoothedRoll.current.set(headsetId, newRoll);
         
-        // Map rotation and pitch to 3x3 grid (0-8)
-// SWAPPED: pitch controls column, rotation controls row
-let column = 1; // default center
-if (newPitch < -PITCH_THRESHOLD) {
-  column = 0; // head tilted LEFT → left column
-} else if (newPitch > PITCH_THRESHOLD) {
-  column = 2; // head tilted RIGHT → right column
-}
+        // Map rotation, pitch, and roll to 3x3 grid (0-8)
+        // pitch controls column, rotation controls row, roll adds bias
+        let column = 1; // default center
+        if (newPitch < -pitchThreshold) {
+          column = 0; // head tilted LEFT → left column
+        } else if (newPitch > pitchThreshold) {
+          column = 2; // head tilted RIGHT → right column
+        }
 
-let row = 1; // default middle
-if (newRotation > ROTATION_THRESHOLD) {
-  row = 0; // head turned UP → top row
-} else if (newRotation < -ROTATION_THRESHOLD) {
-  row = 2; // head turned DOWN → bottom row
-}
+        let row = 1; // default middle
+        if (newRotation > rotationThreshold) {
+          row = 0; // head turned UP → top row
+        } else if (newRotation < -rotationThreshold) {
+          row = 2; // head turned DOWN → bottom row
+        }
+
+        // Roll modifies the selection - adds diagonal bias
+        if (Math.abs(newRoll) > rollThreshold) {
+          if (newRoll > 0 && column < 2) column++; // roll right → shift column right
+          if (newRoll < 0 && column > 0) column--; // roll left → shift column left
+        }
 
         
         // Calculate grid index (0-8)
@@ -179,7 +191,7 @@ if (newRotation > ROTATION_THRESHOLD) {
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [connectedHeadsets, headsetSelections, pushProgress, images.length, ROTATION_THRESHOLD, PITCH_THRESHOLD, SMOOTHING_FACTOR]);
+  }, [connectedHeadsets, headsetSelections, pushProgress, images.length, rotationThreshold, pitchThreshold, rollThreshold, SMOOTHING_FACTOR]);
   
   // Auto-cycle focused image for each headset at a slow, constant pace
   useEffect(() => {
@@ -386,17 +398,60 @@ if (newRotation > ROTATION_THRESHOLD) {
           <div className="flex flex-col gap-3">
           <div className={`flex items-center justify-center gap-6 p-4 rounded-lg border ${pushFlash ? 'border-primary bg-primary/20 scale-105' : 'border-primary/30 bg-card/50'} backdrop-blur-sm transition-all duration-300`}>
              <div className="flex items-center gap-2">
-               <Focus className="h-5 w-5 text-primary" />
-               <span className="text-sm font-mono">
-                 Tilt head UP/DOWN or LEFT/RIGHT to navigate • Hold <span className="text-primary font-bold">PUSH</span> to select
-               </span>
+                <Focus className="h-5 w-5 text-primary" />
+                <span className="text-sm font-mono">
+                  Tilt head UP/DOWN or LEFT/RIGHT to navigate • Hold <span className="text-primary font-bold">PUSH</span> to select
+                </span>
              </div>
              <div className="h-4 w-px bg-border" />
              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-                <span className="text-sm font-mono">
-                  Selected: <span className="text-primary font-bold">{selectedCount}/{connectedHeadsets.length}</span>
-                </span>
+                 <CheckCircle2 className="h-5 w-5 text-primary" />
+                 <span className="text-sm font-mono">
+                   Selected: <span className="text-primary font-bold">{selectedCount}/{connectedHeadsets.length}</span>
+                 </span>
+               </div>
+            </div>
+
+            {/* Sensitivity Controls */}
+            <div className="grid grid-cols-3 gap-4 p-4 rounded-lg border border-primary/30 bg-card/50 backdrop-blur-sm">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-mono text-muted-foreground">Rotation (Up/Down)</label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  step="0.5"
+                  value={rotationThreshold}
+                  onChange={(e) => setRotationThreshold(Number(e.target.value))}
+                  className="w-full"
+                />
+                <span className="text-xs font-mono text-primary">{rotationThreshold.toFixed(1)}°</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-mono text-muted-foreground">Pitch (Left/Right)</label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  step="0.5"
+                  value={pitchThreshold}
+                  onChange={(e) => setPitchThreshold(Number(e.target.value))}
+                  className="w-full"
+                />
+                <span className="text-xs font-mono text-primary">{pitchThreshold.toFixed(1)}°</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-mono text-muted-foreground">Roll (Tilt Side)</label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  step="0.5"
+                  value={rollThreshold}
+                  onChange={(e) => setRollThreshold(Number(e.target.value))}
+                  className="w-full"
+                />
+                <span className="text-xs font-mono text-primary">{rollThreshold.toFixed(1)}°</span>
               </div>
             </div>
 
