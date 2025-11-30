@@ -91,8 +91,12 @@ export type Database = {
           created_at: string | null
           error_message: string | null
           id: string
+          max_attempts: number | null
           metadata: string[]
+          poll_attempts: number | null
+          prompt_used: string | null
           sora_job_id: string | null
+          sora_status: string | null
           status: string
           updated_at: string | null
           video_url: string | null
@@ -101,8 +105,12 @@ export type Database = {
           created_at?: string | null
           error_message?: string | null
           id?: string
+          max_attempts?: number | null
           metadata: string[]
+          poll_attempts?: number | null
+          prompt_used?: string | null
           sora_job_id?: string | null
+          sora_status?: string | null
           status?: string
           updated_at?: string | null
           video_url?: string | null
@@ -111,8 +119,12 @@ export type Database = {
           created_at?: string | null
           error_message?: string | null
           id?: string
+          max_attempts?: number | null
           metadata?: string[]
+          poll_attempts?: number | null
+          prompt_used?: string | null
           sora_job_id?: string | null
+          sora_status?: string | null
           status?: string
           updated_at?: string | null
           video_url?: string | null
