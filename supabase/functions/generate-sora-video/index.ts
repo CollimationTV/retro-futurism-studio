@@ -15,13 +15,25 @@ serve(async (req) => {
   try {
     console.log('📥 Received request to generate-sora-video');
 
-    const { metadata, apiKey } = await req.json();
+    let metadata: string[] | undefined;
+    let apiKeyFromBody: string | undefined;
+
+    try {
+      const body = await req.json();
+      metadata = body?.metadata;
+      apiKeyFromBody = body?.apiKey;
+    } catch {
+      metadata = undefined;
+      apiKeyFromBody = undefined;
+    }
+
+    const apiKey = Deno.env.get("OPENAI_API_KEY") || apiKeyFromBody;
     
     if (!apiKey) {
-      console.error('❌ No API key provided in request');
+      console.error('❌ No API key configured for Sora');
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key is required. Please set your API key in the application.' }), 
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'OpenAI API key is not configured on the server.' }), 
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
