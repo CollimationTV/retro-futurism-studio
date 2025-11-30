@@ -79,6 +79,7 @@ export const PerHeadsetImageGrid = ({
   const PUSH_HOLD_TIME_MS = 3000;
   const AUTO_CYCLE_INTERVAL_MS = 6000;
   const POST_PUSH_DELAY_MS = 3000;
+  const GRID_COLUMNS = 4; // 2 rows x 4 columns
 
   // Orient Front: Calibrate neutral head position
   const handleOrientFront = () => {
@@ -101,7 +102,7 @@ export const PerHeadsetImageGrid = ({
           updated.set(headsetId, {
             headsetId,
             imageId: null,
-            focusedIndex: 4, // start at center cell
+            focusedIndex: 0, // start at first cell for 2x4 grid
           });
         }
       });
@@ -149,9 +150,9 @@ export const PerHeadsetImageGrid = ({
         const neutralRotation = neutralCalibration.get(headsetId) || 0;
         const calibratedRotation = motion.rotation - neutralRotation;
         
-        // Convert current index to row/col
-        const currentRow = Math.floor(currentSelection.focusedIndex / 3);
-        const currentCol = currentSelection.focusedIndex % 3;
+        // Convert current index to row/col (2x4 grid)
+        const currentRow = Math.floor(currentSelection.focusedIndex / GRID_COLUMNS);
+        const currentCol = currentSelection.focusedIndex % GRID_COLUMNS;
 
         // Detect sustained rightward tilt (using calibrated rotation)
         if (calibratedRotation > tiltThreshold) {
@@ -162,11 +163,11 @@ export const PerHeadsetImageGrid = ({
             // Move RIGHT, wrap to next row if needed
             let newCol = currentCol + 1;
             let newRow = currentRow;
-            if (newCol >= 3) {
+            if (newCol >= GRID_COLUMNS) {
               newCol = 0;
-              newRow = (newRow + 1) % 3;
+              newRow = (newRow + 1) % 2; // Only 2 rows
             }
-            const newIndex = newRow * 3 + newCol;
+            const newIndex = newRow * GRID_COLUMNS + newCol;
             
             setHeadsetSelections(prev => {
               const newSelections = new Map(prev);
@@ -193,10 +194,10 @@ export const PerHeadsetImageGrid = ({
             let newCol = currentCol - 1;
             let newRow = currentRow;
             if (newCol < 0) {
-              newCol = 2;
-              newRow = (newRow - 1 + 3) % 3;
+              newCol = GRID_COLUMNS - 1;
+              newRow = (newRow - 1 + 2) % 2; // Only 2 rows
             }
-            const newIndex = newRow * 3 + newCol;
+            const newIndex = newRow * GRID_COLUMNS + newCol;
             
             setHeadsetSelections(prev => {
               const newSelections = new Map(prev);
@@ -647,7 +648,7 @@ export const PerHeadsetImageGrid = ({
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-4 gap-6">
           {images.map((image, index) => {
             const { isSelected, isFocused, headsetId, pushProgress: pushProgressValue } = getImageStatus(image.id);
             const headsetColor = headsetId ? getHeadsetColor(headsetId) : 'hsl(var(--primary))';

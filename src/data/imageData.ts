@@ -33,7 +33,6 @@ export const level1Images: ImageData[] = [
   { id: 6, url: level1Vid6, metadata: ["community garden", "shared spaces", "social design"] },
   { id: 7, url: level1Vid7, metadata: ["interactive design", "smart pathways", "connected spaces"] },
   { id: 8, url: level1Vid8, metadata: ["collective farming", "community cultivation", "shared growth"] },
-  { id: 9, url: level1Vid9, metadata: ["city farming", "rooftop gardens", "urban food production"] },
 ];
 
 export const level2Images: ImageData[] = [
@@ -45,5 +44,4 @@ export const level2Images: ImageData[] = [
   { id: 15, url: level2Img6, metadata: ["immersive experience", "artistic hologram", "technological art"] },
   { id: 16, url: level2Img7, metadata: ["shared knowledge", "community learning", "floating technology"] },
   { id: 17, url: level2Img8, metadata: ["future education", "interactive learning", "immersive tech"] },
-  { id: 18, url: level2Img9, metadata: ["gravity transport", "pod travel", "collaborative space"] },
 ];
