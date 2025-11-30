@@ -86,7 +86,7 @@ serve(async (req) => {
           .from("video_generation_jobs")
           .update({ 
             prompt_used: prompt,
-            max_attempts: 60
+            max_attempts: 120
           })
           .eq('id', job.id);
 
@@ -131,7 +131,7 @@ serve(async (req) => {
           .eq('id', job.id);
 
         // Step 2: Poll for completion
-        const maxAttempts = 60;
+        const maxAttempts = 120;
         let attempts = 0;
         let videoUrl = null;
 
@@ -222,7 +222,7 @@ serve(async (req) => {
             .from("video_generation_jobs")
             .update({
               status: 'failed',
-              error_message: 'Video generation timed out after 5 minutes'
+              error_message: 'Video generation timed out after 10 minutes'
             })
             .eq('id', job.id);
         }
