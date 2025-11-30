@@ -4,11 +4,20 @@ import { Header } from "@/components/Header";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Music } from "lucide-react";
-import { excitementLevel2Images } from "@/data/excitementImages";
+import { supabase } from "@/integrations/supabase/client";
 import { getHeadsetColor } from "@/utils/headsetColors";
 import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
 import { OneEuroFilter, applySensitivityCurve } from "@/utils/OneEuroFilter";
+
+interface Level2Image {
+  id: string;
+  position: number;
+  url: string;
+  metadata_tag_1: string;
+  metadata_tag_2: string;
+  metadata_tag_3: string;
+}
 
 const PUSH_POWER_THRESHOLD = 0.3;
 const PUSH_HOLD_TIME_MS = 4000;
@@ -22,9 +31,12 @@ const ExcitementLevel2 = () => {
     connectedHeadsets,
     mentalCommand,
     motionEvent,
-    excitementLevel1Selections
+    excitementLevel1Selections,
+    level1Metadata
   } = location.state || {};
 
+  const [level2Images, setLevel2Images] = useState<Level2Image[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selections, setSelections] = useState<Map<string, number>>(new Map());
   const [focusedImages, setFocusedImages] = useState<Map<string, number>>(new Map());
   const [pushProgress, setPushProgress] = useState<Map<string, number>>(new Map());
@@ -38,6 +50,28 @@ const ExcitementLevel2 = () => {
   useEffect(() => { selectionsRef.current = selections; }, [selections]);
   useEffect(() => { isPushingRef.current = isPushing; }, [isPushing]);
   useEffect(() => { focusedImagesRef.current = focusedImages; }, [focusedImages]);
+
+  // Fetch Level 2 images from database
+  useEffect(() => {
+    const fetchImages = async () => {
+      const { data, error } = await supabase
+        .from('images')
+        .select('*')
+        .eq('level', 2)
+        .order('position');
+      
+      if (error) {
+        console.error('Error fetching Level 2 images:', error);
+        setIsLoading(false);
+        return;
+      }
+      
+      setLevel2Images(data || []);
+      setIsLoading(false);
+    };
+    
+    fetchImages();
+  }, []);
   
   const pitchFilters = useRef<Map<string, OneEuroFilter>>(new Map());
   const rotationFilters = useRef<Map<string, OneEuroFilter>>(new Map());
@@ -239,8 +273,20 @@ const ExcitementLevel2 = () => {
     return () => window.removeEventListener('mental-command', handleMentalCommand);
   }, [focusedImages, selections]);
 
+  // Navigate to Level 3 once all headsets have selected
   useEffect(() => {
     if (connectedHeadsets && selections.size === connectedHeadsets.length && selections.size > 0) {
+      // Aggregate metadata from Level 1 AND Level 2 selections
+      const level2Metadata: string[] = [];
+      selections.forEach((imageId) => {
+        const image = level2Images.find((img) => img.position === imageId);
+        if (image) {
+          level2Metadata.push(image.metadata_tag_1, image.metadata_tag_2, image.metadata_tag_3);
+        }
+      });
+
+      const allMetadata = [...(level1Metadata || []), ...level2Metadata];
+
       setTimeout(() => {
         navigate("/excitement-level-3", {
           state: {
@@ -249,12 +295,24 @@ const ExcitementLevel2 = () => {
             mentalCommand,
             motionEvent,
             excitementLevel1Selections,
-            excitementLevel2Selections: selections
+            excitementLevel2Selections: selections,
+            metadata: allMetadata
           }
         });
       }, 1500);
     }
-  }, [selections, connectedHeadsets, navigate, videoJobId, excitementLevel1Selections]);
+  }, [selections, connectedHeadsets, navigate, videoJobId, excitementLevel1Selections, level1Metadata, level2Images]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center">
+        <Brain3D excitement={0.5} className="opacity-20 z-0" />
+        <div className="text-center">
+          <p className="text-xl text-muted-foreground">Loading Level 2 images...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative">
@@ -317,21 +375,21 @@ const ExcitementLevel2 = () => {
               </button>
             </div>
             <h1 className="text-4xl font-bold uppercase tracking-wider mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              Level 2: Theme Selection
+              Level 2: Elements
             </h1>
             <p className="text-lg text-muted-foreground">
               Move your cursor with head tilt • Hold PUSH to select
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-6 mb-12">
-            {excitementLevel2Images.map((image) => {
+          <div className="grid grid-cols-4 gap-6 mb-12">
+            {level2Images.map((image) => {
               const focusedByHeadsets = Array.from(focusedImages.entries())
-                .filter(([_, imageId]) => imageId === image.id)
+                .filter(([_, imageId]) => imageId === image.position)
                 .map(([headsetId]) => headsetId);
               
               const selectedByHeadsets = Array.from(selections.entries())
-                .filter(([_, imageId]) => imageId === image.id)
+                .filter(([_, imageId]) => imageId === image.position)
                 .map(([headsetId]) => headsetId);
               
               const isFocused = focusedByHeadsets.length > 0;
@@ -340,7 +398,7 @@ const ExcitementLevel2 = () => {
               return (
                 <div 
                   key={image.id}
-                  ref={(el) => { if (el) imageRefs.current.set(image.id, el); }}
+                  ref={(el) => { if (el) imageRefs.current.set(image.position, el); }}
                   className="relative"
                 >
                   <Card 
@@ -354,7 +412,7 @@ const ExcitementLevel2 = () => {
                     <div className="aspect-video relative">
                       <img
                         src={image.url}
-                        alt={image.title}
+                        alt={`${image.metadata_tag_1}, ${image.metadata_tag_2}, ${image.metadata_tag_3}`}
                         className="w-full h-full object-cover"
                         style={{
                           filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
@@ -383,7 +441,11 @@ const ExcitementLevel2 = () => {
                     </div>
                     
                     <div className="p-3 bg-card">
-                      <p className="text-sm font-semibold text-center">{image.title}</p>
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata_tag_1}</span>
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata_tag_2}</span>
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata_tag_3}</span>
+                      </div>
                     </div>
                   </Card>
                 </div>
