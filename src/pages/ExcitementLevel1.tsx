@@ -4,11 +4,20 @@ import { Header } from "@/components/Header";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Target } from "lucide-react";
-import { excitementLevel1Images } from "@/data/excitementImages";
+import { supabase } from "@/integrations/supabase/client";
 import { getHeadsetColor } from "@/utils/headsetColors";
 import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
 import { OneEuroFilter, applySensitivityCurve } from "@/utils/OneEuroFilter";
+
+interface Level1Image {
+  id: string;
+  position: number;
+  url: string;
+  metadata_tag_1: string;
+  metadata_tag_2: string;
+  metadata_tag_3: string;
+}
 
 const PUSH_POWER_THRESHOLD = 0.3;
 const PUSH_HOLD_TIME_MS = 4000;
@@ -24,6 +33,8 @@ const ExcitementLevel1 = () => {
     motionEvent
   } = location.state || {};
 
+  const [level1Images, setLevel1Images] = useState<Level1Image[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selections, setSelections] = useState<Map<string, number>>(new Map());
   const [focusedImages, setFocusedImages] = useState<Map<string, number>>(new Map());
   const [pushProgress, setPushProgress] = useState<Map<string, number>>(new Map());
@@ -48,6 +59,28 @@ const ExcitementLevel1 = () => {
   useEffect(() => { selectionsRef.current = selections; }, [selections]);
   useEffect(() => { isPushingRef.current = isPushing; }, [isPushing]);
   useEffect(() => { focusedImagesRef.current = focusedImages; }, [focusedImages]);
+
+  // Fetch Level 1 images from database
+  useEffect(() => {
+    const fetchImages = async () => {
+      const { data, error } = await supabase
+        .from('images')
+        .select('*')
+        .eq('level', 1)
+        .order('position');
+      
+      if (error) {
+        console.error('Error fetching Level 1 images:', error);
+        setIsLoading(false);
+        return;
+      }
+      
+      setLevel1Images(data || []);
+      setIsLoading(false);
+    };
+    
+    fetchImages();
+  }, []);
 
   // ULTRA LOW-LATENCY: Process motion immediately with direct DOM updates
   useEffect(() => {
@@ -197,8 +230,18 @@ const ExcitementLevel1 = () => {
     return () => window.removeEventListener('mental-command', handleMentalCommand);
   }, [focusedImages, selections]);
 
+  // Navigate to Level 2 once all headsets have selected
   useEffect(() => {
     if (connectedHeadsets && selections.size === connectedHeadsets.length && selections.size > 0) {
+      // Aggregate metadata from Level 1 selections
+      const level1Metadata: string[] = [];
+      selections.forEach((imageId) => {
+        const image = level1Images.find((img) => img.position === imageId);
+        if (image) {
+          level1Metadata.push(image.metadata_tag_1, image.metadata_tag_2, image.metadata_tag_3);
+        }
+      });
+
       setTimeout(() => {
         navigate("/excitement-level-2", {
           state: {
@@ -206,12 +249,24 @@ const ExcitementLevel1 = () => {
             connectedHeadsets,
             mentalCommand,
             motionEvent,
-            excitementLevel1Selections: selections
+            excitementLevel1Selections: selections,
+            level1Metadata
           }
         });
       }, 1500);
     }
-  }, [selections, connectedHeadsets, navigate, videoJobId]);
+  }, [selections, connectedHeadsets, navigate, videoJobId, level1Images]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center">
+        <Brain3D excitement={0.5} className="opacity-20 z-0" />
+        <div className="text-center">
+          <p className="text-xl text-muted-foreground">Loading Level 1 images...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative">
@@ -222,21 +277,21 @@ const ExcitementLevel1 = () => {
         <div className="container mx-auto max-w-7xl">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold uppercase tracking-wider mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              Level 1: Image Selection
+              Level 1: Landscapes
             </h1>
             <p className="text-lg text-muted-foreground">
               Move your cursor with head tilt • Hold PUSH to select
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-6 mb-12">
-            {excitementLevel1Images.map((image) => {
+          <div className="grid grid-cols-4 gap-6 mb-12">
+            {level1Images.map((image) => {
               const focusedByHeadsets = Array.from(focusedImages.entries())
-                .filter(([_, imageId]) => imageId === image.id)
+                .filter(([_, imageId]) => imageId === image.position)
                 .map(([headsetId]) => headsetId);
               
               const selectedByHeadsets = Array.from(selections.entries())
-                .filter(([_, imageId]) => imageId === image.id)
+                .filter(([_, imageId]) => imageId === image.position)
                 .map(([headsetId]) => headsetId);
               
               const isFocused = focusedByHeadsets.length > 0;
@@ -245,7 +300,7 @@ const ExcitementLevel1 = () => {
               return (
                 <div 
                   key={image.id}
-                  ref={(el) => { if (el) imageRefs.current.set(image.id, el); }}
+                  ref={(el) => { if (el) imageRefs.current.set(image.position, el); }}
                   className="relative"
                 >
                   <Card 
@@ -257,14 +312,28 @@ const ExcitementLevel1 = () => {
                     }}
                   >
                     <div className="aspect-video relative">
-                      <img
-                        src={image.url}
-                        alt={image.title}
-                        className="w-full h-full object-cover"
-                        style={{
-                          filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
-                        }}
-                      />
+                      {image.url.endsWith('.mp4') ? (
+                        <video
+                          src={image.url}
+                          className="w-full h-full object-cover"
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          style={{
+                            filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
+                          }}
+                        />
+                      ) : (
+                        <img
+                          src={image.url}
+                          alt={`${image.metadata_tag_1}, ${image.metadata_tag_2}, ${image.metadata_tag_3}`}
+                          className="w-full h-full object-cover"
+                          style={{
+                            filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
+                          }}
+                        />
+                      )}
 
                       {focusedByHeadsets.map(headsetId => {
                         const color = getHeadsetColor(headsetId);
@@ -288,7 +357,11 @@ const ExcitementLevel1 = () => {
                     </div>
                     
                     <div className="p-3 bg-card">
-                      <p className="text-sm font-semibold text-center">{image.title}</p>
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata_tag_1}</span>
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata_tag_2}</span>
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata_tag_3}</span>
+                      </div>
                     </div>
                   </Card>
                 </div>
