@@ -674,9 +674,13 @@ export const PerHeadsetImageGrid = ({
                   }}
                 >
                 <div className="aspect-video relative">
-                <img
-                  src={image.url}
-                  alt={`Image ${image.id}`}
+                {image.url.endsWith('.mp4') ? (
+                  <video
+                    src={image.url}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
                     className={`w-full h-full object-cover`}
                     style={{
                       opacity: pushProgressValue !== undefined ? 1 - pushProgressValue : 1,
@@ -685,6 +689,19 @@ export const PerHeadsetImageGrid = ({
                       transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth zoom
                     }}
                   />
+                ) : (
+                  <img
+                    src={image.url}
+                    alt={`Image ${image.id}`}
+                    className={`w-full h-full object-cover`}
+                    style={{
+                      opacity: pushProgressValue !== undefined ? 1 - pushProgressValue : 1,
+                      filter: pushProgressValue !== undefined ? `blur(${pushProgressValue * 8}px)` : undefined,
+                      transform: isFocused && !isSelected ? 'scale(1.1)' : 'scale(1)',
+                      transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth zoom
+                    }}
+                  />
+                )}
                   
                   {/* Particle dissolve effect */}
                   <ParticleDissolve
