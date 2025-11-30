@@ -106,7 +106,7 @@ const ExcitementLevel3 = () => {
     const top5Artworks = artworkAudioPairs.filter(pair => top5Ids.includes(pair.id));
     
     setTimeout(() => {
-      navigate("/video-output", {
+      navigate("/audio-emotion", {
         state: {
           videoJobId,
           metadata,
