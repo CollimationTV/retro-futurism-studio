@@ -27,6 +27,7 @@ const AudioEmotion = () => {
   const [currentClipIndex, setCurrentClipIndex] = useState(0);
   const [clipExcitementScores, setClipExcitementScores] = useState<Map<number, number[]>>(new Map());
   const [playbackStartTime, setPlaybackStartTime] = useState<number | null>(null);
+  const [manualTagsText, setManualTagsText] = useState("");
 
   // Audio clip duration (20 seconds per clip)
   const CLIP_DURATION_MS = 20000;
@@ -118,7 +119,14 @@ const AudioEmotion = () => {
     const averageEmotionScore = totalSamples > 0 ? totalExcitement / totalSamples : 0;
     const collectiveScore = Math.round(averageEmotionScore * 100);
 
-    // console.log(`🎶 Collective emotion score: ${collectiveScore}`);
+    // Combine existing metadata with any manually added tags
+    const baseMetadata = Array.isArray(metadata) ? metadata : [];
+    const extraTags = manualTagsText
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0);
+
+    const finalMetadata = [...baseMetadata, ...extraTags];
 
     const selectedSoundtrack = getSoundtrackByScore(collectiveScore);
     // console.log(`🎶 Selected soundtrack: ${selectedSoundtrack.name}`);
@@ -127,11 +135,12 @@ const AudioEmotion = () => {
       navigate("/video-output", {
         state: {
           videoJobId,
-          metadata,
+          metadata: finalMetadata,
           collectiveScore,
           soundtrack: selectedSoundtrack,
           level3Selections,
-          audioEmotionScores: Array.from(clipExcitementScores.entries())
+          audioEmotionScores: Array.from(clipExcitementScores.entries()),
+          manualTags: extraTags,
         }
       });
     }, 2000);
@@ -271,6 +280,37 @@ const AudioEmotion = () => {
                 </span>
               </div>
             ))}
+          </div>
+
+          {/* Manual metadata tags editor */}
+          <div className="max-w-3xl mx-auto mt-12 space-y-3">
+            <h2 className="text-lg font-mono uppercase tracking-wider text-primary">
+              Metadata Tags for Sora
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Review the tags below and optionally add your own (comma-separated). These will be combined into the final prompt sent to Sora Pro.
+            </p>
+            {Array.isArray(metadata) && metadata.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {metadata.map((tag: string, idx: number) => (
+                  <span
+                    key={idx}
+                    className="px-3 py-1 rounded-full border border-primary/30 text-xs font-mono"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+            <textarea
+              value={manualTagsText}
+              onChange={(e) => setManualTagsText(e.target.value)}
+              className="w-full min-h-[80px] rounded-md border border-border bg-background/60 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="e.g. neon city at night, slow camera flyover, reflective water, starfield sky"
+            />
+            <p className="text-xs text-muted-foreground">
+              Example: type a few phrases separated by commas. We'll merge them with the tags above to build the Sora prompt.
+            </p>
           </div>
         </div>
       </div>

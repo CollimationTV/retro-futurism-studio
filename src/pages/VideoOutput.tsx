@@ -31,14 +31,6 @@ const VideoOutput = () => {
     
     const generateVideo = async () => {
       try {
-        const apiKey = localStorage.getItem("openai_api_key");
-        
-        if (!apiKey) {
-          setError("OpenAI API key not set. Please click 'Set API Key' in the header to add your key.");
-          setIsGenerating(false);
-          return;
-        }
-
         // Start video generation and get job ID
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-sora-video`,
@@ -50,7 +42,6 @@ const VideoOutput = () => {
             },
             body: JSON.stringify({ 
               metadata: metadataFromState,
-              apiKey: apiKey 
             }),
           }
         );
