@@ -7,45 +7,72 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Generate unique retrieval code (BW-XXXX format)
+function generateRetrievalCode(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = 'BW-';
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+// Convert base64 video to blob for storage upload
+async function uploadVideoToStorage(
+  supabase: any,
+  base64Data: string,
+  retrievalCode: string
+): Promise<string> {
+  // Remove data URL prefix if present
+  const base64Content = base64Data.replace(/^data:video\/mp4;base64,/, '');
+  
+  // Convert base64 to Uint8Array
+  const binaryString = atob(base64Content);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  
+  // Upload to storage
+  const fileName = `${retrievalCode}.mp4`;
+  const { data, error } = await supabase.storage
+    .from('generated-videos')
+    .upload(fileName, bytes, {
+      contentType: 'video/mp4',
+      upsert: true
+    });
+  
+  if (error) throw error;
+  
+  // Get public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('generated-videos')
+    .getPublicUrl(fileName);
+  
+  return publicUrl;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('📥 Received request to generate-sora-video');
-
-    let metadata: string[] | undefined;
-    let apiKeyFromBody: string | undefined;
-
-    try {
-      const body = await req.json();
-      metadata = body?.metadata;
-      apiKeyFromBody = body?.apiKey;
-    } catch {
-      metadata = undefined;
-      apiKeyFromBody = undefined;
-    }
-
-    const apiKey = Deno.env.get("OPENAI_API_KEY") || apiKeyFromBody;
-    
-    if (!apiKey) {
-      console.error('❌ No API key configured for Sora');
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key is not configured on the server.' }), 
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const { metadata, apiKey, userEmail } = await req.json();
 
     if (!metadata || !Array.isArray(metadata) || metadata.length === 0) {
-      console.error('❌ No metadata provided');
       return new Response(
-        JSON.stringify({ error: 'Metadata tags are required' }), 
+        JSON.stringify({ error: 'Metadata array is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('🎬 Generating Sora video with metadata:', metadata);
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ error: 'OpenAI API key is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Initialize Supabase client
     const supabase = createClient(
@@ -53,45 +80,39 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Create job record
-    const { data: job, error: jobError } = await supabase
-      .from("video_generation_jobs")
+    // Generate unique retrieval code
+    const retrievalCode = generateRetrievalCode();
+
+    // Simplified prompt - take first 2 metadata tags
+    const tags = metadata.slice(0, 2).join(', ');
+    const prompt = `A cinematic 8-second video featuring: ${tags}. Retro-futuristic style, smooth motion, hopeful atmosphere.`;
+
+    // Create job record in database
+    const { data: job, error: insertError } = await supabase
+      .from('video_generation_jobs')
       .insert({
-        metadata: metadata,
-        status: 'processing'
+        metadata,
+        status: 'processing',
+        retrieval_code: retrievalCode,
+        user_email: userEmail || null,
+        prompt_used: prompt,
+        max_attempts: 180, // 15 minutes (180 × 5 seconds)
+        poll_attempts: 0
       })
       .select()
       .single();
 
-    if (jobError || !job) {
-      console.error('❌ Failed to create job record:', jobError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to create job record' }), 
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    if (insertError) throw insertError;
 
-    console.log('✅ Created job record:', job.id);
+    console.log(`🎬 Starting video generation for job ${job.id} with code ${retrievalCode}`);
 
-    // Start background task for video generation
+    // Background task for video generation
     const backgroundTask = async () => {
       try {
-        // Create a cinematic prompt from the metadata tags
-        const prompt = `Create a cinematic, futuristic video that seamlessly blends the following themes: ${metadata.join(', ')}. The video should have a retro-futuristic aesthetic with clean, minimalist visuals. Include smooth transitions, ambient lighting, and a sense of hope for a sustainable future. Style: cinematic, 4K, professional color grading.`;
+        console.log(`📤 Calling Sora API with prompt: "${prompt}"`);
 
-        console.log('📝 Sora prompt:', prompt);
-
-        // Store prompt in database
-        await supabase
-          .from("video_generation_jobs")
-          .update({ 
-            prompt_used: prompt,
-            max_attempts: 120
-          })
-          .eq('id', job.id);
-
-        // Step 1: Start video generation job with Sora 2 Pro
-        const createResponse = await fetch('https://api.openai.com/v1/videos', {
+        // Call Sora API
+        const soraResponse = await fetch('https://api.openai.com/v1/videos', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
@@ -105,71 +126,70 @@ serve(async (req) => {
           }),
         });
 
-        if (!createResponse.ok) {
-          const errorText = await createResponse.text();
-          console.error('❌ Sora API create error:', createResponse.status, errorText);
-          
-          await supabase
-            .from("video_generation_jobs")
-            .update({
-              status: 'failed',
-              error_message: `Sora API error: ${createResponse.status} - ${errorText}`
-            })
-            .eq('id', job.id);
-          
-          return;
+        if (!soraResponse.ok) {
+          const errorText = await soraResponse.text();
+          throw new Error(`Sora API error: ${soraResponse.status} - ${errorText}`);
         }
 
-        const createData = await createResponse.json();
-        const videoId = createData.id;
-        console.log('🎥 Video job started with ID:', videoId);
+        const soraData = await soraResponse.json();
+        const jobId = soraData.id;
+
+        console.log(`✅ Sora job created: ${jobId}`);
 
         // Update job with Sora job ID
         await supabase
-          .from("video_generation_jobs")
-          .update({ sora_job_id: videoId })
+          .from('video_generation_jobs')
+          .update({ sora_job_id: jobId })
           .eq('id', job.id);
 
-        // Step 2: Poll for completion
-        const maxAttempts = 120;
-        let attempts = 0;
+        // Poll for completion (15 minutes = 180 attempts × 5 seconds)
+        let pollAttempts = 0;
+        const maxAttempts = 180;
         let videoUrl = null;
 
-        while (attempts < maxAttempts) {
+        while (pollAttempts < maxAttempts && !videoUrl) {
           await new Promise(resolve => setTimeout(resolve, 5000));
-          attempts++;
+          pollAttempts++;
 
-          const statusResponse = await fetch(`https://api.openai.com/v1/videos/${videoId}`, {
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-            },
-          });
+          console.log(`🔄 Polling attempt ${pollAttempts}/${maxAttempts} for job ${jobId}`);
+
+          const statusResponse = await fetch(
+            `https://api.openai.com/v1/videos/${jobId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+              },
+            }
+          );
 
           if (!statusResponse.ok) {
-            console.error('❌ Status check error:', statusResponse.status);
+            console.error(`❌ Status check failed: ${statusResponse.status}`);
             continue;
           }
 
           const statusData = await statusResponse.json();
-          console.log(`📊 Status check ${attempts}/${maxAttempts}:`, statusData.status);
-
-          // Update progress in database after each poll
+          
+          // Update poll count and status in DB
           await supabase
-            .from("video_generation_jobs")
-            .update({
-              poll_attempts: attempts,
-              sora_status: statusData.status,
-              updated_at: new Date().toISOString()
+            .from('video_generation_jobs')
+            .update({ 
+              poll_attempts: pollAttempts,
+              sora_status: statusData.status 
             })
             .eq('id', job.id);
 
           if (statusData.status === 'completed') {
-            // Fetch the video content
-            const contentResponse = await fetch(`https://api.openai.com/v1/videos/${videoId}/content`, {
-              headers: {
-                'Authorization': `Bearer ${apiKey}`,
-              },
-            });
+            console.log(`✅ Video generation complete!`);
+            
+            // Fetch video content
+            const contentResponse = await fetch(
+              `https://api.openai.com/v1/videos/${jobId}/content`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${apiKey}`,
+                },
+              }
+            );
 
             if (!contentResponse.ok) {
               throw new Error('Failed to fetch video content');
@@ -187,53 +207,44 @@ serve(async (req) => {
               base64 += String.fromCharCode.apply(null, Array.from(chunk));
             }
             
-            videoUrl = `data:video/mp4;base64,${btoa(base64)}`;
+            const base64Video = `data:video/mp4;base64,${btoa(base64)}`;
             
-            console.log('✅ Video generation completed');
+            // Upload to storage
+            const publicUrl = await uploadVideoToStorage(
+              supabase,
+              base64Video,
+              retrievalCode
+            );
             
-            // Update job with completed video
+            videoUrl = publicUrl;
+
             await supabase
-              .from("video_generation_jobs")
+              .from('video_generation_jobs')
               .update({
                 status: 'completed',
-                video_url: videoUrl
+                video_url: videoUrl,
+                sora_status: 'completed'
               })
               .eq('id', job.id);
-            
+
+            console.log(`🎉 Video uploaded to storage: ${retrievalCode}.mp4`);
             break;
           } else if (statusData.status === 'failed' || statusData.status === 'cancelled') {
-            console.error('❌ Video generation failed:', statusData);
-            
-            await supabase
-              .from("video_generation_jobs")
-              .update({
-                status: 'failed',
-                error_message: `Video generation ${statusData.status}`
-              })
-              .eq('id', job.id);
-            
-            return;
+            throw new Error(`Sora job failed: ${statusData.error || 'Unknown error'}`);
           }
         }
 
         if (!videoUrl) {
-          console.error('❌ Video generation timed out');
-          await supabase
-            .from("video_generation_jobs")
-            .update({
-              status: 'failed',
-              error_message: 'Video generation timed out after 10 minutes'
-            })
-            .eq('id', job.id);
+          throw new Error(`Video generation timed out after 15 minutes (${pollAttempts} attempts)`);
         }
 
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Background task error:', error);
         await supabase
-          .from("video_generation_jobs")
+          .from('video_generation_jobs')
           .update({
             status: 'failed',
-            error_message: error instanceof Error ? error.message : 'Unknown error'
+            error_message: error.message
           })
           .eq('id', job.id);
       }
@@ -242,23 +253,23 @@ serve(async (req) => {
     // Start background task
     (globalThis as any).EdgeRuntime?.waitUntil(backgroundTask());
 
-    // Return immediately with job ID
+    // Return immediately with job ID and retrieval code
     return new Response(
       JSON.stringify({ 
-        success: true, 
         jobId: job.id,
-        message: 'Video generation started'
-      }), 
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        retrievalCode: retrievalCode,
+        message: 'Video generation started in background' 
+      }),
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
 
-  } catch (error) {
-    console.error('❌ Error in generate-sora-video function:', error);
+  } catch (error: any) {
+    console.error('❌ Error in generate-sora-video:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        message: 'An unexpected error occurred during video generation.'
-      }), 
+      JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

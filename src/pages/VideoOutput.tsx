@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Card } from "@/components/ui/card";
+import { Header } from "@/components/Header";
+import { Brain3D } from "@/components/Brain3D";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Loader2, AlertCircle, RotateCcw, Music, ChevronDown, ChevronUp } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Copy, Download, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -11,348 +12,332 @@ const VideoOutput = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { videoJobId, metadata } = location.state || {};
+  
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(true);
+  const [retrievalCode, setRetrievalCode] = useState<string | null>(null);
+  const [status, setStatus] = useState<'waiting' | 'ready' | 'revealed'>('waiting');
+  const [progress, setProgress] = useState({ current: 0, max: 180, soraStatus: '' });
   const [error, setError] = useState<string | null>(null);
-  const [progressData, setProgressData] = useState({
-    pollAttempts: 0,
-    maxAttempts: 60,
-    soraStatus: 'pending',
-    promptUsed: '',
-    elapsedSeconds: 0,
-  });
-  const [showDebug, setShowDebug] = useState(false);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [soraJobId, setSoraJobId] = useState<string | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [pushProgress, setPushProgress] = useState(0);
+  const [email, setEmail] = useState('');
+  
+  const startTimeRef = useRef<number>(Date.now());
+  const pushHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { metadata, collectiveScore, soundtrack, level3Selections } = location.state || {};
-
+  // Poll for job status
   useEffect(() => {
-    const metadataFromState = metadata || location.state?.metadata;
-    
-    if (!metadataFromState || metadataFromState.length === 0) {
-      toast({
-        title: "No Selection Data",
-        description: "Please complete the selection process first.",
-        variant: "destructive",
-      });
-      navigate("/");
+    if (!videoJobId) {
+      setError('No video job ID provided');
       return;
     }
-    
-    const startTime = Date.now();
-    let elapsedInterval: NodeJS.Timeout;
 
-    const generateVideo = async () => {
+    const pollInterval = setInterval(async () => {
       try {
-        // Start elapsed time counter
-        elapsedInterval = setInterval(() => {
-          setProgressData(prev => ({
-            ...prev,
-            elapsedSeconds: Math.floor((Date.now() - startTime) / 1000),
-          }));
-        }, 1000);
+        const { data, error } = await supabase.functions.invoke('check-video-status', {
+          body: { jobId: videoJobId }
+        });
 
-        // Get API key from localStorage
-        const apiKey = localStorage.getItem('openai_api_key');
+        if (error) throw error;
 
-        // Start video generation and get job ID
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-sora-video`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({ 
-              metadata: metadataFromState,
-              apiKey,
-            }),
-          }
-        );
+        setProgress({
+          current: data.poll_attempts || 0,
+          max: data.max_attempts || 180,
+          soraStatus: data.sora_status || ''
+        });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          setError(errorData.error || `Failed to start video generation (${response.status})`);
-          setIsGenerating(false);
-          clearInterval(elapsedInterval);
-          return;
-        }
-
-        const data = await response.json();
-        const newJobId = data.jobId;
-        setJobId(newJobId);
-
-        if (!newJobId) {
-          setError("No job ID returned from API");
-          setIsGenerating(false);
-          clearInterval(elapsedInterval);
-          return;
-        }
-
-        // Poll for job completion with progress updates
-        const pollInterval = setInterval(async () => {
-          try {
-            const statusResponse = await fetch(
-              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-video-status`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-                },
-                body: JSON.stringify({ jobId: newJobId }),
-              }
-            );
-
-            if (!statusResponse.ok) {
-              clearInterval(pollInterval);
-              clearInterval(elapsedInterval);
-              setError("Failed to check video status");
-              setIsGenerating(false);
-              return;
-            }
-
-            const jobData = await statusResponse.json();
-
-            // Update progress data
-            setProgressData({
-              pollAttempts: jobData.poll_attempts || 0,
-              maxAttempts: jobData.max_attempts || 60,
-              soraStatus: jobData.sora_status || jobData.status,
-              promptUsed: jobData.prompt_used || '',
-              elapsedSeconds: Math.floor((Date.now() - startTime) / 1000),
-            });
-
-            if (jobData.sora_job_id) {
-              setSoraJobId(jobData.sora_job_id);
-            }
-
-            if (jobData.status === 'completed' && jobData.video_url) {
-              clearInterval(pollInterval);
-              clearInterval(elapsedInterval);
-              setVideoUrl(jobData.video_url);
-              setIsGenerating(false);
-            } else if (jobData.status === 'failed') {
-              clearInterval(pollInterval);
-              clearInterval(elapsedInterval);
-              setError(jobData.error_message || "Video generation failed");
-              setIsGenerating(false);
-            }
-          } catch (err) {
-            clearInterval(pollInterval);
-            clearInterval(elapsedInterval);
-            setError(err instanceof Error ? err.message : "Unknown error occurred");
-            setIsGenerating(false);
-          }
-        }, 3000); // Poll every 3 seconds
-
-        // Cleanup on unmount
-        return () => {
+        if (data.status === 'completed' && data.video_url) {
+          setVideoUrl(data.video_url);
+          setRetrievalCode(data.retrieval_code);
+          setStatus('ready');
           clearInterval(pollInterval);
-          clearInterval(elapsedInterval);
-        };
+        } else if (data.status === 'failed') {
+          setError(data.error_message || 'Video generation failed');
+          clearInterval(pollInterval);
+        }
+      } catch (err: any) {
+        console.error('Polling error:', err);
+        setError(err.message);
+        clearInterval(pollInterval);
+      }
+    }, 3000);
 
-      } catch (err) {
-        console.error("❌ Unexpected error:", err);
-        setError(err instanceof Error ? err.message : "Unknown error occurred");
-        setIsGenerating(false);
-        if (elapsedInterval) clearInterval(elapsedInterval);
+    return () => clearInterval(pollInterval);
+  }, [videoJobId]);
+
+  // Track elapsed time
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Listen for PUSH mental commands
+  useEffect(() => {
+    if (status !== 'ready') return;
+
+    const handleMentalCommand = (event: CustomEvent) => {
+      const { action, power } = event.detail;
+      
+      if (action === 'push' && power > 0.3) {
+        // Start push hold timer
+        if (!pushHoldTimerRef.current) {
+          pushHoldTimerRef.current = setInterval(() => {
+            setPushProgress(prev => {
+              const next = prev + 10;
+              if (next >= 100) {
+                clearInterval(pushHoldTimerRef.current!);
+                pushHoldTimerRef.current = null;
+                setStatus('revealed');
+                return 100;
+              }
+              return next;
+            });
+          }, 100);
+        }
+      } else {
+        // Release push - clear timer
+        if (pushHoldTimerRef.current) {
+          clearInterval(pushHoldTimerRef.current);
+          pushHoldTimerRef.current = null;
+        }
       }
     };
 
-    generateVideo();
-  }, [location.state, navigate, toast, metadata]);
-
-  const handleStartOver = () => {
-    navigate("/");
-  };
+    window.addEventListener('mental-command', handleMentalCommand as EventListener);
+    return () => {
+      window.removeEventListener('mental-command', handleMentalCommand as EventListener);
+      if (pushHoldTimerRef.current) clearInterval(pushHoldTimerRef.current);
+    };
+  }, [status]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}m ${secs}s`;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getProgressPercentage = () => {
-    if (progressData.maxAttempts === 0) return 0;
-    return Math.min((progressData.pollAttempts / progressData.maxAttempts) * 100, 100);
+  const copyCode = () => {
+    if (retrievalCode) {
+      navigator.clipboard.writeText(retrievalCode);
+      toast({ title: "Code copied!", description: "Retrieval code copied to clipboard" });
+    }
+  };
+
+  const downloadVideo = () => {
+    if (videoUrl) {
+      const a = document.createElement('a');
+      a.href = videoUrl;
+      a.download = `${retrievalCode || 'video'}.mp4`;
+      a.click();
+    }
+  };
+
+  const sendEmail = async () => {
+    if (!email || !videoUrl) return;
+    
+    toast({ 
+      title: "Email feature", 
+      description: "Email delivery coming soon! Use download or save your code for now." 
+    });
   };
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-8">
-        <Card className="p-8 max-w-2xl w-full">
-          <div className="flex flex-col items-center gap-6">
-            <AlertCircle className="w-16 h-16 text-destructive" />
-            <h1 className="text-3xl font-bold text-foreground">Generation Error</h1>
-            <p className="text-muted-foreground text-center">{error}</p>
-            <Button onClick={handleStartOver} variant="outline" className="gap-2">
-              <RotateCcw className="w-4 h-4" />
+      <div className="min-h-screen relative bg-background">
+        <Brain3D excitement={0} className="opacity-10" />
+        <Header />
+        <div className="container mx-auto px-6 py-20 text-center">
+          <div className="max-w-2xl mx-auto">
+            <h1 className="text-4xl font-bold text-destructive mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+              Generation Failed
+            </h1>
+            <p className="text-muted-foreground mb-8">{error}</p>
+            <Button onClick={() => navigate('/')} variant="outline">
               Start Over
             </Button>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-8">
-      <Card className="p-8 max-w-6xl w-full">
-        {isGenerating ? (
-          <div className="flex flex-col items-center gap-6 py-12">
-            <Loader2 className="w-20 h-20 animate-spin text-primary" />
-            <h1 className="text-4xl font-bold text-foreground">Generating Your Vision...</h1>
+  if (status === 'waiting') {
+    const progressPercent = (progress.current / progress.max) * 100;
+    
+    return (
+      <div className="min-h-screen relative bg-background">
+        <Brain3D excitement={0.3} className="opacity-15" />
+        <Header />
+        
+        <div className="container mx-auto px-6 py-20">
+          <div className="max-w-3xl mx-auto text-center">
+            <h1 className="text-5xl font-bold mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+              Crafting Your Vision
+            </h1>
+            <p className="text-xl text-muted-foreground mb-12">
+              Your AI-generated video is being created...
+            </p>
             
-            {/* Progress Bar */}
-            <div className="w-full max-w-2xl space-y-3">
-              <Progress value={getProgressPercentage()} className="h-3" />
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">
-                  {progressData.pollAttempts > 0 
-                    ? `${Math.round(getProgressPercentage())}% (${progressData.pollAttempts}/${progressData.maxAttempts} checks)`
-                    : 'Starting...'}
-                </span>
-                <span className="text-muted-foreground font-mono">
-                  {formatTime(progressData.elapsedSeconds)}
-                </span>
+            {/* Progress Ring */}
+            <div className="relative w-64 h-64 mx-auto mb-8">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle
+                  cx="128"
+                  cy="128"
+                  r="120"
+                  fill="none"
+                  stroke="hsl(var(--border))"
+                  strokeWidth="8"
+                />
+                <circle
+                  cx="128"
+                  cy="128"
+                  r="120"
+                  fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth="8"
+                  strokeDasharray={`${2 * Math.PI * 120}`}
+                  strokeDashoffset={`${2 * Math.PI * 120 * (1 - progressPercent / 100)}`}
+                  className="transition-all duration-500"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="text-5xl font-bold text-primary">{Math.round(progressPercent)}%</div>
+                <div className="text-sm text-muted-foreground mt-2">{formatTime(elapsedTime)}</div>
               </div>
             </div>
-
-            {/* Status Display */}
-            <div className="mt-4 space-y-2 text-center max-w-2xl w-full">
-              <div className="flex items-center justify-center gap-2">
-                <div className="text-sm font-semibold text-primary">
-                  Sora Status:
-                </div>
-                <div className="text-sm text-foreground capitalize px-3 py-1 bg-primary/10 rounded-full border border-primary/20">
-                  {progressData.soraStatus || 'initializing'}
-                </div>
+            
+            {/* Status Info */}
+            <div className="bg-background/50 backdrop-blur border border-primary/30 rounded-lg p-6 text-left space-y-3">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status:</span>
+                <span className="text-primary font-mono">{progress.soraStatus || 'Processing'}</span>
               </div>
-              
-              <div className="text-sm text-muted-foreground animate-pulse">
-                This typically takes 2-5 minutes
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Attempts:</span>
+                <span className="text-accent">{progress.current} / {progress.max}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Tags Used:</span>
+                <span className="text-foreground">{metadata?.slice(0, 2).join(', ')}</span>
               </div>
             </div>
-
-            {/* Metadata Display */}
-            {metadata && metadata.length > 0 && (
-              <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-border w-full max-w-2xl">
-                <div className="text-sm font-semibold text-foreground mb-2">Metadata Tags:</div>
-                <div className="flex flex-wrap gap-2">
-                  {metadata.map((tag: string, idx: number) => (
-                    <span 
-                      key={idx}
-                      className="text-xs px-2 py-1 bg-primary/10 text-primary rounded border border-primary/20"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Prompt Display */}
-            {progressData.promptUsed && (
-              <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border w-full max-w-2xl">
-                <div className="text-sm font-semibold text-foreground mb-2">Prompt Sent to Sora:</div>
-                <div className="text-xs text-muted-foreground leading-relaxed">
-                  {progressData.promptUsed}
-                </div>
-              </div>
-            )}
-
-            {/* Debug Panel Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowDebug(!showDebug)}
-              className="mt-4 gap-2"
-            >
-              {showDebug ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              {showDebug ? 'Hide' : 'Show'} Debug Info
-            </Button>
-
-            {/* Debug Panel */}
-            {showDebug && (
-              <div className="mt-4 p-4 bg-muted/30 rounded-lg border border-border w-full max-w-2xl font-mono text-xs">
-                <div className="space-y-2">
-                  <div>
-                    <span className="text-muted-foreground">Job ID:</span>{' '}
-                    <span className="text-foreground">{jobId || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Sora Job ID:</span>{' '}
-                    <span className="text-foreground">{soraJobId || 'Pending...'}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Poll Attempts:</span>{' '}
-                    <span className="text-foreground">{progressData.pollAttempts}/{progressData.maxAttempts}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Status:</span>{' '}
-                    <span className="text-foreground">{progressData.soraStatus}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Elapsed:</span>{' '}
-                    <span className="text-foreground">{formatTime(progressData.elapsedSeconds)}</span>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
-        ) : (
-          <div className="space-y-8">
-            <div className="text-center">
-              <h1 className="text-4xl font-bold text-foreground mb-4">Your Generated Video</h1>
-              <p className="text-muted-foreground text-lg mb-2">
-                Created from your mind-controlled selections
-              </p>
-              {level3Selections && level3Selections.length > 0 && (
-                <p className="text-sm text-muted-foreground mb-4">
-                  Earth formed by {level3Selections.length} emotional resonance{level3Selections.length !== 1 ? 's' : ''}
-                </p>
-              )}
-              {soundtrack && collectiveScore !== undefined && (
-                <div className="inline-flex flex-col items-center gap-2 px-6 py-3 bg-primary/10 rounded-lg border border-primary/20 mt-4">
-                  <div className="flex items-center gap-2">
-                    <Music className="w-5 h-5 text-primary" />
-                    <span className="font-semibold text-primary">Soundtrack: {soundtrack.name}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{soundtrack.description}</p>
-                  <p className="text-xs text-muted-foreground">Collective Excitement Score: {collectiveScore}/100</p>
-                </div>
-              )}
-            </div>
-            
-            <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden">
-              {videoUrl ? (
-                <video 
-                  src={videoUrl} 
-                  controls 
-                  autoPlay 
-                  className="w-full h-full object-cover"
-                >
-                  Your browser does not support the video tag.
-                </video>
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">Video player loading...</p>
-                </div>
-              )}
-            </div>
+        </div>
+      </div>
+    );
+  }
 
-            <div className="flex gap-4 justify-center">
-              <Button onClick={handleStartOver} variant="outline" className="gap-2">
-                <RotateCcw className="w-4 h-4" />
-                Create Another
+  if (status === 'ready') {
+    return (
+      <div className="min-h-screen relative bg-background overflow-hidden">
+        <Brain3D excitement={0.7} className="opacity-20" />
+        <Header />
+        
+        <div className="container mx-auto px-6 py-20 text-center">
+          <h1 className="text-6xl font-bold mb-8 animate-pulse" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+            🌍 Your Vision is Ready 🌍
+          </h1>
+          
+          {/* Blurred preview */}
+          <div className="relative max-w-4xl mx-auto mb-12">
+            <video
+              src={videoUrl || ''}
+              className="w-full rounded-lg blur-xl"
+              muted
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary mb-4">PUSH to Reveal Your Creation</div>
+                <div className="relative w-64 h-4 bg-border/50 rounded-full mx-auto overflow-hidden">
+                  <div 
+                    className="absolute inset-y-0 left-0 bg-primary transition-all duration-100"
+                    style={{ width: `${pushProgress}%` }}
+                  />
+                </div>
+                <div className="text-sm text-muted-foreground mt-2">{pushProgress}%</div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Retrieval Code */}
+          <div className="max-w-md mx-auto bg-primary/10 border border-primary/50 rounded-lg p-6">
+            <div className="text-sm text-muted-foreground mb-2">Your Video Code</div>
+            <div className="text-4xl font-bold text-primary font-mono mb-4">{retrievalCode}</div>
+            <Button onClick={copyCode} variant="outline" className="gap-2">
+              <Copy className="h-4 w-4" /> Copy Code
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // status === 'revealed'
+  return (
+    <div className="min-h-screen relative bg-background">
+      <Brain3D excitement={0.8} className="opacity-15" />
+      <Header />
+      
+      <div className="container mx-auto px-6 py-20">
+        <div className="max-w-5xl mx-auto">
+          <h1 className="text-5xl font-bold text-center mb-12" style={{ fontFamily: 'Orbitron, sans-serif' }}>
+            🎉 Your Creation Awaits
+          </h1>
+          
+          {/* Video Player */}
+          <div className="relative aspect-video rounded-lg overflow-hidden border-2 border-primary/50 shadow-2xl mb-8">
+            <video
+              src={videoUrl || ''}
+              controls
+              autoPlay
+              loop
+              className="w-full h-full"
+            />
+          </div>
+          
+          {/* Retrieval Code & Actions */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-background/50 backdrop-blur border border-primary/30 rounded-lg p-6">
+              <div className="text-sm text-muted-foreground mb-2">Your Video Code</div>
+              <div className="text-3xl font-bold text-primary font-mono mb-4">{retrievalCode}</div>
+              <div className="text-xs text-muted-foreground mb-4">
+                Save this code to find your video later
+              </div>
+              <Button onClick={copyCode} variant="outline" className="w-full gap-2">
+                <Copy className="h-4 w-4" /> Copy Code
               </Button>
             </div>
+            
+            <div className="bg-background/50 backdrop-blur border border-border rounded-lg p-6 space-y-4">
+              <Button onClick={downloadVideo} className="w-full gap-2">
+                <Download className="h-4 w-4" /> Download Video
+              </Button>
+              
+              <div className="space-y-2">
+                <Input
+                  type="email"
+                  placeholder="Enter email to receive link"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <Button onClick={sendEmail} variant="outline" className="w-full gap-2">
+                  <Mail className="h-4 w-4" /> Email Video Link
+                </Button>
+              </div>
+            </div>
           </div>
-        )}
-      </Card>
+          
+          <div className="text-center mt-12">
+            <Button onClick={() => navigate('/')} size="lg">
+              Create Another Experience
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

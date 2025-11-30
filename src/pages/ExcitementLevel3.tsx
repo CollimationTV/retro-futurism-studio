@@ -161,21 +161,35 @@ const ExcitementLevel3 = () => {
         
         {/* Artwork display */}
         <div className="relative w-full max-w-6xl mx-auto aspect-video rounded-lg overflow-hidden border-2 border-primary/30 shadow-2xl">
-          <img
-            src={currentArtwork.artworkUrl}
-            alt={`Artwork ${currentArtwork.id}`}
-            className="w-full h-full object-cover animate-fade-in"
-            key={currentArtwork.id}
-          />
+          {currentArtwork.type === 'video' ? (
+            <video
+              src={currentArtwork.artworkUrl}
+              autoPlay
+              loop
+              playsInline
+              className="w-full h-full object-cover animate-fade-in"
+              key={currentArtwork.id}
+            />
+          ) : (
+            <>
+              <img
+                src={currentArtwork.artworkUrl}
+                alt={`Artwork ${currentArtwork.id}`}
+                className="w-full h-full object-cover animate-fade-in"
+                key={currentArtwork.id}
+              />
+              {currentArtwork.audioUrl && (
+                <audio src={currentArtwork.audioUrl} autoPlay loop />
+              )}
+            </>
+          )}
           
           {/* Metadata overlay */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background/95 to-transparent p-6">
             <div className="flex gap-3">
-              {currentArtwork.metadata.map((tag, i) => (
-                <span key={i} className="px-3 py-1 bg-primary/20 border border-primary/50 rounded text-sm font-mono">
-                  {tag}
-                </span>
-              ))}
+              <span className="px-3 py-1 bg-primary/20 border border-primary/50 rounded text-sm font-mono">
+                {currentArtwork.metadata}
+              </span>
             </div>
           </div>
           

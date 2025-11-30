@@ -44,8 +44,8 @@ const SecondSelection = () => {
     }
   }, []);
 
-  const handleAllSelected = (selections: Map<string, number>) => {
-    // Extract metadata from selected images
+  const handleAllSelected = async (selections: Map<string, number>) => {
+    // Extract metadata from selected images (single tag per image)
     const metadata: string[] = [];
     
     // Add Level 1 metadata
@@ -53,7 +53,7 @@ const SecondSelection = () => {
       level1Selections.forEach(imageId => {
         const image = level1Images.find(img => img.id === imageId);
         if (image) {
-          metadata.push(...image.metadata);
+          metadata.push(image.metadata);
         }
       });
     }
@@ -62,15 +62,44 @@ const SecondSelection = () => {
     selections.forEach(imageId => {
       const image = level2Images.find(img => img.id === imageId);
       if (image) {
-        metadata.push(...image.metadata);
+        metadata.push(image.metadata);
       }
     });
     
+    // Start video generation in background
+    let videoJobId = null;
+    try {
+      const apiKey = localStorage.getItem('openai-api-key');
+      const userEmail = localStorage.getItem('user-email');
+      
+      if (apiKey) {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-sora-video`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ metadata, apiKey, userEmail }),
+          }
+        );
+        
+        const data = await response.json();
+        videoJobId = data.jobId;
+        console.log('🎬 Video generation started in background:', videoJobId);
+      }
+    } catch (error) {
+      console.error('Failed to start background video generation:', error);
+    }
+    
+    // Navigate immediately (don't wait for video)
     navigate("/excitement-level-3", {
       state: {
         level1Selections,
         level2Selections: selections,
         metadata,
+        videoJobId,
         connectedHeadsets,
         mentalCommand,
         motionEvent

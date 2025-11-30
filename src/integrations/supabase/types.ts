@@ -95,10 +95,12 @@ export type Database = {
           metadata: string[]
           poll_attempts: number | null
           prompt_used: string | null
+          retrieval_code: string | null
           sora_job_id: string | null
           sora_status: string | null
           status: string
           updated_at: string | null
+          user_email: string | null
           video_url: string | null
         }
         Insert: {
@@ -109,10 +111,12 @@ export type Database = {
           metadata: string[]
           poll_attempts?: number | null
           prompt_used?: string | null
+          retrieval_code?: string | null
           sora_job_id?: string | null
           sora_status?: string | null
           status?: string
           updated_at?: string | null
+          user_email?: string | null
           video_url?: string | null
         }
         Update: {
@@ -123,10 +127,12 @@ export type Database = {
           metadata?: string[]
           poll_attempts?: number | null
           prompt_used?: string | null
+          retrieval_code?: string | null
           sora_job_id?: string | null
           sora_status?: string | null
           status?: string
           updated_at?: string | null
+          user_email?: string | null
           video_url?: string | null
         }
         Relationships: []

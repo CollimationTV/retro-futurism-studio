@@ -26,19 +26,19 @@ const Results = () => {
     const collectMetadata = () => {
       const allMetadata: string[] = [];
       
-      // Collect metadata from level 1 selections
+      // Collect metadata from level 1 selections (single tag per image)
       level1Selections.forEach((imageId: number) => {
         const image = getImageById(imageId);
         if (image?.metadata) {
-          allMetadata.push(...image.metadata);
+          allMetadata.push(image.metadata);
         }
       });
 
-      // Collect metadata from level 2 selections
+      // Collect metadata from level 2 selections (single tag per image)
       level2Selections.forEach((imageId: number) => {
         const image = getImageById(imageId);
         if (image?.metadata) {
-          allMetadata.push(...image.metadata);
+          allMetadata.push(image.metadata);
         }
       });
 
@@ -158,11 +158,9 @@ const Results = () => {
                       </div>
                       <div className="p-4 bg-card">
                         <div className="flex flex-wrap gap-2 justify-center">
-                          {image.metadata.map((tag, i) => (
-                            <span key={i} className="px-2 py-1 bg-primary/20 border border-primary/50 rounded text-xs font-mono">
-                              {tag}
-                            </span>
-                          ))}
+                          <span className="px-2 py-1 bg-primary/20 border border-primary/50 rounded text-xs font-mono">
+                            {image.metadata}
+                          </span>
                         </div>
                       </div>
                     </Card>
@@ -208,11 +206,9 @@ const Results = () => {
                       </div>
                       <div className="p-4 bg-card">
                         <div className="flex flex-wrap gap-2 justify-center">
-                          {image.metadata.map((tag, i) => (
-                            <span key={i} className="px-2 py-1 bg-primary/20 border border-primary/50 rounded text-xs font-mono">
-                              {tag}
-                            </span>
-                          ))}
+                          <span className="px-2 py-1 bg-primary/20 border border-primary/50 rounded text-xs font-mono">
+                            {image.metadata}
+                          </span>
                         </div>
                       </div>
                     </Card>
