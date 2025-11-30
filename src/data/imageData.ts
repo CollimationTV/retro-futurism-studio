@@ -8,6 +8,16 @@ import level1Img7 from "@/assets/level1-img7.png";
 import level1Img8 from "@/assets/level1-img8.png";
 import level1Img9 from "@/assets/level1-img9.png";
 
+import level2Img1 from "@/assets/level2-img1.png";
+import level2Img2 from "@/assets/level2-img2.png";
+import level2Img3 from "@/assets/level2-img3.png";
+import level2Img4 from "@/assets/level2-img4.png";
+import level2Img5 from "@/assets/level2-img5.png";
+import level2Img6 from "@/assets/level2-img6.png";
+import level2Img7 from "@/assets/level2-img7.png";
+import level2Img8 from "@/assets/level2-img8.png";
+import level2Img9 from "@/assets/level2-img9.png";
+
 export interface ImageData {
   id: number;
   url: string;
@@ -27,13 +37,13 @@ export const level1Images: ImageData[] = [
 ];
 
 export const level2Images: ImageData[] = [
-  { id: 10, url: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=800&h=450&fit=crop", metadata: ["solar power", "renewable energy", "clean electricity"] },
-  { id: 11, url: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&h=450&fit=crop", metadata: ["smart city", "IoT network", "connected infrastructure"] },
-  { id: 12, url: "https://images.unsplash.com/photo-1518005020951-eccb494ad742?w=800&h=450&fit=crop", metadata: ["aerial perspective", "urban sprawl", "city planning"] },
-  { id: 13, url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&h=450&fit=crop", metadata: ["mountain city", "alpine urban", "elevated development"] },
-  { id: 14, url: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&h=450&fit=crop", metadata: ["coastal city", "waterfront", "ocean proximity"] },
-  { id: 15, url: "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&h=450&fit=crop", metadata: ["open space", "natural landscape", "wilderness"] },
-  { id: 16, url: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=450&fit=crop", metadata: ["nature blend", "environmental harmony", "ecosystem integration"] },
-  { id: 17, url: "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800&h=450&fit=crop", metadata: ["valley settlement", "rural community", "countryside"] },
-  { id: 18, url: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&h=450&fit=crop", metadata: ["forest conservation", "woodland protection", "natural reserve"] },
+  { id: 10, url: level2Img1, metadata: ["afrofuturistic hub", "community gathering", "illuminated design"] },
+  { id: 11, url: level2Img2, metadata: ["interactive pathways", "smart walkways", "connected spaces"] },
+  { id: 12, url: level2Img3, metadata: ["vertical farming", "sustainable agriculture", "green technology"] },
+  { id: 13, url: level2Img4, metadata: ["AI partnership", "human collaboration", "benevolent technology"] },
+  { id: 14, url: level2Img5, metadata: ["holographic music", "digital performance", "cultural connection"] },
+  { id: 15, url: level2Img6, metadata: ["immersive experience", "artistic hologram", "technological art"] },
+  { id: 16, url: level2Img7, metadata: ["shared knowledge", "community learning", "floating technology"] },
+  { id: 17, url: level2Img8, metadata: ["future education", "interactive learning", "immersive tech"] },
+  { id: 18, url: level2Img9, metadata: ["gravity transport", "pod travel", "collaborative space"] },
 ];
