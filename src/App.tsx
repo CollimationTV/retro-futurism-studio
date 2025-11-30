@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import SecondSelection from "./pages/SecondSelection";
 import Results from "./pages/Results";
 import ExcitementLevel3 from "./pages/ExcitementLevel3";
+import AudioEmotion from "./pages/AudioEmotion";
 import VideoOutput from "./pages/VideoOutput";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
@@ -28,6 +29,7 @@ const App = () => (
               <Route path="/level2" element={<SecondSelection />} />
               <Route path="/results" element={<Results />} />
               <Route path="/excitement-level-3" element={<ExcitementLevel3 />} />
+              <Route path="/audio-emotion" element={<AudioEmotion />} />
               <Route path="/video-output" element={<VideoOutput />} />
               <Route path="/admin" element={<Admin />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
