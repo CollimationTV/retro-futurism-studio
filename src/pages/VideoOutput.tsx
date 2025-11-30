@@ -28,17 +28,9 @@ const VideoOutput = () => {
       navigate("/");
       return;
     }
-
-    // console.log("🎬 Starting Sora video generation with metadata:", metadataFromState);
-    if (collectiveScore) {
-      // console.log("🎵 Collective excitement score:", collectiveScore);
-      // console.log("🎶 Selected soundtrack:", soundtrack?.name);
-    }
     
-    // Call the Sora edge function with extended timeout
     const generateVideo = async () => {
       try {
-        // Get API key from localStorage
         const apiKey = localStorage.getItem("openai_api_key");
         
         if (!apiKey) {
@@ -47,10 +39,7 @@ const VideoOutput = () => {
           return;
         }
 
-        // Use direct fetch with extended timeout (6 minutes) instead of supabase.functions.invoke
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 360000); // 6 minutes
-
+        // Start video generation and get job ID
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-sora-video`,
           {
@@ -63,36 +52,71 @@ const VideoOutput = () => {
               metadata: metadataFromState,
               apiKey: apiKey 
             }),
-            signal: controller.signal,
           }
         );
 
-        clearTimeout(timeoutId);
-
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          console.error("❌ Sora generation error:", response.status, errorData);
-          setError(errorData.error || `Failed to generate video (${response.status})`);
+          setError(errorData.error || `Failed to start video generation (${response.status})`);
           setIsGenerating(false);
           return;
         }
 
         const data = await response.json();
-        
-        if (data?.videoUrl) {
-          // console.log("✅ Video generated:", data.videoUrl);
-          setVideoUrl(data.videoUrl);
-        } else {
-          setError("No video URL returned from API");
+        const jobId = data.jobId;
+
+        if (!jobId) {
+          setError("No job ID returned from API");
+          setIsGenerating(false);
+          return;
         }
+
+        // Poll for job completion
+        const pollInterval = setInterval(async () => {
+          try {
+            const statusResponse = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-video-status`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                },
+                body: JSON.stringify({ jobId }),
+              }
+            );
+
+            if (!statusResponse.ok) {
+              clearInterval(pollInterval);
+              setError("Failed to check video status");
+              setIsGenerating(false);
+              return;
+            }
+
+            const jobData = await statusResponse.json();
+
+            if (jobData.status === 'completed' && jobData.video_url) {
+              clearInterval(pollInterval);
+              setVideoUrl(jobData.video_url);
+              setIsGenerating(false);
+            } else if (jobData.status === 'failed') {
+              clearInterval(pollInterval);
+              setError(jobData.error_message || "Video generation failed");
+              setIsGenerating(false);
+            }
+          } catch (err) {
+            clearInterval(pollInterval);
+            setError(err instanceof Error ? err.message : "Unknown error occurred");
+            setIsGenerating(false);
+          }
+        }, 3000); // Poll every 3 seconds
+
+        // Cleanup on unmount
+        return () => clearInterval(pollInterval);
+
       } catch (err) {
         console.error("❌ Unexpected error:", err);
-        if (err instanceof Error && err.name === 'AbortError') {
-          setError("Video generation timed out. The process may still be running - please try again in a moment.");
-        } else {
-          setError(err instanceof Error ? err.message : "Unknown error occurred");
-        }
-      } finally {
+        setError(err instanceof Error ? err.message : "Unknown error occurred");
         setIsGenerating(false);
       }
     };

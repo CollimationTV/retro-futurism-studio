@@ -86,6 +86,39 @@ export type Database = {
         }
         Relationships: []
       }
+      video_generation_jobs: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          id: string
+          metadata: string[]
+          sora_job_id: string | null
+          status: string
+          updated_at: string | null
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          metadata: string[]
+          sora_job_id?: string | null
+          status?: string
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: string[]
+          sora_job_id?: string | null
+          status?: string
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       videos: {
         Row: {
           created_at: string | null
