@@ -81,6 +81,15 @@ serve(async (req) => {
 
         console.log('📝 Sora prompt:', prompt);
 
+        // Store prompt in database
+        await supabase
+          .from("video_generation_jobs")
+          .update({ 
+            prompt_used: prompt,
+            max_attempts: 60
+          })
+          .eq('id', job.id);
+
         // Step 1: Start video generation job with Sora 2 Pro
         const createResponse = await fetch('https://api.openai.com/v1/videos', {
           method: 'POST',
@@ -143,6 +152,16 @@ serve(async (req) => {
 
           const statusData = await statusResponse.json();
           console.log(`📊 Status check ${attempts}/${maxAttempts}:`, statusData.status);
+
+          // Update progress in database after each poll
+          await supabase
+            .from("video_generation_jobs")
+            .update({
+              poll_attempts: attempts,
+              sora_status: statusData.status,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', job.id);
 
           if (statusData.status === 'completed') {
             // Fetch the video content
