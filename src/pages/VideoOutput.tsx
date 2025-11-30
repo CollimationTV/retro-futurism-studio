@@ -38,6 +38,15 @@ const VideoOutput = () => {
     // Call the Sora edge function with extended timeout
     const generateVideo = async () => {
       try {
+        // Get API key from localStorage
+        const apiKey = localStorage.getItem("openai_api_key");
+        
+        if (!apiKey) {
+          setError("OpenAI API key not set. Please click 'Set API Key' in the header to add your key.");
+          setIsGenerating(false);
+          return;
+        }
+
         // Use direct fetch with extended timeout (6 minutes) instead of supabase.functions.invoke
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 360000); // 6 minutes
@@ -50,7 +59,10 @@ const VideoOutput = () => {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
             },
-            body: JSON.stringify({ metadata: metadataFromState }),
+            body: JSON.stringify({ 
+              metadata: metadataFromState,
+              apiKey: apiKey 
+            }),
             signal: controller.signal,
           }
         );
