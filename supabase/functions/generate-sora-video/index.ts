@@ -101,7 +101,7 @@ serve(async (req) => {
             model: 'sora-2-pro',
             prompt: prompt,
             size: '1280x720',
-            seconds: '5',
+            seconds: '4',
           }),
         });
 
