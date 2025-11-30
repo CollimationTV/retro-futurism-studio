@@ -106,13 +106,12 @@ const ExcitementLevel3 = () => {
     const top5Artworks = artworkAudioPairs.filter(pair => top5Ids.includes(pair.id));
     
     setTimeout(() => {
-      navigate("/audio-emotion", {
+      navigate("/video-output", {
         state: {
           videoJobId,
           metadata,
           connectedHeadsets,
-          top5Artworks,
-          artworkScores: Array.from(artworkScores.entries())
+          level3Selections: top5Artworks
         }
       });
     }, 2000);
