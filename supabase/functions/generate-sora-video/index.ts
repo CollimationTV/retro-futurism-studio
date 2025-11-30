@@ -1,8 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -15,16 +13,16 @@ serve(async (req) => {
 
   try {
     console.log('📥 Received request to generate-sora-video');
+
+    const { metadata, apiKey } = await req.json();
     
-    if (!openAIApiKey) {
-      console.error('❌ OPENAI_API_KEY not configured');
+    if (!apiKey) {
+      console.error('❌ No API key provided in request');
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key is not configured. Please add your OPENAI_API_KEY in the backend settings.' }), 
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'OpenAI API key is required. Please set your API key in the application.' }), 
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const { metadata } = await req.json();
 
     if (!metadata || !Array.isArray(metadata) || metadata.length === 0) {
       console.error('❌ No metadata provided');
@@ -41,17 +39,18 @@ serve(async (req) => {
 
     console.log('📝 Sora prompt:', prompt);
 
-    // Step 1: Start video generation job
+    // Step 1: Start video generation job with Sora 2 Pro
     const createResponse = await fetch('https://api.openai.com/v1/videos', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sora-1.0',
+        model: 'sora-2-pro',
         prompt: prompt,
-        duration: 8,
+        size: '1280x720',
+        seconds: '8',
       }),
     });
 
@@ -83,7 +82,7 @@ serve(async (req) => {
 
       const statusResponse = await fetch(`https://api.openai.com/v1/videos/${videoId}`, {
         headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
+          'Authorization': `Bearer ${apiKey}`,
         },
       });
 
@@ -100,7 +99,7 @@ serve(async (req) => {
         // Step 3: Fetch the video content
         const contentResponse = await fetch(`https://api.openai.com/v1/videos/${videoId}/content`, {
           headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
+            'Authorization': `Bearer ${apiKey}`,
           },
         });
 

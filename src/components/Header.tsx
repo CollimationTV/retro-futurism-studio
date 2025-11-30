@@ -1,4 +1,5 @@
 import { Brain, Zap } from "lucide-react";
+import { ApiKeySettings } from "./ApiKeySettings";
 
 export const Header = () => {
   return (
@@ -16,9 +17,12 @@ export const Header = () => {
             </h1>
           </div>
           
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-primary animate-pulse-glow" />
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">System Online</span>
+          <div className="flex items-center gap-4">
+            <ApiKeySettings />
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse-glow" />
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">System Online</span>
+            </div>
           </div>
         </div>
       </div>
