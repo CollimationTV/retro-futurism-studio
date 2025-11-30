@@ -5,7 +5,7 @@ import { PerHeadsetImageGrid } from "@/components/PerHeadsetImageGrid";
 import { StatusPanel } from "@/components/StatusPanel";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { level2Images } from "@/data/imageData";
+import { level1Images, level2Images } from "@/data/imageData";
 import { useToast } from "@/hooks/use-toast";
 import { Brain3D } from "@/components/Brain3D";
 import type { MentalCommandEvent } from "@/lib/multiHeadsetCortexClient";
@@ -45,10 +45,32 @@ const SecondSelection = () => {
   }, []);
 
   const handleAllSelected = (selections: Map<string, number>) => {
+    // Extract metadata from selected images
+    const metadata: string[] = [];
+    
+    // Add Level 1 metadata
+    if (level1Selections) {
+      level1Selections.forEach(imageId => {
+        const image = level1Images.find(img => img.id === imageId);
+        if (image) {
+          metadata.push(...image.metadata);
+        }
+      });
+    }
+    
+    // Add Level 2 metadata
+    selections.forEach(imageId => {
+      const image = level2Images.find(img => img.id === imageId);
+      if (image) {
+        metadata.push(...image.metadata);
+      }
+    });
+    
     navigate("/excitement-level-3", {
       state: {
         level1Selections,
         level2Selections: selections,
+        metadata,
         connectedHeadsets,
         mentalCommand,
         motionEvent
