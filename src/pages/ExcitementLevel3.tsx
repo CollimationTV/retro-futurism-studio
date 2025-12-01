@@ -1,11 +1,9 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Brain3D } from "@/components/Brain3D";
 import { artworkAudioPairs } from "@/data/artworkAudioPairs";
 import { PerformanceMetricsEvent } from "@/lib/multiHeadsetCortexClient";
-import { getHeadsetColor } from "@/utils/headsetColors";
-import { CollectiveExcitementCore } from "@/components/CollectiveExcitementCore";
 
 interface ArtworkScore {
   artworkId: number;
@@ -23,25 +21,25 @@ const ExcitementLevel3 = () => {
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetricsEvent | null>(null);
   const [artworkScores, setArtworkScores] = useState<Map<number, ArtworkScore>>(new Map());
   const [isComplete, setIsComplete] = useState(false);
-  const [excitementLevels, setExcitementLevels] = useState<Map<string, number>>(new Map());
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
   
   const currentArtwork = artworkAudioPairs[currentArtworkIndex];
-  const averageExcitement = Array.from(excitementLevels.values()).reduce((sum, val) => sum + val, 0) / Math.max(excitementLevels.size, 1);
+  
+  // Calculate average excitement across all headsets
+  const calculateAverageExcitement = (): number => {
+    if (!performanceMetrics) return 0;
+    const { excitement, interest, focus } = performanceMetrics;
+    return (excitement + interest + focus) / 3;
+  };
   
   // Listen to window events for real-time performance metrics
   useEffect(() => {
     const handlePerformanceMetrics = ((event: CustomEvent<PerformanceMetricsEvent>) => {
+      // console.log('📊 Level3 received performance metrics event:', event.detail);
       setPerformanceMetrics(event.detail);
-      
-      // Update individual headset excitement levels
-      const { excitement, interest, focus, headsetId } = event.detail;
-      const combinedScore = (excitement + interest + focus) / 3;
-      setExcitementLevels(prev => new Map(prev).set(headsetId, combinedScore));
     }) as EventListener;
     
     window.addEventListener('performance-metrics', handlePerformanceMetrics);
+    // console.log('✅ Level3 performance metrics listener registered');
     
     return () => {
       window.removeEventListener('performance-metrics', handlePerformanceMetrics);
@@ -53,7 +51,7 @@ const ExcitementLevel3 = () => {
     if (!performanceMetrics || isComplete) return;
     
     const artworkId = currentArtwork.id;
-    const excitement = averageExcitement;
+    const excitement = calculateAverageExcitement();
     
     setArtworkScores(prev => {
       const existing = prev.get(artworkId) || { 
@@ -76,37 +74,24 @@ const ExcitementLevel3 = () => {
     });
   }, [performanceMetrics, currentArtwork, isComplete]);
   
-  // Auto-rotate to next artwork every 7 seconds and manage audio/video
+  // Auto-rotate to next artwork every 7 seconds
   useEffect(() => {
     if (isComplete) return;
     
-    // Play audio/video for current artwork
-    if (currentArtwork.type === 'video' && videoRef.current) {
-      videoRef.current.play();
-    } else if (currentArtwork.audioUrl && audioRef.current) {
-      audioRef.current.play();
-    }
-    
     const timer = setTimeout(() => {
-      // Pause current media before switching
-      if (videoRef.current) videoRef.current.pause();
-      if (audioRef.current) audioRef.current.pause();
-      
       if (currentArtworkIndex < artworkAudioPairs.length - 1) {
+        // console.log(`⏭️ Advancing to artwork ${currentArtworkIndex + 2}`);
         setCurrentArtworkIndex(prev => prev + 1);
       } else {
+        // console.log('🎉 All artworks displayed, calculating top 5');
         setIsComplete(true);
       }
     }, 7000);
     
-    return () => {
-      clearTimeout(timer);
-      if (videoRef.current) videoRef.current.pause();
-      if (audioRef.current) audioRef.current.pause();
-    };
-  }, [currentArtworkIndex, isComplete, currentArtwork]);
+    return () => clearTimeout(timer);
+  }, [currentArtworkIndex, isComplete]);
   
-  // Navigate directly to video output when complete
+  // Navigate to next page when complete
   useEffect(() => {
     if (!isComplete) return;
     
@@ -115,11 +100,13 @@ const ExcitementLevel3 = () => {
       .sort((a, b) => b.averageExcitement - a.averageExcitement)
       .slice(0, 5);
     
+    // console.log('🏆 Top 5 artworks by excitement:', sortedArtworks);
+    
     const top5Ids = sortedArtworks.map(score => score.artworkId);
     const top5Artworks = artworkAudioPairs.filter(pair => top5Ids.includes(pair.id));
     
     setTimeout(() => {
-      navigate("/video-output", {
+      navigate("/audio-emotion", {
         state: {
           videoJobId,
           metadata,
@@ -128,14 +115,15 @@ const ExcitementLevel3 = () => {
         }
       });
     }, 2000);
-  }, [isComplete, artworkScores, navigate, videoJobId, metadata, connectedHeadsets]);
+  }, [isComplete, artworkScores, navigate]);
   
+  const averageExcitement = calculateAverageExcitement();
   const progress = ((currentArtworkIndex + 1) / artworkAudioPairs.length) * 100;
   
   return (
     <div className="min-h-screen relative overflow-hidden bg-background">
       {/* Animated Brain Background */}
-      <Brain3D excitement={averageExcitement || 0.5} className="opacity-15 z-0" />
+      <Brain3D excitement={averageExcitement} className="opacity-15 z-0" />
       
       <Header />
       
@@ -171,19 +159,10 @@ const ExcitementLevel3 = () => {
           </div>
         </div>
         
-        {/* Collective Excitement Visualization */}
-        <div className="flex justify-center mb-8">
-          <CollectiveExcitementCore 
-            averageExcitement={averageExcitement || 0} 
-            size={250}
-          />
-        </div>
-
         {/* Artwork display */}
         <div className="relative w-full max-w-6xl mx-auto aspect-video rounded-lg overflow-hidden border-2 border-primary/30 shadow-2xl">
           {currentArtwork.type === 'video' ? (
             <video
-              ref={videoRef}
               src={currentArtwork.artworkUrl}
               autoPlay
               loop
@@ -200,7 +179,7 @@ const ExcitementLevel3 = () => {
                 key={currentArtwork.id}
               />
               {currentArtwork.audioUrl && (
-                <audio ref={audioRef} src={currentArtwork.audioUrl} autoPlay loop />
+                <audio src={currentArtwork.audioUrl} autoPlay loop />
               )}
             </>
           )}
@@ -214,41 +193,13 @@ const ExcitementLevel3 = () => {
             </div>
           </div>
           
-        </div>
-
-        {/* Individual Headset Excitement Meters */}
-        <div className="flex justify-center gap-6 mt-8">
-          {connectedHeadsets?.map((headsetId: string) => {
-            const level = excitementLevels.get(headsetId) || 0;
-            const color = getHeadsetColor(headsetId);
-            
-            return (
-              <div key={headsetId} className="flex flex-col items-center gap-2">
-                <div 
-                  className="w-20 h-20 rounded-full flex items-center justify-center border-4 font-mono text-sm font-bold transition-all"
-                  style={{
-                    borderColor: color,
-                    backgroundColor: `${color}20`,
-                    transform: `scale(${1 + level * 0.2})`
-                  }}
-                >
-                  {(level * 100).toFixed(0)}%
-                </div>
-                <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="h-full transition-all duration-300"
-                    style={{
-                      width: `${level * 100}%`,
-                      backgroundColor: color
-                    }}
-                  />
-                </div>
-                <div className="text-xs text-muted-foreground font-mono">
-                  {headsetId.substring(0, 8)}...
-                </div>
-              </div>
-            );
-          })}
+          {/* Excitement meter overlay */}
+          <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm border border-primary/30 rounded-lg p-4">
+            <div className="text-xs font-mono text-primary mb-2">COLLECTIVE EXCITEMENT</div>
+            <div className="text-3xl font-bold text-accent">
+              {(averageExcitement * 100).toFixed(0)}%
+            </div>
+          </div>
         </div>
         
         {/* Debug panel */}
@@ -279,10 +230,10 @@ const ExcitementLevel3 = () => {
           ← Level 1
         </button>
         <button
-          onClick={() => navigate("/video-output", { state: { videoJobId, metadata, connectedHeadsets } })}
+          onClick={() => setIsComplete(true)}
           className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
         >
-          → Video Output
+          Skip to Results →
         </button>
       </div>
     </div>

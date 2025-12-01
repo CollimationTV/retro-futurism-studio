@@ -9,7 +9,6 @@ import { level1Images, level2Images } from "@/data/imageData";
 import { useToast } from "@/hooks/use-toast";
 import { Brain3D } from "@/components/Brain3D";
 import type { MentalCommandEvent } from "@/lib/multiHeadsetCortexClient";
-import { supabase } from "@/integrations/supabase/client";
 
 const SecondSelection = () => {
   const location = useLocation();
@@ -70,15 +69,23 @@ const SecondSelection = () => {
     // Start video generation in background
     let videoJobId = null;
     try {
+      const apiKey = localStorage.getItem('openai-api-key');
       const userEmail = localStorage.getItem('user-email');
-
-      const { data, error } = await supabase.functions.invoke('generate-sora-video', {
-        body: { metadata, userEmail },
-      });
-
-      if (error) {
-        console.error('Failed to start background video generation:', error);
-      } else if (data?.jobId) {
+      
+      if (apiKey) {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-sora-video`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ metadata, apiKey, userEmail }),
+          }
+        );
+        
+        const data = await response.json();
         videoJobId = data.jobId;
         console.log('🎬 Video generation started in background:', videoJobId);
       }
