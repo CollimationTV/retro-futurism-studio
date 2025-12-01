@@ -9,6 +9,7 @@ import { getHeadsetColor } from "@/utils/headsetColors";
 import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
 import { OneEuroFilter, applySensitivityCurve } from "@/utils/OneEuroFilter";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface Level2Image {
   id: string;
@@ -25,6 +26,7 @@ const PUSH_HOLD_TIME_MS = 4000;
 const ExcitementLevel2 = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { tiltThreshold } = useSettings();
   
   const { 
     videoJobId,
@@ -114,10 +116,10 @@ const ExcitementLevel2 = () => {
       if (selectionsRef.current.has(headsetId)) return;
       if (isPushingRef.current.get(headsetId)) return;
       
-      // MORE AGGRESSIVE FILTERS for even lower latency
+      // SMOOTHING FILTERS for fluid cursor movement (matching Level 1)
       if (!pitchFilters.current.has(headsetId)) {
-        pitchFilters.current.set(headsetId, new OneEuroFilter(3.0, 0.001, 1.0));
-        rotationFilters.current.set(headsetId, new OneEuroFilter(3.0, 0.001, 1.0));
+        pitchFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
+        rotationFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
       }
       
       if (!centerPitch.current.has(headsetId)) {
@@ -132,8 +134,8 @@ const ExcitementLevel2 = () => {
       const smoothPitch = pitchFilters.current.get(headsetId)!.filter(relativePitch, now);
       const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, now);
       
-      // DIRECT POSITION MAPPING (not velocity) for instant response
-      const maxAngle = 15; // Reduced from 30° for faster, more responsive cursor movement
+      // DIRECT POSITION MAPPING (not velocity) for instant response (matching Level 1)
+      const maxAngle = 3; // Same as Level 1 for consistent sensitivity
       const screenCenterX = window.innerWidth / 2;
       const screenCenterY = window.innerHeight / 2;
       

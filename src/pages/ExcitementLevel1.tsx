@@ -9,6 +9,7 @@ import { getHeadsetColor } from "@/utils/headsetColors";
 import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
 import { OneEuroFilter, applySensitivityCurve } from "@/utils/OneEuroFilter";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface Level1Image {
   id: string;
@@ -25,6 +26,7 @@ const PUSH_HOLD_TIME_MS = 4000;
 const ExcitementLevel1 = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { tiltThreshold } = useSettings();
   
   const { 
     videoJobId,
