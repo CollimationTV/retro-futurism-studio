@@ -230,7 +230,8 @@ serve(async (req) => {
             console.log(`🎉 Video uploaded to storage: ${retrievalCode}.mp4`);
             break;
           } else if (statusData.status === 'failed' || statusData.status === 'cancelled') {
-            throw new Error(`Sora job failed: ${statusData.error || 'Unknown error'}`);
+            const errorMsg = statusData.error ? JSON.stringify(statusData.error) : 'Unknown error';
+            throw new Error(`Sora job ${statusData.status}: ${errorMsg}`);
           }
         }
 
