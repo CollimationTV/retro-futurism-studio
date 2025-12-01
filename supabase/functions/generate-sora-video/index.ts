@@ -58,7 +58,7 @@ serve(async (req) => {
   }
 
   try {
-    const { metadata, apiKey, userEmail } = await req.json();
+    const { metadata, userEmail } = await req.json();
 
     if (!metadata || !Array.isArray(metadata) || metadata.length === 0) {
       return new Response(
@@ -67,10 +67,12 @@ serve(async (req) => {
       );
     }
 
+    const apiKey = Deno.env.get('OPENAI_API_KEY');
     if (!apiKey) {
+      console.error('❌ OPENAI_API_KEY is not configured');
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Video generation backend is not configured with OPENAI_API_KEY' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
