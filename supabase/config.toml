@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.check-video-status]
 verify_jwt = false
+
+[functions.resume-video-job]
+verify_jwt = false
