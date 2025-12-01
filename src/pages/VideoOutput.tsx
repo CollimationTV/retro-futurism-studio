@@ -4,7 +4,7 @@ import { Header } from "@/components/Header";
 import { Brain3D } from "@/components/Brain3D";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Copy, Download, Mail } from "lucide-react";
+import { Download, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -81,7 +81,7 @@ const VideoOutput = () => {
     const handleMentalCommand = (event: CustomEvent) => {
       const { action, power } = event.detail;
       
-      if (action === 'push' && power > 0.3) {
+      if (action === 'push' && power > 0.15) {
         // Start push hold timer
         if (!pushHoldTimerRef.current) {
           pushHoldTimerRef.current = setInterval(() => {
@@ -119,11 +119,9 @@ const VideoOutput = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const copyCode = () => {
-    if (retrievalCode) {
-      navigator.clipboard.writeText(retrievalCode);
-      toast({ title: "Code copied!", description: "Retrieval code copied to clipboard" });
-    }
+  const manualReveal = () => {
+    setStatus('revealed');
+    toast({ title: "Video Revealed", description: "Manually revealed by operator" });
   };
 
   const downloadVideo = () => {
@@ -272,12 +270,12 @@ const VideoOutput = () => {
             </div>
           </div>
           
-          {/* Retrieval Code */}
+          {/* Retrieval Code & Manual Control */}
           <div className="max-w-md mx-auto bg-primary/10 border border-primary/50 rounded-lg p-6">
             <div className="text-sm text-muted-foreground mb-2">Your Video Code</div>
             <div className="text-4xl font-bold text-primary font-mono mb-4">{retrievalCode}</div>
-            <Button onClick={copyCode} variant="outline" className="gap-2">
-              <Copy className="h-4 w-4" /> Copy Code
+            <Button onClick={manualReveal} variant="outline" className="gap-2 w-full">
+              Manual Reveal (Operator)
             </Button>
           </div>
         </div>
@@ -316,9 +314,6 @@ const VideoOutput = () => {
               <div className="text-xs text-muted-foreground mb-4">
                 Save this code to find your video later
               </div>
-              <Button onClick={copyCode} variant="outline" className="w-full gap-2">
-                <Copy className="h-4 w-4" /> Copy Code
-              </Button>
             </div>
             
             <div className="bg-background/50 backdrop-blur border border-border rounded-lg p-6 space-y-4">
