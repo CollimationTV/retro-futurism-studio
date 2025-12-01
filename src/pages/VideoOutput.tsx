@@ -144,7 +144,7 @@ const VideoOutput = () => {
     });
   };
 
-  if (error) {
+  if (error || !videoJobId) {
     return (
       <div className="min-h-screen relative bg-background">
         <Brain3D excitement={0} className="opacity-10" />
@@ -152,11 +152,20 @@ const VideoOutput = () => {
         <div className="container mx-auto px-6 py-20 text-center">
           <div className="max-w-2xl mx-auto">
             <h1 className="text-4xl font-bold text-destructive mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              Generation Failed
+              {error || 'No Video Job ID'}
             </h1>
-            <p className="text-muted-foreground mb-8">{error}</p>
+            <p className="text-muted-foreground mb-4">
+              {error 
+                ? error 
+                : "It looks like you navigated here directly without completing the experience flow."}
+            </p>
+            {!videoJobId && (
+              <p className="text-sm text-muted-foreground mb-8">
+                Please start from the beginning and complete all selection levels to generate your video.
+              </p>
+            )}
             <Button onClick={() => navigate('/')} variant="outline">
-              Start Over
+              Start New Experience
             </Button>
           </div>
         </div>

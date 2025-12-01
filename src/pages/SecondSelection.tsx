@@ -69,10 +69,16 @@ const SecondSelection = () => {
     // Start video generation in background
     let videoJobId = null;
     try {
-      const apiKey = localStorage.getItem('openai-api-key');
+      const apiKey = localStorage.getItem('openai_api_key');
       const userEmail = localStorage.getItem('user-email');
       
-      if (apiKey) {
+      if (!apiKey) {
+        toast({
+          title: "No API Key",
+          description: "Please configure your OpenAI API key in settings to generate videos",
+          variant: "destructive",
+        });
+      } else {
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-sora-video`,
           {
@@ -85,12 +91,27 @@ const SecondSelection = () => {
           }
         );
         
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to start video generation');
+        }
+        
         const data = await response.json();
         videoJobId = data.jobId;
         console.log('🎬 Video generation started in background:', videoJobId);
+        
+        toast({
+          title: "Video Generation Started",
+          description: "Your video is being created in the background",
+        });
       }
     } catch (error) {
       console.error('Failed to start background video generation:', error);
+      toast({
+        title: "Video Generation Failed",
+        description: error instanceof Error ? error.message : "Could not start video generation",
+        variant: "destructive",
+      });
     }
     
     // Navigate immediately (don't wait for video)
@@ -167,13 +188,23 @@ const SecondSelection = () => {
           ← Level 1
         </button>
         <button
-          onClick={() => navigate("/excitement-level-3", { state: { level1Selections: new Map(), level2Selections: new Map(), connectedHeadsets, mentalCommand, motionEvent } })}
+          onClick={() => navigate("/excitement-level-3", { 
+            state: { 
+              level1Selections: new Map(), 
+              level2Selections: new Map(), 
+              videoJobId: null,
+              metadata: [],
+              connectedHeadsets, 
+              mentalCommand, 
+              motionEvent 
+            } 
+          })}
           className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
         >
           → Level 3
         </button>
         <button
-          onClick={() => navigate("/video-output")}
+          onClick={() => navigate("/video-output", { state: { videoJobId: null, metadata: [] } })}
           className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
         >
           → Video
