@@ -21,10 +21,12 @@ const VideoOutput = () => {
   const [error, setError] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [email, setEmail] = useState('');
+  const [isResuming, setIsResuming] = useState(false);
   
   const startTimeRef = useRef<number>(Date.now());
+  const lastProgressRef = useRef<{ attempts: number, timestamp: number }>({ attempts: 0, timestamp: Date.now() });
 
-  // Poll for job status
+  // Poll for job status with auto-resume on stall
   useEffect(() => {
     if (!videoJobId) {
       setError('No video job ID provided');
@@ -39,12 +41,46 @@ const VideoOutput = () => {
 
         if (error) throw error;
 
+        const currentAttempts = data.poll_attempts || 0;
+        const now = Date.now();
+
+        // Update progress
         setProgress({
-          current: data.poll_attempts || 0,
+          current: currentAttempts,
           max: data.max_attempts || 180,
           soraStatus: data.sora_status || '',
           promptUsed: data.prompt_used || ''
         });
+
+        // Detect stalled job: processing but no progress for 30+ seconds
+        const timeSinceLastProgress = now - lastProgressRef.current.timestamp;
+        const isStalled = 
+          data.status === 'processing' && 
+          currentAttempts === lastProgressRef.current.attempts &&
+          timeSinceLastProgress > 30000 && // 30 seconds
+          !isResuming;
+
+        if (isStalled) {
+          console.log('🔄 Job stalled, triggering resume...');
+          setIsResuming(true);
+          
+          // Call resume function
+          const { error: resumeError } = await supabase.functions.invoke('resume-video-job', {
+            body: { jobId: videoJobId }
+          });
+
+          if (resumeError) {
+            console.error('Resume error:', resumeError);
+          }
+          
+          // Reset resuming flag after 10 seconds to allow re-triggering if needed
+          setTimeout(() => setIsResuming(false), 10000);
+        }
+
+        // Update last progress tracker if attempts changed
+        if (currentAttempts > lastProgressRef.current.attempts) {
+          lastProgressRef.current = { attempts: currentAttempts, timestamp: now };
+        }
 
         if (data.status === 'completed' && data.video_url) {
           setVideoUrl(data.video_url);
@@ -63,7 +99,7 @@ const VideoOutput = () => {
     }, 3000);
 
     return () => clearInterval(pollInterval);
-  }, [videoJobId]);
+  }, [videoJobId, isResuming]);
 
   // Track elapsed time
   useEffect(() => {
@@ -140,7 +176,7 @@ const VideoOutput = () => {
               Crafting Your Vision
             </h1>
             <p className="text-xl text-muted-foreground mb-12">
-              Your AI-generated video is being created...
+              {isResuming ? '🔄 Resuming generation...' : 'Your AI-generated video is being created...'}
             </p>
             
             {/* Progress Ring */}
