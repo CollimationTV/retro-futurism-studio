@@ -20,7 +20,7 @@ interface Level1Image {
 }
 
 const PUSH_POWER_THRESHOLD = 0.3;
-const PUSH_HOLD_TIME_MS = 4000;
+const PUSH_HOLD_TIME_MS = 8000; // Slower, more deliberate selection
 
 const ExcitementLevel1 = () => {
   const location = useLocation();
@@ -111,7 +111,7 @@ const ExcitementLevel1 = () => {
       const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, now);
       
       // DIRECT POSITION MAPPING (not velocity) for instant response
-      const maxAngle = 3; // Lower angle = higher sensitivity - reduced for 1/3 effort (smaller movements)
+      const maxAngle = 20; // Higher angle = slower, more deliberate cursor movement
       const screenCenterX = window.innerWidth / 2;
       const screenCenterY = window.innerHeight / 2;
       
