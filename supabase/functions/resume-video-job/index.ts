@@ -90,19 +90,36 @@ serve(async (req) => {
             })
             .eq('id', jobId);
 
-          if (statusData.status === 'completed' && statusData.output?.url) {
-            console.log('✅ Sora generation completed, fetching video...');
+          if (statusData.status === 'completed') {
+            console.log('✅ Sora generation completed, fetching video from /content endpoint...');
 
-            // Fetch the video
-            const videoResponse = await fetch(statusData.output.url);
-            const videoBlob = await videoResponse.arrayBuffer();
-            const base64Video = btoa(String.fromCharCode(...new Uint8Array(videoBlob)));
+            // FIXED: Use /content endpoint to download the video (same as generate-sora-video)
+            const contentResponse = await fetch(
+              `https://api.openai.com/v1/videos/${job.sora_job_id}/content`,
+              {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${openaiApiKey}`,
+                },
+              }
+            );
+
+            if (!contentResponse.ok) {
+              const errorText = await contentResponse.text();
+              console.error('❌ Failed to fetch video content:', contentResponse.status, errorText);
+              throw new Error(`Failed to fetch video content: ${contentResponse.status}`);
+            }
+
+            const videoBlob = await contentResponse.blob();
+            const arrayBuffer = await videoBlob.arrayBuffer();
+            
+            console.log(`📦 Video downloaded: ${arrayBuffer.byteLength} bytes`);
 
             // Upload to storage
             const fileName = `${job.retrieval_code}.mp4`;
             const { data: uploadData, error: uploadError } = await supabase.storage
               .from('generated-videos')
-              .upload(fileName, videoBlob, {
+              .upload(fileName, arrayBuffer, {
                 contentType: 'video/mp4',
                 upsert: true
               });
