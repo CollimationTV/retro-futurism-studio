@@ -4,19 +4,17 @@ import { Header } from "@/components/Header";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Target } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { getHeadsetColor } from "@/utils/headsetColors";
 import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
 import { OneEuroFilter, applySensitivityCurve } from "@/utils/OneEuroFilter";
+import { level1Images as localLevel1Images } from "@/data/imageData";
 
 interface Level1Image {
-  id: string;
+  id: number;
   position: number;
   url: string;
-  metadata_tag_1: string;
-  metadata_tag_2: string;
-  metadata_tag_3: string;
+  metadata: string;
 }
 
 const PUSH_POWER_THRESHOLD = 0.3;
@@ -33,8 +31,14 @@ const ExcitementLevel1 = () => {
     motionEvent
   } = location.state || {};
 
-  const [level1Images, setLevel1Images] = useState<Level1Image[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Use local imports for proper Vite bundling
+  const level1Images: Level1Image[] = localLevel1Images.map((img, idx) => ({
+    id: img.id,
+    position: idx,
+    url: img.url,
+    metadata: img.metadata
+  }));
+
   const [selections, setSelections] = useState<Map<string, number>>(new Map());
   const [focusedImages, setFocusedImages] = useState<Map<string, number>>(new Map());
   const [pushProgress, setPushProgress] = useState<Map<string, number>>(new Map());
@@ -59,28 +63,6 @@ const ExcitementLevel1 = () => {
   useEffect(() => { selectionsRef.current = selections; }, [selections]);
   useEffect(() => { isPushingRef.current = isPushing; }, [isPushing]);
   useEffect(() => { focusedImagesRef.current = focusedImages; }, [focusedImages]);
-
-  // Fetch Level 1 images from database
-  useEffect(() => {
-    const fetchImages = async () => {
-      const { data, error } = await supabase
-        .from('images')
-        .select('*')
-        .eq('level', 1)
-        .order('position');
-      
-      if (error) {
-        console.error('Error fetching Level 1 images:', error);
-        setIsLoading(false);
-        return;
-      }
-      
-      setLevel1Images(data || []);
-      setIsLoading(false);
-    };
-    
-    fetchImages();
-  }, []);
 
   // ULTRA LOW-LATENCY: Process motion immediately with direct DOM updates
   useEffect(() => {
@@ -238,7 +220,7 @@ const ExcitementLevel1 = () => {
       selections.forEach((imageId) => {
         const image = level1Images.find((img) => img.position === imageId);
         if (image) {
-          level1Metadata.push(image.metadata_tag_1, image.metadata_tag_2, image.metadata_tag_3);
+          level1Metadata.push(image.metadata);
         }
       });
 
@@ -256,17 +238,6 @@ const ExcitementLevel1 = () => {
       }, 1500);
     }
   }, [selections, connectedHeadsets, navigate, videoJobId, level1Images]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen relative flex items-center justify-center">
-        <Brain3D excitement={0.5} className="opacity-20 z-0" />
-        <div className="text-center">
-          <p className="text-xl text-muted-foreground">Loading Level 1 images...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen relative">
@@ -327,7 +298,7 @@ const ExcitementLevel1 = () => {
                       ) : (
                         <img
                           src={image.url}
-                          alt={`${image.metadata_tag_1}, ${image.metadata_tag_2}, ${image.metadata_tag_3}`}
+                          alt={image.metadata}
                           className="w-full h-full object-cover"
                           style={{
                             filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
@@ -358,9 +329,7 @@ const ExcitementLevel1 = () => {
                     
                     <div className="p-3 bg-card">
                       <div className="flex flex-wrap gap-1 justify-center">
-                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata_tag_1}</span>
-                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata_tag_2}</span>
-                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata_tag_3}</span>
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata}</span>
                       </div>
                     </div>
                   </Card>
