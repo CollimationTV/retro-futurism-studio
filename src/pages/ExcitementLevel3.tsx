@@ -21,6 +21,9 @@ const ExcitementLevel3 = () => {
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetricsEvent | null>(null);
   const [artworkScores, setArtworkScores] = useState<Map<number, ArtworkScore>>(new Map());
   const [isComplete, setIsComplete] = useState(false);
+  const [showingWinner, setShowingWinner] = useState(false);
+  const [winnerArtwork, setWinnerArtwork] = useState<typeof artworkAudioPairs[0] | null>(null);
+  const [winnerScore, setWinnerScore] = useState(0);
   
   const currentArtwork = artworkAudioPairs[currentArtworkIndex];
   
@@ -91,31 +94,38 @@ const ExcitementLevel3 = () => {
     return () => clearTimeout(timer);
   }, [currentArtworkIndex, isComplete]);
   
-  // Navigate to next page when complete
+  // Show winner and navigate to video output when complete
   useEffect(() => {
     if (!isComplete) return;
     
-    // Sort artworks by average excitement and select top 5
+    // Sort artworks by average excitement and get winner
     const sortedArtworks = Array.from(artworkScores.values())
-      .sort((a, b) => b.averageExcitement - a.averageExcitement)
-      .slice(0, 5);
+      .sort((a, b) => b.averageExcitement - a.averageExcitement);
     
-    // console.log('🏆 Top 5 artworks by excitement:', sortedArtworks);
-    
-    const top5Ids = sortedArtworks.map(score => score.artworkId);
-    const top5Artworks = artworkAudioPairs.filter(pair => top5Ids.includes(pair.id));
-    
-    setTimeout(() => {
-      navigate("/audio-emotion", {
-        state: {
-          videoJobId,
-          metadata,
-          connectedHeadsets,
-          level3Selections: top5Artworks
-        }
-      });
-    }, 2000);
-  }, [isComplete, artworkScores, navigate]);
+    if (sortedArtworks.length > 0) {
+      const winner = sortedArtworks[0];
+      const winnerArt = artworkAudioPairs.find(pair => pair.id === winner.artworkId);
+      
+      if (winnerArt) {
+        setWinnerArtwork(winnerArt);
+        setWinnerScore(winner.averageExcitement);
+        setShowingWinner(true);
+        
+        // Show winner for 5 seconds, then navigate to video output
+        setTimeout(() => {
+          navigate("/video-output", {
+            state: {
+              videoJobId,
+              metadata,
+              connectedHeadsets,
+              winnerArtwork: winnerArt,
+              winnerScore: winner.averageExcitement
+            }
+          });
+        }, 5000);
+      }
+    }
+  }, [isComplete, artworkScores, navigate, videoJobId, metadata, connectedHeadsets]);
   
   const averageExcitement = calculateAverageExcitement();
   const progress = ((currentArtworkIndex + 1) / artworkAudioPairs.length) * 100;
@@ -126,6 +136,50 @@ const ExcitementLevel3 = () => {
       <Brain3D excitement={averageExcitement} className="opacity-15 z-0" />
       
       <Header />
+      
+      {/* Winner Display Overlay */}
+      {showingWinner && winnerArtwork && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-lg animate-fade-in">
+          <div className="text-center space-y-8 max-w-4xl mx-auto px-6">
+            <div className="text-8xl animate-bounce">🏆</div>
+            <h1 
+              className="text-6xl font-bold uppercase tracking-[0.3em] text-primary"
+              style={{ fontFamily: 'Orbitron, sans-serif' }}
+            >
+              WINNER
+            </h1>
+            
+            <div className="relative w-full max-w-3xl mx-auto aspect-video rounded-lg overflow-hidden border-4 border-primary shadow-2xl shadow-primary/50">
+              {winnerArtwork.type === 'video' ? (
+                <video
+                  src={winnerArtwork.artworkUrl}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <img
+                  src={winnerArtwork.artworkUrl}
+                  alt="Winner artwork"
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+            
+            <div className="space-y-4">
+              <div className="text-3xl font-mono text-accent">"{winnerArtwork.metadata}"</div>
+              <div className="text-5xl font-bold text-primary">
+                EXCITEMENT: {(winnerScore * 100).toFixed(0)}%
+              </div>
+              <p className="text-lg text-muted-foreground italic max-w-2xl mx-auto">
+                "This artwork resonated most with the collective consciousness"
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Main content */}
       <div className="container mx-auto px-6 py-12 relative z-10">
@@ -230,17 +284,18 @@ const ExcitementLevel3 = () => {
           ← Level 1
         </button>
         <button
-          onClick={() => navigate("/audio-emotion", { 
+          onClick={() => navigate("/video-output", { 
             state: { 
               videoJobId, 
               metadata, 
-              connectedHeadsets, 
-              level3Selections: [] 
+              connectedHeadsets,
+              winnerArtwork: artworkAudioPairs[0],
+              winnerScore: 0.5
             } 
           })}
           className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
         >
-          → Audio
+          → Video
         </button>
       </div>
     </div>

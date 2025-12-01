@@ -99,11 +99,6 @@ const SecondSelection = () => {
         const data = await response.json();
         videoJobId = data.jobId;
         console.log('🎬 Video generation started in background:', videoJobId);
-        
-        toast({
-          title: "Video Generation Started",
-          description: "Your video is being created in the background",
-        });
       }
     } catch (error) {
       console.error('Failed to start background video generation:', error);
