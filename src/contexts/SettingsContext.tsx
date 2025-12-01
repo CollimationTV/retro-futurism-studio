@@ -14,7 +14,7 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | null>(null);
 
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
-  const [tiltThreshold, setTiltThreshold] = useState(0.3); // Increased from 0.5 for less sensitivity
+  const [tiltThreshold, setTiltThreshold] = useState(0.1); // Default sensitivity
   const [framesToTrigger, setFramesToTrigger] = useState(21);
   const [decaySpeed, setDecaySpeed] = useState(75);
   const [manualSelectionMode, setManualSelectionMode] = useState(false);
