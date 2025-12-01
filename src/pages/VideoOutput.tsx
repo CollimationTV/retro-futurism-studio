@@ -16,15 +16,13 @@ const VideoOutput = () => {
   
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [retrievalCode, setRetrievalCode] = useState<string | null>(null);
-  const [status, setStatus] = useState<'waiting' | 'ready' | 'revealed'>('waiting');
-  const [progress, setProgress] = useState({ current: 0, max: 180, soraStatus: '' });
+  const [status, setStatus] = useState<'waiting' | 'revealed'>('waiting');
+  const [progress, setProgress] = useState({ current: 0, max: 180, soraStatus: '', promptUsed: '' });
   const [error, setError] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [pushProgress, setPushProgress] = useState(0);
   const [email, setEmail] = useState('');
   
   const startTimeRef = useRef<number>(Date.now());
-  const pushHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Poll for job status
   useEffect(() => {
@@ -44,13 +42,14 @@ const VideoOutput = () => {
         setProgress({
           current: data.poll_attempts || 0,
           max: data.max_attempts || 180,
-          soraStatus: data.sora_status || ''
+          soraStatus: data.sora_status || '',
+          promptUsed: data.prompt_used || ''
         });
 
         if (data.status === 'completed' && data.video_url) {
           setVideoUrl(data.video_url);
           setRetrievalCode(data.retrieval_code);
-          setStatus('ready');
+          setStatus('revealed');
           clearInterval(pollInterval);
         } else if (data.status === 'failed') {
           setError(data.error_message || 'Video generation failed');
@@ -74,54 +73,10 @@ const VideoOutput = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Listen for PUSH mental commands
-  useEffect(() => {
-    if (status !== 'ready') return;
-
-    const handleMentalCommand = (event: CustomEvent) => {
-      const { action, power } = event.detail;
-      
-      if (action === 'push' && power > 0.15) {
-        // Start push hold timer
-        if (!pushHoldTimerRef.current) {
-          pushHoldTimerRef.current = setInterval(() => {
-            setPushProgress(prev => {
-              const next = prev + 10;
-              if (next >= 100) {
-                clearInterval(pushHoldTimerRef.current!);
-                pushHoldTimerRef.current = null;
-                setStatus('revealed');
-                return 100;
-              }
-              return next;
-            });
-          }, 100);
-        }
-      } else {
-        // Release push - clear timer
-        if (pushHoldTimerRef.current) {
-          clearInterval(pushHoldTimerRef.current);
-          pushHoldTimerRef.current = null;
-        }
-      }
-    };
-
-    window.addEventListener('mental-command', handleMentalCommand as EventListener);
-    return () => {
-      window.removeEventListener('mental-command', handleMentalCommand as EventListener);
-      if (pushHoldTimerRef.current) clearInterval(pushHoldTimerRef.current);
-    };
-  }, [status]);
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const manualReveal = () => {
-    setStatus('revealed');
-    toast({ title: "Video Revealed", description: "Manually revealed by operator" });
   };
 
   const downloadVideo = () => {
@@ -227,56 +182,11 @@ const VideoOutput = () => {
                 <span className="text-muted-foreground">Attempts:</span>
                 <span className="text-accent">{progress.current} / {progress.max}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Tags Used:</span>
-                <span className="text-foreground">{metadata?.slice(0, 2).join(', ')}</span>
+              <div className="space-y-2">
+                <span className="text-muted-foreground">Prompt Sent to Sora:</span>
+                <p className="text-foreground text-sm italic">"{progress.promptUsed || 'Generating prompt...'}"</p>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === 'ready') {
-    return (
-      <div className="min-h-screen relative bg-background overflow-hidden">
-        <Brain3D excitement={0.7} className="opacity-20" />
-        <Header />
-        
-        <div className="container mx-auto px-6 py-20 text-center">
-          <h1 className="text-6xl font-bold mb-8 animate-pulse" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-            🌍 Your Vision is Ready 🌍
-          </h1>
-          
-          {/* Blurred preview */}
-          <div className="relative max-w-4xl mx-auto mb-12">
-            <video
-              src={videoUrl || ''}
-              className="w-full rounded-lg blur-xl"
-              muted
-            />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary mb-4">PUSH to Reveal Your Creation</div>
-                <div className="relative w-64 h-4 bg-border/50 rounded-full mx-auto overflow-hidden">
-                  <div 
-                    className="absolute inset-y-0 left-0 bg-primary transition-all duration-100"
-                    style={{ width: `${pushProgress}%` }}
-                  />
-                </div>
-                <div className="text-sm text-muted-foreground mt-2">{pushProgress}%</div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Retrieval Code & Manual Control */}
-          <div className="max-w-md mx-auto bg-primary/10 border border-primary/50 rounded-lg p-6">
-            <div className="text-sm text-muted-foreground mb-2">Your Video Code</div>
-            <div className="text-4xl font-bold text-primary font-mono mb-4">{retrievalCode}</div>
-            <Button onClick={manualReveal} variant="outline" className="gap-2 w-full">
-              Manual Reveal (Operator)
-            </Button>
           </div>
         </div>
       </div>
