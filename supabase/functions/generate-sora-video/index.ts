@@ -119,7 +119,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'sora-2',
+            model: 'sora-2-pro',
             prompt: prompt,
             size: '1280x720',
             seconds: '8',
