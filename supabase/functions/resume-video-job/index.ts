@@ -69,7 +69,7 @@ serve(async (req) => {
 
         try {
           // Check Sora job status
-          const statusResponse = await fetch(`https://api.openai.com/v1/jobs/${job.sora_job_id}`, {
+          const statusResponse = await fetch(`https://api.openai.com/v1/videos/${job.sora_job_id}`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${openaiApiKey}`,
