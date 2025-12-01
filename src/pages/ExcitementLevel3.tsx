@@ -230,10 +230,17 @@ const ExcitementLevel3 = () => {
           ← Level 1
         </button>
         <button
-          onClick={() => setIsComplete(true)}
+          onClick={() => navigate("/audio-emotion", { 
+            state: { 
+              videoJobId, 
+              metadata, 
+              connectedHeadsets, 
+              level3Selections: [] 
+            } 
+          })}
           className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
         >
-          Skip to Results →
+          → Audio
         </button>
       </div>
     </div>
