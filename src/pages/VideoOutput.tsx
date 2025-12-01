@@ -64,13 +64,20 @@ const VideoOutput = () => {
           console.log('🔄 Job stalled, triggering resume...');
           setIsResuming(true);
           
-          // Call resume function
-          const { error: resumeError } = await supabase.functions.invoke('resume-video-job', {
-            body: { jobId: videoJobId }
-          });
+          // Get API key from localStorage for resume
+          const apiKey = localStorage.getItem('openai_api_key');
+          
+          if (apiKey) {
+            // Call resume function with API key
+            const { error: resumeError } = await supabase.functions.invoke('resume-video-job', {
+              body: { jobId: videoJobId, apiKey }
+            });
 
-          if (resumeError) {
-            console.error('Resume error:', resumeError);
+            if (resumeError) {
+              console.error('Resume error:', resumeError);
+            }
+          } else {
+            console.error('No API key found for resume');
           }
           
           // Reset resuming flag after 10 seconds to allow re-triggering if needed
