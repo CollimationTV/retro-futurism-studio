@@ -85,7 +85,7 @@ serve(async (req) => {
 
     // Build prompt with 500 years in the future baseline + metadata tags
     const tags = metadata.join(', ');
-    const prompt = `A cinematic 8-second video set 500 years in the future, depicting a hopeful vision of humanity featuring: ${tags}. Utopian atmosphere, advanced sustainable technology seamlessly integrated with nature, clean and vibrant world, smooth sweeping camera motion.`;
+    const prompt = `A cinematic 4-second video set 500 years in the future, depicting a hopeful vision of humanity featuring: ${tags}. Utopian atmosphere, advanced sustainable technology seamlessly integrated with nature, clean and vibrant world, smooth sweeping camera motion.`;
 
     // Create job record in database
     const { data: job, error: insertError } = await supabase
@@ -122,7 +122,7 @@ serve(async (req) => {
             model: 'sora-2-pro',
             prompt: prompt,
             size: '1280x720',
-            seconds: '8',
+            seconds: '4',
           }),
         });
 
