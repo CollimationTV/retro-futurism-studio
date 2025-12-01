@@ -77,7 +77,7 @@ const ExcitementLevel3 = () => {
     });
   }, [performanceMetrics, currentArtwork, isComplete]);
   
-  // Auto-rotate to next artwork every 7 seconds
+  // Auto-rotate to next artwork every 20 seconds
   useEffect(() => {
     if (isComplete) return;
     
@@ -86,10 +86,10 @@ const ExcitementLevel3 = () => {
         // console.log(`⏭️ Advancing to artwork ${currentArtworkIndex + 2}`);
         setCurrentArtworkIndex(prev => prev + 1);
       } else {
-        // console.log('🎉 All artworks displayed, calculating top 5');
+        // console.log('🎉 All artworks displayed, calculating winner');
         setIsComplete(true);
       }
-    }, 7000);
+    }, 20000);
     
     return () => clearTimeout(timer);
   }, [currentArtworkIndex, isComplete]);
@@ -213,15 +213,15 @@ const ExcitementLevel3 = () => {
           </div>
         </div>
         
-        {/* Artwork display */}
-        <div className="relative w-full max-w-6xl mx-auto aspect-video rounded-lg overflow-hidden border-2 border-primary/30 shadow-2xl">
+        {/* Artwork display - preserves original aspect ratio */}
+        <div className="relative w-full max-w-6xl mx-auto min-h-[60vh] rounded-lg overflow-hidden border-2 border-primary/30 shadow-2xl bg-black flex items-center justify-center">
           {currentArtwork.type === 'video' ? (
             <video
               src={currentArtwork.artworkUrl}
               autoPlay
               loop
               playsInline
-              className="w-full h-full object-cover animate-fade-in"
+              className="max-w-full max-h-[80vh] object-contain animate-fade-in"
               key={currentArtwork.id}
             />
           ) : (
@@ -229,7 +229,7 @@ const ExcitementLevel3 = () => {
               <img
                 src={currentArtwork.artworkUrl}
                 alt={`Artwork ${currentArtwork.id}`}
-                className="w-full h-full object-cover animate-fade-in"
+                className="max-w-full max-h-[80vh] object-contain animate-fade-in"
                 key={currentArtwork.id}
               />
               {currentArtwork.audioUrl && (
