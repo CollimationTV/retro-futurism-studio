@@ -121,7 +121,7 @@ serve(async (req) => {
           body: JSON.stringify({
             model: 'sora-2-pro',
             prompt: prompt,
-            size: '1280x720',
+            size: '1792x1024',
             seconds: '4',
           }),
         });
