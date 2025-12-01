@@ -219,10 +219,16 @@ const ExcitementLevel3 = () => {
             <video
               src={currentArtwork.artworkUrl}
               autoPlay
-              loop
+              muted={false}
               playsInline
               className="max-w-full max-h-[80vh] object-contain animate-fade-in"
               key={currentArtwork.id}
+              onLoadedMetadata={(e) => {
+                const video = e.currentTarget;
+                // If video is longer than 20s, it will auto-advance via timer
+                // If shorter than 20s, don't loop - just play once
+                video.loop = false;
+              }}
             />
           ) : (
             <>
@@ -233,7 +239,7 @@ const ExcitementLevel3 = () => {
                 key={currentArtwork.id}
               />
               {currentArtwork.audioUrl && (
-                <audio src={currentArtwork.audioUrl} autoPlay loop />
+                <audio src={currentArtwork.audioUrl} autoPlay />
               )}
             </>
           )}
