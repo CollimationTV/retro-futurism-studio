@@ -1,6 +1,7 @@
 import level3Vid1 from "@/assets/level3-vid1.mp4";
 import level3Img1 from "@/assets/level3-img1.jpg";
 import level3Vid2 from "@/assets/level3-vid2.mp4";
+import level3Vid3 from "@/assets/level3-vid3.mp4";
 
 /**
  * Artwork and audio track pairings for Level 3
@@ -15,7 +16,7 @@ export interface ArtworkAudioPair {
   audioUrl?: string;
 }
 
-// Only using uploaded Level 3 assets - 3 unique artworks available
+// Only using uploaded Level 3 assets - 4 unique artworks available
 export const artworkAudioPairs: ArtworkAudioPair[] = [
   {
     id: 1,
@@ -33,6 +34,12 @@ export const artworkAudioPairs: ArtworkAudioPair[] = [
     id: 3,
     artworkUrl: level3Vid2,
     metadata: "visual journey",
+    type: 'video'
+  },
+  {
+    id: 4,
+    artworkUrl: level3Vid3,
+    metadata: "spongebob vibes",
     type: 'video'
   }
 ];

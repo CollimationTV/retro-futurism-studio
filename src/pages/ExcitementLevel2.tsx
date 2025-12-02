@@ -3,24 +3,22 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Music } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { getHeadsetColor } from "@/utils/headsetColors";
 import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
-import { OneEuroFilter, applySensitivityCurve } from "@/utils/OneEuroFilter";
+import { OneEuroFilter } from "@/utils/OneEuroFilter";
+import { level2Images as localLevel2Images } from "@/data/imageData";
+import { RemoteOperatorPanel } from "@/components/RemoteOperatorPanel";
 
 interface Level2Image {
-  id: string;
+  id: number;
   position: number;
   url: string;
-  metadata_tag_1: string;
-  metadata_tag_2: string;
-  metadata_tag_3: string;
+  metadata: string;
 }
 
 const PUSH_POWER_THRESHOLD = 0.3;
-const PUSH_HOLD_TIME_MS = 8000; // Slower, more deliberate selection
+const PUSH_HOLD_TIME_MS = 8000; // Same as Level 1
 
 const ExcitementLevel2 = () => {
   const location = useLocation();
@@ -35,43 +33,18 @@ const ExcitementLevel2 = () => {
     level1Metadata
   } = location.state || {};
 
-  const [level2Images, setLevel2Images] = useState<Level2Image[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Use local imports for proper Vite bundling - same pattern as Level 1
+  const level2Images: Level2Image[] = localLevel2Images.map((img, idx) => ({
+    id: img.id,
+    position: idx,
+    url: img.url,
+    metadata: img.metadata
+  }));
+
   const [selections, setSelections] = useState<Map<string, number>>(new Map());
   const [focusedImages, setFocusedImages] = useState<Map<string, number>>(new Map());
   const [pushProgress, setPushProgress] = useState<Map<string, number>>(new Map());
   const [isPushing, setIsPushing] = useState<Map<string, boolean>>(new Map());
-  
-  // Store state in refs to avoid useEffect re-creation
-  const selectionsRef = useRef(selections);
-  const isPushingRef = useRef(isPushing);
-  const focusedImagesRef = useRef(focusedImages);
-  
-  useEffect(() => { selectionsRef.current = selections; }, [selections]);
-  useEffect(() => { isPushingRef.current = isPushing; }, [isPushing]);
-  useEffect(() => { focusedImagesRef.current = focusedImages; }, [focusedImages]);
-
-  // Fetch Level 2 images from database
-  useEffect(() => {
-    const fetchImages = async () => {
-      const { data, error } = await supabase
-        .from('images')
-        .select('*')
-        .eq('level', 2)
-        .order('position');
-      
-      if (error) {
-        console.error('Error fetching Level 2 images:', error);
-        setIsLoading(false);
-        return;
-      }
-      
-      setLevel2Images(data || []);
-      setIsLoading(false);
-    };
-    
-    fetchImages();
-  }, []);
   
   const pitchFilters = useRef<Map<string, OneEuroFilter>>(new Map());
   const rotationFilters = useRef<Map<string, OneEuroFilter>>(new Map());
@@ -84,37 +57,25 @@ const ExcitementLevel2 = () => {
   // ULTRA LOW-LATENCY: Direct cursor position storage (no React state for cursor updates)
   const cursorScreenPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
 
-  // DEBUG STATE
-  const [debugInfo, setDebugInfo] = useState<Map<string, any>>(new Map());
-  const lastMotionTime = useRef<Map<string, number>>(new Map());
-  const motionEventCount = useRef<Map<string, number>>(new Map());
+  // Store state in refs to avoid useEffect re-creation
+  const selectionsRef = useRef(selections);
+  const isPushingRef = useRef(isPushing);
+  const focusedImagesRef = useRef(focusedImages);
+  
+  useEffect(() => { selectionsRef.current = selections; }, [selections]);
+  useEffect(() => { isPushingRef.current = isPushing; }, [isPushing]);
+  useEffect(() => { focusedImagesRef.current = focusedImages; }, [focusedImages]);
 
-  // ULTRA LOW-LATENCY: Process motion immediately with direct DOM updates
+  // ULTRA LOW-LATENCY: Process motion immediately with direct DOM updates - SAME AS LEVEL 1
   useEffect(() => {
-    const handleRecalibrate = () => {
-      connectedHeadsets?.forEach((headsetId: string) => {
-        centerPitch.current.delete(headsetId);
-        centerRotation.current.delete(headsetId);
-      });
-    };
-    
-    window.addEventListener('recalibrate-center', handleRecalibrate);
-    
     const handleMotion = ((event: CustomEvent<MotionEvent>) => {
       const motionData = event.detail;
       const headsetId = motionData.headsetId;
-      
-      // DEBUG: Track timing
-      const now = performance.now();
-      const lastTime = lastMotionTime.current.get(headsetId) || now;
-      const deltaTime = now - lastTime;
-      lastMotionTime.current.set(headsetId, now);
-      motionEventCount.current.set(headsetId, (motionEventCount.current.get(headsetId) || 0) + 1);
-      
+    
       if (selectionsRef.current.has(headsetId)) return;
-      if (isPushingRef.current.get(headsetId)) return;
+      if (isPushingRef.current.get(headsetId)) return; // Freeze cursor during push
       
-      // SMOOTH FILTERS for slow, deliberate movement
+      // SMOOTHING FILTERS for fluid cursor movement - SAME AS LEVEL 1
       if (!pitchFilters.current.has(headsetId)) {
         pitchFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
         rotationFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
@@ -129,18 +90,19 @@ const ExcitementLevel2 = () => {
       const relativeRotation = motionData.rotation - (centerRotation.current.get(headsetId) || 0);
       
       // IMMEDIATE filtering - use performance.now() for high precision
+      const now = performance.now();
       const smoothPitch = pitchFilters.current.get(headsetId)!.filter(relativePitch, now);
       const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, now);
       
-      // DIRECT POSITION MAPPING (not velocity) - SLOW and DELIBERATE movement
-      const maxAngle = 20; // Match Level 1 for consistent feel
+      // DIRECT POSITION MAPPING - SAME AS LEVEL 1 (pitch = X, rotation = Y)
+      const maxAngle = 30; // Same as Level 1 - slower, more deliberate
       const screenCenterX = window.innerWidth / 2;
       const screenCenterY = window.innerHeight / 2;
       
-      let cursorScreenX = screenCenterX + (smoothRotation / maxAngle) * screenCenterX;
-      let cursorScreenY = screenCenterY + (smoothPitch / maxAngle) * screenCenterY;
+      let cursorScreenX = screenCenterX + (smoothPitch / maxAngle) * screenCenterX;
+      let cursorScreenY = screenCenterY + (smoothRotation / maxAngle) * screenCenterY;
 
-      // 🔒 Constrain cursor to the 3x3 image grid bounding box
+      // Constrain cursor to the image grid bounding box
       let minLeft = Infinity;
       let maxRight = -Infinity;
       let minTop = Infinity;
@@ -159,7 +121,6 @@ const ExcitementLevel2 = () => {
         cursorScreenX = Math.max(minLeft, Math.min(maxRight, cursorScreenX));
         cursorScreenY = Math.max(minTop, Math.min(maxBottom, cursorScreenY));
       } else {
-        // Fallback to screen bounds
         cursorScreenX = Math.max(0, Math.min(window.innerWidth, cursorScreenX));
         cursorScreenY = Math.max(0, Math.min(window.innerHeight, cursorScreenY));
       }
@@ -201,31 +162,10 @@ const ExcitementLevel2 = () => {
           return updated;
         });
       }
-
-      // DEBUG: Update debug info every 10 frames to avoid overwhelming React
-      if ((motionEventCount.current.get(headsetId) || 0) % 10 === 0) {
-        setDebugInfo(prev => new Map(prev).set(headsetId, {
-          rawPitch: motionData.pitch.toFixed(2),
-          rawRotation: motionData.rotation.toFixed(2),
-          relativePitch: relativePitch.toFixed(2),
-          relativeRotation: relativeRotation.toFixed(2),
-          smoothPitch: smoothPitch.toFixed(2),
-          smoothRotation: smoothRotation.toFixed(2),
-          cursorX: cursorScreenX.toFixed(0),
-          cursorY: cursorScreenY.toFixed(0),
-          focusedImage: hoveredImageId || 'none',
-          deltaTime: deltaTime.toFixed(1),
-          fps: (1000 / deltaTime).toFixed(1),
-          eventCount: motionEventCount.current.get(headsetId) || 0
-        }));
-      }
     }) as EventListener;
 
     window.addEventListener('motion-event', handleMotion);
-    return () => {
-      window.removeEventListener('motion-event', handleMotion);
-      window.removeEventListener('recalibrate-center', handleRecalibrate);
-    };
+    return () => window.removeEventListener('motion-event', handleMotion);
   }, []); // Empty deps - use refs instead of state
 
   useEffect(() => {
@@ -276,12 +216,12 @@ const ExcitementLevel2 = () => {
   // Navigate to Level 3 once all headsets have selected
   useEffect(() => {
     if (connectedHeadsets && selections.size === connectedHeadsets.length && selections.size > 0) {
-      // Aggregate metadata from Level 1 AND Level 2 selections
+      // Aggregate metadata from Level 2 selections
       const level2Metadata: string[] = [];
       selections.forEach((imageId) => {
         const image = level2Images.find((img) => img.position === imageId);
         if (image) {
-          level2Metadata.push(image.metadata_tag_1, image.metadata_tag_2, image.metadata_tag_3);
+          level2Metadata.push(image.metadata);
         }
       });
 
@@ -303,77 +243,14 @@ const ExcitementLevel2 = () => {
     }
   }, [selections, connectedHeadsets, navigate, videoJobId, excitementLevel1Selections, level1Metadata, level2Images]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen relative flex items-center justify-center">
-        <Brain3D excitement={0.5} className="opacity-20 z-0" />
-        <div className="text-center">
-          <p className="text-xl text-muted-foreground">Loading Level 2 images...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen relative">
       <Brain3D excitement={0.5} className="opacity-20 z-0" />
       <Header />
-
-      {/* DEBUG HUD */}
-      {connectedHeadsets?.map((headsetId: string) => {
-        const info = debugInfo.get(headsetId);
-        if (!info) return null;
-        const color = getHeadsetColor(headsetId);
-        
-        return (
-          <div 
-            key={`debug-${headsetId}`}
-            className="fixed top-20 right-4 z-50 bg-black/90 text-white p-4 rounded-lg font-mono text-xs border-2"
-            style={{ borderColor: color, maxWidth: '300px' }}
-          >
-            <div className="font-bold mb-2" style={{ color }}>DEBUG: {headsetId}</div>
-            <div className="space-y-1">
-              <div className="grid grid-cols-2 gap-2">
-                <div>Raw Pitch:</div><div className="text-right">{info.rawPitch}°</div>
-                <div>Raw Rotation:</div><div className="text-right">{info.rawRotation}°</div>
-                <div>Rel Pitch:</div><div className="text-right text-cyan-400">{info.relativePitch}°</div>
-                <div>Rel Rotation:</div><div className="text-right text-cyan-400">{info.relativeRotation}°</div>
-                <div>Smooth Pitch:</div><div className="text-right text-green-400">{info.smoothPitch}°</div>
-                <div>Smooth Rot:</div><div className="text-right text-green-400">{info.smoothRotation}°</div>
-                <div className="col-span-2 border-t border-gray-700 my-1"></div>
-                <div>Cursor X:</div><div className="text-right text-yellow-400">{info.cursorX}px</div>
-                <div>Cursor Y:</div><div className="text-right text-yellow-400">{info.cursorY}px</div>
-                <div>Focused:</div><div className="text-right text-purple-400">#{info.focusedImage}</div>
-                <div className="col-span-2 border-t border-gray-700 my-1"></div>
-                <div>Delta Time:</div><div className="text-right">{info.deltaTime}ms</div>
-                <div>FPS:</div><div className="text-right text-green-400">{info.fps}</div>
-                <div>Events:</div><div className="text-right text-gray-400">{info.eventCount}</div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
       
       <div className="py-12 px-6">
         <div className="container mx-auto max-w-7xl">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-3 mb-4">
-              <Music className="h-12 w-12 text-primary animate-pulse" />
-              <button
-                onClick={() => {
-                  connectedHeadsets?.forEach((headsetId: string) => {
-                    const lastMotion = lastMotionTime.current.get(headsetId);
-                    if (lastMotion) {
-                      // Recalibrate center to current head position
-                      window.dispatchEvent(new CustomEvent('recalibrate-center'));
-                    }
-                  });
-                }}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors"
-              >
-                📍 Recalibrate Center
-              </button>
-            </div>
             <h1 className="text-4xl font-bold uppercase tracking-wider mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
               Level 2: Elements
             </h1>
@@ -412,7 +289,7 @@ const ExcitementLevel2 = () => {
                     <div className="aspect-video relative">
                       <img
                         src={image.url}
-                        alt={`${image.metadata_tag_1}, ${image.metadata_tag_2}, ${image.metadata_tag_3}`}
+                        alt={image.metadata}
                         className="w-full h-full object-cover"
                         style={{
                           filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
@@ -442,9 +319,7 @@ const ExcitementLevel2 = () => {
                     
                     <div className="p-3 bg-card">
                       <div className="flex flex-wrap gap-1 justify-center">
-                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata_tag_1}</span>
-                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata_tag_2}</span>
-                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata_tag_3}</span>
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata}</span>
                       </div>
                     </div>
                   </Card>
@@ -516,6 +391,14 @@ const ExcitementLevel2 = () => {
           </div>
         </div>
       </div>
+
+      <RemoteOperatorPanel
+        connectedHeadsets={connectedHeadsets}
+        currentLevel={2}
+        onForceSelection={(headsetId, imageId) => {
+          setSelections(prev => new Map(prev).set(headsetId, imageId));
+        }}
+      />
 
       <div className="fixed inset-0 pointer-events-none z-30 overflow-hidden">
         <div className="absolute w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent animate-scan-line" />
