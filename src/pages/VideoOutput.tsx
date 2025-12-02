@@ -160,7 +160,7 @@ const VideoOutput = () => {
                 Please start from the beginning and complete all selection levels to generate your video.
               </p>
             )}
-            <Button onClick={() => navigate('/')} variant="outline">
+            <Button onClick={() => { navigate('/'); window.location.reload(); }} variant="outline">
               Start New Experience
             </Button>
           </div>

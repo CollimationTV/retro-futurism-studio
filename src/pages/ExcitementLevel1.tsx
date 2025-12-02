@@ -9,6 +9,7 @@ import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexCl
 import { Brain3D } from "@/components/Brain3D";
 import { OneEuroFilter, applySensitivityCurve } from "@/utils/OneEuroFilter";
 import { level1Images as localLevel1Images } from "@/data/imageData";
+import { RemoteOperatorPanel } from "@/components/RemoteOperatorPanel";
 
 interface Level1Image {
   id: number;
@@ -93,7 +94,7 @@ const ExcitementLevel1 = () => {
       const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, now);
       
       // DIRECT POSITION MAPPING (not velocity) for instant response
-      const maxAngle = 20; // Higher angle = slower, more deliberate cursor movement
+      const maxAngle = 30; // Higher angle = slower, more deliberate cursor movement
       const screenCenterX = window.innerWidth / 2;
       const screenCenterY = window.innerHeight / 2;
       
@@ -401,6 +402,14 @@ const ExcitementLevel1 = () => {
           </div>
         </div>
       </div>
+
+      <RemoteOperatorPanel
+        connectedHeadsets={connectedHeadsets}
+        currentLevel={1}
+        onForceSelection={(headsetId, imageId) => {
+          setSelections(prev => new Map(prev).set(headsetId, imageId));
+        }}
+      />
 
       <div className="fixed inset-0 pointer-events-none z-30 overflow-hidden">
         <div className="absolute w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent animate-scan-line" />

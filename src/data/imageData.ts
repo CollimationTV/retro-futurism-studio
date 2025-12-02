@@ -6,7 +6,6 @@ import level1Vid5 from "@/assets/level1-vid5.mp4";
 import level1Vid6 from "@/assets/level1-vid6.mp4";
 import level1Vid7 from "@/assets/level1-vid7.mp4";
 import level1Vid8 from "@/assets/level1-vid8.mp4";
-import level1Vid9 from "@/assets/level1-vid9.mp4";
 
 import level2Img1 from "@/assets/level2-img1.png";
 import level2Img2 from "@/assets/level2-img2.png";
