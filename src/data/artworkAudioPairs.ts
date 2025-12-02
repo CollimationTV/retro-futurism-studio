@@ -2,10 +2,12 @@ import level3Vid1 from "@/assets/level3-vid1.mp4";
 import level3Img1 from "@/assets/level3-img1.jpg";
 import level3Vid2 from "@/assets/level3-vid2.mp4";
 import level3Vid3 from "@/assets/level3-vid3.mp4";
+import level3Img2 from "@/assets/level3-img2.png";
 
 /**
  * Artwork and audio track pairings for Level 3
  * Only unique artworks - no duplicates
+ * Metadata shows artist names
  */
 
 export interface ArtworkAudioPair {
@@ -16,18 +18,17 @@ export interface ArtworkAudioPair {
   audioUrl?: string;
 }
 
-// Only using uploaded Level 3 assets - 4 unique artworks available
 export const artworkAudioPairs: ArtworkAudioPair[] = [
   {
     id: 1,
     artworkUrl: level3Vid1,
-    metadata: "bootsy funk",
+    metadata: "Dan Lish, Bootsy Collins, Collimation",
     type: 'video'
   },
   {
     id: 2,
     artworkUrl: level3Img1,
-    metadata: "love blind earth",
+    metadata: "TYMED",
     type: 'image'
   },
   {
@@ -39,7 +40,13 @@ export const artworkAudioPairs: ArtworkAudioPair[] = [
   {
     id: 4,
     artworkUrl: level3Vid3,
-    metadata: "spongebob vibes",
+    metadata: "King Wilonius",
     type: 'video'
+  },
+  {
+    id: 5,
+    artworkUrl: level3Img2,
+    metadata: "Malcolm Williams",
+    type: 'image'
   }
 ];
