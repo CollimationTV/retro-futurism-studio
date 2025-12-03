@@ -1,20 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
-import { PerHeadsetImageGrid } from "@/components/PerHeadsetImageGrid";
 import { StatusPanel } from "@/components/StatusPanel";
 import { Features } from "@/components/Features";
 import { MultiHeadsetConnection } from "@/components/MultiHeadsetConnection";
-import { MentalCommandEvent, MotionEvent, PerformanceMetricsEvent } from "@/lib/multiHeadsetCortexClient";
-import { level1Images } from "@/data/imageData";
+import { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain } from "lucide-react";
 import { Brain3D } from "@/components/Brain3D";
 import { FuturisticGrid } from "@/components/FuturisticGrid";
 
 const Index = () => {
   const navigate = useNavigate();
-  const imageGridRef = useRef<HTMLDivElement>(null);
   const [mentalCommand, setMentalCommand] = useState<MentalCommandEvent | null>(null);
   const [motionEvent, setMotionEvent] = useState<MotionEvent | null>(null);
   const [connectedHeadsets, setConnectedHeadsets] = useState<string[]>([]);
@@ -37,25 +34,14 @@ const Index = () => {
     setConnectionStatus(status === 'initializing' ? 'connecting' : status as any);
   }, []);
 
-  const handleAllSelected = (selections: Map<string, number>) => {
-    navigate("/excitement-level-3", {
-      state: {
-        level1Selections: selections,
-        connectedHeadsets,
-        mentalCommand,
-        motionEvent
-      }
-    });
-  };
-
-  // Auto-scroll to image grid when connection is ready and headsets are connected
+  // Auto-navigate to Level 2 when connection is ready and headsets are connected
   useEffect(() => {
-    if (connectionStatus === 'ready' && connectedHeadsets.length > 0 && imageGridRef.current) {
+    if (connectionStatus === 'ready' && connectedHeadsets.length > 0) {
       setTimeout(() => {
-        imageGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        navigate("/excitement-level-2", { state: { connectedHeadsets, mentalCommand, motionEvent } });
       }, 500);
     }
-  }, [connectionStatus, connectedHeadsets.length]);
+  }, [connectionStatus, connectedHeadsets.length, navigate, connectedHeadsets, mentalCommand, motionEvent]);
 
   return (
     <div className="min-h-screen relative">
@@ -86,17 +72,15 @@ const Index = () => {
       />
       
       {connectionStatus === 'ready' && connectedHeadsets.length > 0 && (
-        <div ref={imageGridRef}>
-          <PerHeadsetImageGrid
-            images={level1Images}
-            mentalCommand={mentalCommand}
-            motionEvent={motionEvent}
-            connectedHeadsets={connectedHeadsets}
-            onAllSelected={handleAllSelected}
-            title="Level 1: Landscapes"
-            description="Select a landscape that resonates with you"
-          />
-        </div>
+        <section className="py-12 px-6">
+          <div className="container mx-auto max-w-2xl text-center">
+            <div className="p-8 rounded-lg border border-border/50 bg-card/30 backdrop-blur-sm">
+              <Brain className="w-16 h-16 mx-auto mb-4 text-primary/60 animate-pulse" />
+              <h3 className="text-2xl font-bold mb-2">Launching Experience...</h3>
+              <p className="text-muted-foreground">Navigating to Level 2</p>
+            </div>
+          </div>
+        </section>
       )}
       
       {connectionStatus === 'ready' && connectedHeadsets.length === 0 && (
