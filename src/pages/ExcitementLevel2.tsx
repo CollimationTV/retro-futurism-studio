@@ -18,7 +18,7 @@ interface Level2Image {
 }
 
 const PUSH_POWER_THRESHOLD = 0.3;
-const PUSH_HOLD_TIME_MS = 8000; // Same as Level 1
+const PUSH_HOLD_TIME_MS = 8000;
 
 const ExcitementLevel2 = () => {
   const location = useLocation();
@@ -33,7 +33,7 @@ const ExcitementLevel2 = () => {
     level1Metadata
   } = location.state || {};
 
-  // Use local imports for proper Vite bundling - same pattern as Level 1
+  // Use local imports for proper Vite bundling
   const level2Images: Level2Image[] = localLevel2Images.map((img, idx) => ({
     id: img.id,
     position: idx,
@@ -54,10 +54,8 @@ const ExcitementLevel2 = () => {
   const imageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const cursorRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   
-  // ULTRA LOW-LATENCY: Direct cursor position storage (no React state for cursor updates)
   const cursorScreenPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
 
-  // Store state in refs to avoid useEffect re-creation
   const selectionsRef = useRef(selections);
   const isPushingRef = useRef(isPushing);
   const focusedImagesRef = useRef(focusedImages);
@@ -66,16 +64,15 @@ const ExcitementLevel2 = () => {
   useEffect(() => { isPushingRef.current = isPushing; }, [isPushing]);
   useEffect(() => { focusedImagesRef.current = focusedImages; }, [focusedImages]);
 
-  // ULTRA LOW-LATENCY: Process motion immediately with direct DOM updates - SAME AS LEVEL 1
+  // Motion handling - EXACT same as Level 1
   useEffect(() => {
     const handleMotion = ((event: CustomEvent<MotionEvent>) => {
       const motionData = event.detail;
       const headsetId = motionData.headsetId;
     
       if (selectionsRef.current.has(headsetId)) return;
-      if (isPushingRef.current.get(headsetId)) return; // Freeze cursor during push
+      if (isPushingRef.current.get(headsetId)) return;
       
-      // SMOOTHING FILTERS for fluid cursor movement - SAME AS LEVEL 1
       if (!pitchFilters.current.has(headsetId)) {
         pitchFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
         rotationFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
@@ -89,20 +86,17 @@ const ExcitementLevel2 = () => {
       const relativePitch = motionData.pitch - (centerPitch.current.get(headsetId) || 0);
       const relativeRotation = motionData.rotation - (centerRotation.current.get(headsetId) || 0);
       
-      // IMMEDIATE filtering - use performance.now() for high precision
       const now = performance.now();
       const smoothPitch = pitchFilters.current.get(headsetId)!.filter(relativePitch, now);
       const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, now);
       
-      // DIRECT POSITION MAPPING - SAME AS LEVEL 1 (pitch = X, rotation = Y)
-      const maxAngle = 30; // Same as Level 1 - slower, more deliberate
+      const maxAngle = 30;
       const screenCenterX = window.innerWidth / 2;
       const screenCenterY = window.innerHeight / 2;
       
       let cursorScreenX = screenCenterX + (smoothPitch / maxAngle) * screenCenterX;
       let cursorScreenY = screenCenterY + (smoothRotation / maxAngle) * screenCenterY;
 
-      // Constrain cursor to the image grid bounding box
       let minLeft = Infinity;
       let maxRight = -Infinity;
       let minTop = Infinity;
@@ -125,16 +119,13 @@ const ExcitementLevel2 = () => {
         cursorScreenY = Math.max(0, Math.min(window.innerHeight, cursorScreenY));
       }
       
-      // Store cursor position in ref (no React state update for cursor!)
       cursorScreenPositions.current.set(headsetId, { x: cursorScreenX, y: cursorScreenY });
       
-      // DIRECT DOM MANIPULATION - bypass React rendering for zero latency
       const cursorElement = cursorRefs.current.get(headsetId);
       if (cursorElement) {
         cursorElement.style.transform = `translate(${cursorScreenX}px, ${cursorScreenY}px)`;
       }
       
-      // Check which image the cursor is hovering over
       let hoveredImageId: number | undefined;
       for (const [imageId, element] of imageRefs.current.entries()) {
         if (!element) continue;
@@ -151,7 +142,6 @@ const ExcitementLevel2 = () => {
         }
       }
       
-      // Only update React state for focus changes (UI feedback only, not cursor position)
       const currentFocus = focusedImagesRef.current.get(headsetId);
       if (hoveredImageId !== undefined && currentFocus !== hoveredImageId) {
         setFocusedImages(prev => new Map(prev).set(headsetId, hoveredImageId));
@@ -166,8 +156,9 @@ const ExcitementLevel2 = () => {
 
     window.addEventListener('motion-event', handleMotion);
     return () => window.removeEventListener('motion-event', handleMotion);
-  }, []); // Empty deps - use refs instead of state
+  }, []);
 
+  // Mental command handling - EXACT same as Level 1
   useEffect(() => {
     const handleMentalCommand = ((event: CustomEvent<MentalCommandEvent>) => {
       const commandData = event.detail;
@@ -216,7 +207,6 @@ const ExcitementLevel2 = () => {
   // Navigate to Level 3 once all headsets have selected
   useEffect(() => {
     if (connectedHeadsets && selections.size === connectedHeadsets.length && selections.size > 0) {
-      // Aggregate metadata from Level 2 selections
       const level2Metadata: string[] = [];
       selections.forEach((imageId) => {
         const image = level2Images.find((img) => img.position === imageId);
@@ -287,14 +277,28 @@ const ExcitementLevel2 = () => {
                     }}
                   >
                     <div className="aspect-video relative">
-                      <img
-                        src={image.url}
-                        alt={image.metadata}
-                        className="w-full h-full object-cover"
-                        style={{
-                          filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
-                        }}
-                      />
+                      {image.url.endsWith('.mp4') ? (
+                        <video
+                          src={image.url}
+                          className="w-full h-full object-cover"
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          style={{
+                            filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
+                          }}
+                        />
+                      ) : (
+                        <img
+                          src={image.url}
+                          alt={image.metadata}
+                          className="w-full h-full object-cover"
+                          style={{
+                            filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
+                          }}
+                        />
+                      )}
 
                       {focusedByHeadsets.map(headsetId => {
                         const color = getHeadsetColor(headsetId);
@@ -330,7 +334,7 @@ const ExcitementLevel2 = () => {
         </div>
       </div>
 
-      {/* ULTRA LOW-LATENCY CURSORS - Direct DOM manipulation via refs */}
+      {/* Cursors */}
       {connectedHeadsets?.map((headsetId: string) => {
         if (selections.has(headsetId)) return null;
         const color = getHeadsetColor(headsetId);
