@@ -410,10 +410,6 @@ const ExcitementLevel1 = () => {
           setSelections(prev => new Map(prev).set(headsetId, imageId));
         }}
       />
-
-      <div className="fixed inset-0 pointer-events-none z-30 overflow-hidden">
-        <div className="absolute w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent animate-scan-line" />
-      </div>
     </div>
   );
 };

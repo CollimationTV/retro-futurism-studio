@@ -3,6 +3,7 @@ import level3Img1 from "@/assets/level3-img1.jpg";
 import level3Vid2 from "@/assets/level3-vid2.mp4";
 import level3Vid3 from "@/assets/level3-vid3.mp4";
 import level3Img2 from "@/assets/level3-img2.png";
+import level3Vid4 from "@/assets/level3-vid4.mp4";
 
 /**
  * Artwork and audio track pairings for Level 3
@@ -48,5 +49,11 @@ export const artworkAudioPairs: ArtworkAudioPair[] = [
     artworkUrl: level3Img2,
     metadata: "Malcolm Williams",
     type: 'image'
+  },
+  {
+    id: 6,
+    artworkUrl: level3Vid4,
+    metadata: "Renata Whedbee - Reverence in Red",
+    type: 'video'
   }
 ];
