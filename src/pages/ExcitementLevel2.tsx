@@ -101,8 +101,9 @@ const ExcitementLevel2 = () => {
       const screenCenterY = window.innerHeight / 2;
       
       // Rotation (yaw/head turn left-right) controls X, Pitch (head tilt up-down) controls Y
-      let cursorScreenX = screenCenterX + (smoothRotation / maxAngle) * screenCenterX;
-      let cursorScreenY = screenCenterY - (smoothPitch / maxAngle) * screenCenterY;
+      // Negated for correct direction: look right = cursor right, look up = cursor up
+      let cursorScreenX = screenCenterX - (smoothRotation / maxAngle) * screenCenterX;
+      let cursorScreenY = screenCenterY + (smoothPitch / maxAngle) * screenCenterY;
 
       // 🔒 Constrain cursor to the 3x3 image grid bounding box
       let minLeft = Infinity;
@@ -334,12 +335,6 @@ const ExcitementLevel2 = () => {
                           <div className="text-6xl">✓</div>
                         </div>
                       )}
-                    </div>
-                    
-                    <div className="p-3 bg-card">
-                      <div className="flex flex-wrap gap-1 justify-center">
-                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">{image.metadata}</span>
-                      </div>
                     </div>
                   </Card>
                 </div>
