@@ -1,4 +1,8 @@
-import artworkVideo from "@/assets/artwork-03_3.mp4";
+import artwork03_3 from "@/assets/artwork-03_3-2.mp4";
+import reverenceInRed from "@/assets/reverence-in-red.mp4";
+import loveIsBlind from "@/assets/love-is-blind.jpg";
+import spongebob from "@/assets/spongebob.mp4";
+import bootsy from "@/assets/bootsy.mp4";
 
 export interface ImageData {
   id: number;
@@ -6,14 +10,14 @@ export interface ImageData {
   metadata: string;
 }
 
-// Single level - artwork selection (replaces old Level 1 and Level 2)
+// Single level - artwork selection with unique artworks
 export const level1Images: ImageData[] = [
-  { id: 1, url: artworkVideo, metadata: "future vision" },
-  { id: 2, url: artworkVideo, metadata: "hopeful humanity" },
-  { id: 3, url: artworkVideo, metadata: "sustainable world" },
-  { id: 4, url: artworkVideo, metadata: "collective harmony" },
-  { id: 5, url: artworkVideo, metadata: "nature integration" },
-  { id: 6, url: artworkVideo, metadata: "clean energy" },
-  { id: 7, url: artworkVideo, metadata: "utopian design" },
-  { id: 8, url: artworkVideo, metadata: "advanced technology" },
+  { id: 1, url: bootsy, metadata: "Bootsy Collins" },
+  { id: 2, url: artwork03_3, metadata: "future vision" },
+  { id: 3, url: reverenceInRed, metadata: "Reverence in Red" },
+  { id: 4, url: loveIsBlind, metadata: "Love is Blind" },
+  { id: 5, url: spongebob, metadata: "King Wilonius" },
+  { id: 6, url: bootsy, metadata: "Bootsy Collins" },
+  { id: 7, url: artwork03_3, metadata: "hopeful humanity" },
+  { id: 8, url: reverenceInRed, metadata: "Renata Whedbee" },
 ];
