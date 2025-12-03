@@ -20,7 +20,7 @@ interface Level2Image {
   metadata: string;
 }
 
-const PUSH_POWER_THRESHOLD = 0.1; // Lower threshold for easier detection
+const PUSH_POWER_THRESHOLD = 0.075; // 25% stronger sensitivity
 const PUSH_HOLD_TIME_MS = 3000; // Faster selection (3 seconds)
 
 const ExcitementLevel2 = () => {
