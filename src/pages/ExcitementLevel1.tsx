@@ -65,15 +65,6 @@ const ExcitementLevel1 = () => {
   useEffect(() => { isPushingRef.current = isPushing; }, [isPushing]);
   useEffect(() => { focusedImagesRef.current = focusedImages; }, [focusedImages]);
 
-  // Clear refs on mount to ensure fresh state
-  useEffect(() => {
-    pitchFilters.current.clear();
-    rotationFilters.current.clear();
-    centerPitch.current.clear();
-    centerRotation.current.clear();
-    cursorScreenPositions.current.clear();
-  }, []);
-
   // ULTRA LOW-LATENCY: Process motion immediately with direct DOM updates
   useEffect(() => {
     const handleMotion = ((event: CustomEvent<MotionEvent>) => {
