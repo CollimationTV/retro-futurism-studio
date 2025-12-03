@@ -18,8 +18,8 @@ interface Level2Image {
   metadata: string;
 }
 
-const PUSH_POWER_THRESHOLD = 0.3;
-const PUSH_HOLD_TIME_MS = 8000; // Slower, more deliberate selection
+const PUSH_POWER_THRESHOLD = 0.1; // Lower threshold for easier detection
+const PUSH_HOLD_TIME_MS = 3000; // Faster selection (3 seconds)
 
 const ExcitementLevel2 = () => {
   const location = useLocation();
