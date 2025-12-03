@@ -10,7 +10,6 @@ import Index from "./pages/Index";
 import SecondSelection from "./pages/SecondSelection";
 import Results from "./pages/Results";
 import ExcitementLevel1 from "./pages/ExcitementLevel1";
-import ExcitementLevel2 from "./pages/ExcitementLevel2";
 import ExcitementLevel3 from "./pages/ExcitementLevel3";
 import AudioEmotion from "./pages/AudioEmotion";
 import VideoOutput from "./pages/VideoOutput";
@@ -31,7 +30,6 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/excitement-level-1" element={<ExcitementLevel1 />} />
-              <Route path="/excitement-level-2" element={<ExcitementLevel2 />} />
               <Route path="/level2" element={<SecondSelection />} />
               <Route path="/results" element={<Results />} />
               <Route path="/excitement-level-3" element={<ExcitementLevel3 />} />

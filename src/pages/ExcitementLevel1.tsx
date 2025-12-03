@@ -226,7 +226,7 @@ const ExcitementLevel1 = () => {
       });
 
       setTimeout(() => {
-        navigate("/excitement-level-2", {
+        navigate("/excitement-level-3", {
           state: {
             videoJobId,
             connectedHeadsets,
