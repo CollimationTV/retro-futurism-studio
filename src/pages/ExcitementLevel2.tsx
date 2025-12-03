@@ -105,29 +105,9 @@ const ExcitementLevel2 = () => {
       let cursorScreenX = screenCenterX - (smoothRotation / maxAngle) * screenCenterX;
       let cursorScreenY = screenCenterY + (smoothPitch / maxAngle) * screenCenterY;
 
-      // 🔒 Constrain cursor to the 3x3 image grid bounding box
-      let minLeft = Infinity;
-      let maxRight = -Infinity;
-      let minTop = Infinity;
-      let maxBottom = -Infinity;
-
-      for (const element of imageRefs.current.values()) {
-        if (!element) continue;
-        const rect = element.getBoundingClientRect();
-        minLeft = Math.min(minLeft, rect.left);
-        maxRight = Math.max(maxRight, rect.right);
-        minTop = Math.min(minTop, rect.top);
-        maxBottom = Math.max(maxBottom, rect.bottom);
-      }
-
-      if (minLeft !== Infinity && maxRight !== -Infinity) {
-        cursorScreenX = Math.max(minLeft, Math.min(maxRight, cursorScreenX));
-        cursorScreenY = Math.max(minTop, Math.min(maxBottom, cursorScreenY));
-      } else {
-        // Fallback to screen bounds
-        cursorScreenX = Math.max(0, Math.min(window.innerWidth, cursorScreenX));
-        cursorScreenY = Math.max(0, Math.min(window.innerHeight, cursorScreenY));
-      }
+      // Allow cursor to move freely across the screen
+      cursorScreenX = Math.max(0, Math.min(window.innerWidth, cursorScreenX));
+      cursorScreenY = Math.max(0, Math.min(window.innerHeight, cursorScreenY));
       
       // Store cursor position in ref (no React state update for cursor!)
       cursorScreenPositions.current.set(headsetId, { x: cursorScreenX, y: cursorScreenY });
