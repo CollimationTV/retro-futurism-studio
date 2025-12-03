@@ -8,7 +8,7 @@ import { getHeadsetColor } from "@/utils/headsetColors";
 import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
 import { OneEuroFilter, applySensitivityCurve } from "@/utils/OneEuroFilter";
-import { level2Images as localLevel2Images } from "@/data/imageData";
+import { level1Images as localLevel1Images } from "@/data/imageData";
 import { RemoteOperatorPanel } from "@/components/RemoteOperatorPanel";
 
 interface Level2Image {
@@ -34,8 +34,8 @@ const ExcitementLevel2 = () => {
     level1Metadata
   } = location.state || {};
 
-  // Use local imports for proper Vite bundling
-  const level2Images: Level2Image[] = localLevel2Images.map((img, idx) => ({
+  // Use local imports for proper Vite bundling - now using Level 1 videos
+  const level2Images: Level2Image[] = localLevel1Images.map((img, idx) => ({
     id: img.id,
     position: idx,
     url: img.url,
@@ -238,7 +238,7 @@ const ExcitementLevel2 = () => {
         <div className="container mx-auto max-w-7xl">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold uppercase tracking-wider mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              Level 2: Malcolm Williams
+              Level 2: Landscapes
             </h1>
             <p className="text-lg text-muted-foreground">
               Move your cursor with head tilt • Hold PUSH to select
