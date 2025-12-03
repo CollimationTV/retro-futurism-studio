@@ -10,6 +10,8 @@ import { Brain3D } from "@/components/Brain3D";
 import { OneEuroFilter, applySensitivityCurve } from "@/utils/OneEuroFilter";
 import { level1Images as localLevel1Images } from "@/data/imageData";
 import { RemoteOperatorPanel } from "@/components/RemoteOperatorPanel";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Level2Image {
   id: number;
@@ -26,12 +28,9 @@ const ExcitementLevel2 = () => {
   const navigate = useNavigate();
   
   const { 
-    videoJobId,
     connectedHeadsets,
     mentalCommand,
-    motionEvent,
-    excitementLevel1Selections,
-    level1Metadata
+    motionEvent
   } = location.state || {};
 
   // Use local imports for proper Vite bundling - now using Level 1 videos
@@ -197,37 +196,68 @@ const ExcitementLevel2 = () => {
     return () => window.removeEventListener('mental-command', handleMentalCommand);
   }, [focusedImages, selections]);
 
-  // Navigate to Level 3 once all headsets have selected
+  const { toast } = useToast();
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // Navigate to VideoOutput once all headsets have selected - trigger Sora generation
   useEffect(() => {
-    if (connectedHeadsets && selections.size === connectedHeadsets.length && selections.size > 0) {
-      // Aggregate metadata from Level 2 selections
-      const level2Metadata: string[] = [];
+    if (connectedHeadsets && selections.size === connectedHeadsets.length && selections.size > 0 && !isGenerating) {
+      // Aggregate metadata from selections
+      const selectedMetadata: string[] = [];
       selections.forEach((imageId) => {
         const image = level2Images.find((img) => img.position === imageId);
         if (image) {
-          level2Metadata.push(image.metadata);
+          selectedMetadata.push(image.metadata);
         }
       });
 
-      const allMetadata = [...(level1Metadata || []), ...level2Metadata];
+      // Trigger Sora video generation
+      const generateVideo = async () => {
+        setIsGenerating(true);
+        
+        const apiKey = localStorage.getItem('openai_api_key');
+        if (!apiKey) {
+          toast({
+            title: "API Key Required",
+            description: "Please set your OpenAI API key in settings first.",
+            variant: "destructive"
+          });
+          setIsGenerating(false);
+          return;
+        }
 
-      setTimeout(() => {
-        navigate("/excitement-level-3", {
-          state: {
-            videoJobId,
-            connectedHeadsets,
-            mentalCommand,
-            motionEvent,
-            excitementLevel1Selections,
-            excitementLevel2Selections: selections,
-            level1Metadata,
-            level2Metadata,
-            allMetadata
-          }
-        });
-      }, 1500);
+        try {
+          const { data, error } = await supabase.functions.invoke('generate-sora-video', {
+            body: { 
+              metadata: selectedMetadata,
+              apiKey 
+            }
+          });
+
+          if (error) throw error;
+
+          // Navigate to VideoOutput with the job ID
+          navigate("/video-output", {
+            state: {
+              videoJobId: data.jobId,
+              metadata: selectedMetadata,
+              connectedHeadsets
+            }
+          });
+        } catch (err: any) {
+          console.error('Sora generation error:', err);
+          toast({
+            title: "Generation Error",
+            description: err.message || "Failed to start video generation",
+            variant: "destructive"
+          });
+          setIsGenerating(false);
+        }
+      };
+
+      setTimeout(() => generateVideo(), 1500);
     }
-  }, [selections, connectedHeadsets, navigate, videoJobId, level2Images, level1Metadata, excitementLevel1Selections]);
+  }, [selections, connectedHeadsets, navigate, level2Images, isGenerating, toast]);
 
   return (
     <div className="min-h-screen relative">
