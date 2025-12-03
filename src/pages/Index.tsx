@@ -134,12 +134,6 @@ const Index = () => {
       {/* Manual navigation buttons for testing */}
       <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 flex gap-2 bg-background/90 backdrop-blur-sm border border-border rounded-lg p-2">
         <button
-          onClick={() => navigate("/excitement-level-1", { state: { connectedHeadsets, mentalCommand, motionEvent } })}
-          className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
-        >
-          → Level 1
-        </button>
-        <button
           onClick={() => navigate("/excitement-level-2", { state: { connectedHeadsets, mentalCommand, motionEvent } })}
           className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
         >
