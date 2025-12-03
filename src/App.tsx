@@ -7,7 +7,6 @@ import { CortexProvider } from "./contexts/CortexContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { FullscreenButton } from "./components/FullscreenButton";
 import Index from "./pages/Index";
-import SecondSelection from "./pages/SecondSelection";
 import Results from "./pages/Results";
 import ExcitementLevel1 from "./pages/ExcitementLevel1";
 import ExcitementLevel3 from "./pages/ExcitementLevel3";
@@ -30,7 +29,6 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/excitement-level-1" element={<ExcitementLevel1 />} />
-              <Route path="/level2" element={<SecondSelection />} />
               <Route path="/results" element={<Results />} />
               <Route path="/excitement-level-3" element={<ExcitementLevel3 />} />
               <Route path="/audio-emotion" element={<AudioEmotion />} />
