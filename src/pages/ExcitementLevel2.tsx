@@ -100,8 +100,9 @@ const ExcitementLevel2 = () => {
       const screenCenterX = window.innerWidth / 2;
       const screenCenterY = window.innerHeight / 2;
       
-      let cursorScreenX = screenCenterX + (smoothPitch / maxAngle) * screenCenterX;
-      let cursorScreenY = screenCenterY + (smoothRotation / maxAngle) * screenCenterY;
+      // Rotation (yaw/head turn left-right) controls X, Pitch (head tilt up-down) controls Y
+      let cursorScreenX = screenCenterX + (smoothRotation / maxAngle) * screenCenterX;
+      let cursorScreenY = screenCenterY - (smoothPitch / maxAngle) * screenCenterY;
 
       // 🔒 Constrain cursor to the 3x3 image grid bounding box
       let minLeft = Infinity;
