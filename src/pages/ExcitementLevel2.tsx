@@ -6,9 +6,9 @@ import { Progress } from "@/components/ui/progress";
 import { getHeadsetColor } from "@/utils/headsetColors";
 import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
-import { OneEuroFilter } from "@/utils/OneEuroFilter";
 import { level2Images as localLevel2Images } from "@/data/imageData";
 import { RemoteOperatorPanel } from "@/components/RemoteOperatorPanel";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface Level2Image {
   id: number;
@@ -19,10 +19,13 @@ interface Level2Image {
 
 const PUSH_POWER_THRESHOLD = 0.3;
 const PUSH_HOLD_TIME_MS = 8000;
+const GRID_COLS = 4;
+const GRID_ROWS = 2;
 
 const ExcitementLevel2 = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { tiltThreshold, framesToTrigger, manualSelectionMode } = useSettings();
   
   const { 
     videoJobId,
@@ -46,16 +49,13 @@ const ExcitementLevel2 = () => {
   const [pushProgress, setPushProgress] = useState<Map<string, number>>(new Map());
   const [isPushing, setIsPushing] = useState<Map<string, boolean>>(new Map());
   
-  const pitchFilters = useRef<Map<string, OneEuroFilter>>(new Map());
-  const rotationFilters = useRef<Map<string, OneEuroFilter>>(new Map());
+  // Discrete navigation state
+  const tiltCounters = useRef<Map<string, { left: number; right: number; up: number; down: number }>>(new Map());
   const pushStartTimes = useRef<Map<string, number>>(new Map());
   const centerPitch = useRef<Map<string, number>>(new Map());
   const centerRotation = useRef<Map<string, number>>(new Map());
   const imageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const cursorRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   
-  const cursorScreenPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
-
   const selectionsRef = useRef(selections);
   const isPushingRef = useRef(isPushing);
   const focusedImagesRef = useRef(focusedImages);
@@ -64,101 +64,146 @@ const ExcitementLevel2 = () => {
   useEffect(() => { isPushingRef.current = isPushing; }, [isPushing]);
   useEffect(() => { focusedImagesRef.current = focusedImages; }, [focusedImages]);
 
-  // Motion handling - EXACT same as Level 1
+  // Initialize focused images for each headset
+  useEffect(() => {
+    if (connectedHeadsets && connectedHeadsets.length > 0) {
+      const initialFocus = new Map<string, number>();
+      connectedHeadsets.forEach((headsetId: string) => {
+        if (!focusedImages.has(headsetId)) {
+          initialFocus.set(headsetId, 0); // Start at first image
+        }
+      });
+      if (initialFocus.size > 0) {
+        setFocusedImages(prev => new Map([...prev, ...initialFocus]));
+      }
+    }
+  }, [connectedHeadsets]);
+
+  // Discrete tilt-step motion handling
   useEffect(() => {
     const handleMotion = ((event: CustomEvent<MotionEvent>) => {
       const motionData = event.detail;
       const headsetId = motionData.headsetId;
     
+      // Skip if already selected or currently pushing
       if (selectionsRef.current.has(headsetId)) return;
       if (isPushingRef.current.get(headsetId)) return;
       
-      if (!pitchFilters.current.has(headsetId)) {
-        pitchFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
-        rotationFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
-      }
-      
+      // Initialize center calibration on first motion
       if (!centerPitch.current.has(headsetId)) {
         centerPitch.current.set(headsetId, motionData.pitch);
         centerRotation.current.set(headsetId, motionData.rotation);
       }
       
+      // Initialize tilt counters
+      if (!tiltCounters.current.has(headsetId)) {
+        tiltCounters.current.set(headsetId, { left: 0, right: 0, up: 0, down: 0 });
+      }
+      
       const relativePitch = motionData.pitch - (centerPitch.current.get(headsetId) || 0);
       const relativeRotation = motionData.rotation - (centerRotation.current.get(headsetId) || 0);
       
-      const now = performance.now();
-      const smoothPitch = pitchFilters.current.get(headsetId)!.filter(relativePitch, now);
-      const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, now);
+      const counters = tiltCounters.current.get(headsetId)!;
+      const currentFocus = focusedImagesRef.current.get(headsetId) ?? 0;
+      const currentCol = currentFocus % GRID_COLS;
+      const currentRow = Math.floor(currentFocus / GRID_COLS);
       
-      const maxAngle = 30;
-      const screenCenterX = window.innerWidth / 2;
-      const screenCenterY = window.innerHeight / 2;
+      let newFocus = currentFocus;
       
-      let cursorScreenX = screenCenterX + (smoothPitch / maxAngle) * screenCenterX;
-      let cursorScreenY = screenCenterY + (smoothRotation / maxAngle) * screenCenterY;
-
-      let minLeft = Infinity;
-      let maxRight = -Infinity;
-      let minTop = Infinity;
-      let maxBottom = -Infinity;
-
-      for (const element of imageRefs.current.values()) {
-        if (!element) continue;
-        const rect = element.getBoundingClientRect();
-        minLeft = Math.min(minLeft, rect.left);
-        maxRight = Math.max(maxRight, rect.right);
-        minTop = Math.min(minTop, rect.top);
-        maxBottom = Math.max(maxBottom, rect.bottom);
-      }
-
-      if (minLeft !== Infinity && maxRight !== -Infinity) {
-        cursorScreenX = Math.max(minLeft, Math.min(maxRight, cursorScreenX));
-        cursorScreenY = Math.max(minTop, Math.min(maxBottom, cursorScreenY));
-      } else {
-        cursorScreenX = Math.max(0, Math.min(window.innerWidth, cursorScreenX));
-        cursorScreenY = Math.max(0, Math.min(window.innerHeight, cursorScreenY));
-      }
-      
-      cursorScreenPositions.current.set(headsetId, { x: cursorScreenX, y: cursorScreenY });
-      
-      const cursorElement = cursorRefs.current.get(headsetId);
-      if (cursorElement) {
-        cursorElement.style.transform = `translate(${cursorScreenX}px, ${cursorScreenY}px)`;
-      }
-      
-      let hoveredImageId: number | undefined;
-      for (const [imageId, element] of imageRefs.current.entries()) {
-        if (!element) continue;
-        const rect = element.getBoundingClientRect();
-        
-        if (
-          cursorScreenX >= rect.left &&
-          cursorScreenX <= rect.right &&
-          cursorScreenY >= rect.top &&
-          cursorScreenY <= rect.bottom
-        ) {
-          hoveredImageId = imageId;
-          break;
+      // Horizontal navigation (pitch = left/right head tilt)
+      if (relativePitch < -tiltThreshold) {
+        // Tilting left
+        counters.left++;
+        counters.right = 0;
+        if (counters.left >= framesToTrigger) {
+          // Move left with row wrapping
+          if (currentCol === 0) {
+            // Wrap to end of previous row
+            if (currentRow > 0) {
+              newFocus = (currentRow - 1) * GRID_COLS + (GRID_COLS - 1);
+            } else {
+              // Wrap to end of last row
+              newFocus = (GRID_ROWS - 1) * GRID_COLS + (GRID_COLS - 1);
+            }
+          } else {
+            newFocus = currentFocus - 1;
+          }
+          counters.left = 0;
         }
+      } else if (relativePitch > tiltThreshold) {
+        // Tilting right
+        counters.right++;
+        counters.left = 0;
+        if (counters.right >= framesToTrigger) {
+          // Move right with row wrapping
+          if (currentCol === GRID_COLS - 1) {
+            // Wrap to start of next row
+            if (currentRow < GRID_ROWS - 1) {
+              newFocus = (currentRow + 1) * GRID_COLS;
+            } else {
+              // Wrap to start of first row
+              newFocus = 0;
+            }
+          } else {
+            newFocus = currentFocus + 1;
+          }
+          counters.right = 0;
+        }
+      } else {
+        // Neutral - reset horizontal counters
+        counters.left = 0;
+        counters.right = 0;
       }
       
-      const currentFocus = focusedImagesRef.current.get(headsetId);
-      if (hoveredImageId !== undefined && currentFocus !== hoveredImageId) {
-        setFocusedImages(prev => new Map(prev).set(headsetId, hoveredImageId));
-      } else if (hoveredImageId === undefined && currentFocus !== undefined) {
-        setFocusedImages(prev => {
-          const updated = new Map(prev);
-          updated.delete(headsetId);
-          return updated;
-        });
+      // Vertical navigation (rotation = up/down head tilt)
+      if (relativeRotation < -tiltThreshold) {
+        // Tilting up
+        counters.up++;
+        counters.down = 0;
+        if (counters.up >= framesToTrigger) {
+          // Move up
+          if (currentRow > 0) {
+            newFocus = (currentRow - 1) * GRID_COLS + currentCol;
+          } else {
+            // Wrap to bottom row
+            newFocus = (GRID_ROWS - 1) * GRID_COLS + currentCol;
+          }
+          counters.up = 0;
+        }
+      } else if (relativeRotation > tiltThreshold) {
+        // Tilting down
+        counters.down++;
+        counters.up = 0;
+        if (counters.down >= framesToTrigger) {
+          // Move down
+          if (currentRow < GRID_ROWS - 1) {
+            newFocus = (currentRow + 1) * GRID_COLS + currentCol;
+          } else {
+            // Wrap to top row
+            newFocus = currentCol;
+          }
+          counters.down = 0;
+        }
+      } else {
+        // Neutral - reset vertical counters
+        counters.up = 0;
+        counters.down = 0;
+      }
+      
+      // Clamp to valid range
+      newFocus = Math.max(0, Math.min(level2Images.length - 1, newFocus));
+      
+      // Update focus if changed
+      if (newFocus !== currentFocus) {
+        setFocusedImages(prev => new Map(prev).set(headsetId, newFocus));
       }
     }) as EventListener;
 
     window.addEventListener('motion-event', handleMotion);
     return () => window.removeEventListener('motion-event', handleMotion);
-  }, []);
+  }, [tiltThreshold, framesToTrigger, level2Images.length]);
 
-  // Mental command handling - EXACT same as Level 1
+  // Mental command handling
   useEffect(() => {
     const handleMentalCommand = ((event: CustomEvent<MentalCommandEvent>) => {
       const commandData = event.detail;
@@ -233,6 +278,13 @@ const ExcitementLevel2 = () => {
     }
   }, [selections, connectedHeadsets, navigate, videoJobId, excitementLevel1Selections, level1Metadata, level2Images]);
 
+  // Manual click selection handler
+  const handleManualSelect = (headsetId: string, imagePosition: number) => {
+    if (!manualSelectionMode) return;
+    if (selections.has(headsetId)) return;
+    setSelections(prev => new Map(prev).set(headsetId, imagePosition));
+  };
+
   return (
     <div className="min-h-screen relative">
       <Brain3D excitement={0.5} className="opacity-20 z-0" />
@@ -245,7 +297,7 @@ const ExcitementLevel2 = () => {
               Level 2: Elements
             </h1>
             <p className="text-lg text-muted-foreground">
-              Move your cursor with head tilt • Hold PUSH to select
+              Tilt your head to navigate • Hold PUSH to select
             </p>
           </div>
 
@@ -267,6 +319,16 @@ const ExcitementLevel2 = () => {
                   key={image.id}
                   ref={(el) => { if (el) imageRefs.current.set(image.position, el); }}
                   className="relative"
+                  onClick={() => {
+                    if (manualSelectionMode && connectedHeadsets?.length > 0) {
+                      // In manual mode, select for first headset that hasn't selected
+                      const headsetToSelect = connectedHeadsets.find((h: string) => !selections.has(h));
+                      if (headsetToSelect) {
+                        handleManualSelect(headsetToSelect, image.position);
+                      }
+                    }
+                  }}
+                  style={{ cursor: manualSelectionMode ? 'pointer' : 'default' }}
                 >
                   <Card 
                     className="relative overflow-hidden transition-all duration-200"
@@ -334,34 +396,6 @@ const ExcitementLevel2 = () => {
         </div>
       </div>
 
-      {/* Cursors */}
-      {connectedHeadsets?.map((headsetId: string) => {
-        if (selections.has(headsetId)) return null;
-        const color = getHeadsetColor(headsetId);
-        return (
-          <div
-            key={`cursor-${headsetId}`}
-            ref={(el) => { if (el) cursorRefs.current.set(headsetId, el); }}
-            className="fixed pointer-events-none z-50"
-            style={{
-              left: 0,
-              top: 0,
-              willChange: 'transform',
-              transform: 'translate(0px, 0px)',
-            }}
-          >
-            <div
-              className="w-8 h-8 -ml-4 -mt-4 rounded-full border-4"
-              style={{
-                borderColor: color,
-                backgroundColor: `${color}40`,
-                boxShadow: `0 0 20px ${color}`
-              }}
-            />
-          </div>
-        );
-      })}
-
       {/* Bottom progress bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-background/90 backdrop-blur-sm border-t border-border p-4 z-40">
         <div className="container mx-auto max-w-7xl">
@@ -371,12 +405,13 @@ const ExcitementLevel2 = () => {
               const progress = pushProgress.get(headsetId) || 0;
               const hasSelected = selections.has(headsetId);
               const pushing = isPushing.get(headsetId) || false;
+              const currentFocus = focusedImages.get(headsetId);
               
               return (
                 <div key={headsetId} className="flex-1">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-mono" style={{ color }}>
-                      {hasSelected ? '✓ Selected' : pushing ? 'Pushing...' : 'Ready'}
+                      {hasSelected ? '✓ Selected' : pushing ? 'Pushing...' : `Image ${(currentFocus ?? 0) + 1}`}
                     </span>
                     <span className="text-sm font-mono" style={{ color }}>
                       {progress.toFixed(0)}%
