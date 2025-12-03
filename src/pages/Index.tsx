@@ -38,7 +38,7 @@ const Index = () => {
   }, []);
 
   const handleAllSelected = (selections: Map<string, number>) => {
-    navigate("/level2", {
+    navigate("/excitement-level-3", {
       state: {
         level1Selections: selections,
         connectedHeadsets,
@@ -133,12 +133,6 @@ const Index = () => {
       
       {/* Manual navigation buttons for testing */}
       <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 flex gap-2 bg-background/90 backdrop-blur-sm border border-border rounded-lg p-2">
-        <button
-          onClick={() => navigate("/level2", { state: { level1Selections: new Map(), connectedHeadsets, mentalCommand, motionEvent } })}
-          className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
-        >
-          → Level 2
-        </button>
         <button
           onClick={() => navigate("/excitement-level-3", { state: { connectedHeadsets, mentalCommand, motionEvent } })}
           className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"

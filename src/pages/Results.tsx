@@ -4,24 +4,23 @@ import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, Download, CheckCircle2 } from "lucide-react";
-import { level1Images, level2Images } from "@/data/imageData";
+import { level1Images } from "@/data/imageData";
 
 const Results = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { level1Selections, level2Selections, connectedHeadsets } = location.state || { 
+  const { level1Selections, connectedHeadsets } = location.state || { 
     level1Selections: new Map(), 
-    level2Selections: new Map(),
     connectedHeadsets: []
   };
 
   const getImageById = (id: number) => {
-    return [...level1Images, ...level2Images].find(img => img.id === id);
+    return level1Images.find(img => img.id === id);
   };
 
   // Auto-trigger Sora video generation and navigate to excitement levels
   useEffect(() => {
-    if (!level1Selections || !level2Selections) return;
+    if (!level1Selections) return;
 
     const collectMetadata = () => {
       const allMetadata: string[] = [];
@@ -34,26 +33,16 @@ const Results = () => {
         }
       });
 
-      // Collect metadata from level 2 selections (single tag per image)
-      level2Selections.forEach((imageId: number) => {
-        const image = getImageById(imageId);
-        if (image?.metadata) {
-          allMetadata.push(image.metadata);
-        }
-      });
-
       return allMetadata;
     };
 
     const startBackgroundGeneration = async () => {
       const metadata = collectMetadata();
-      // console.log("🎬 Starting Sora generation in background with metadata:", metadata);
 
       // Start Sora generation (returns immediately with job ID)
-      // The actual generation happens on the server
       const videoJobId = `job_${Date.now()}`;
       
-      // Navigate to excitement level 3 (new artistic earth-forming level)
+      // Navigate to excitement level 3
       navigate("/excitement-level-3", { 
         state: { 
           metadata,
@@ -69,9 +58,8 @@ const Results = () => {
     // Small delay to let user see results before transitioning
     const timer = setTimeout(startBackgroundGeneration, 2000);
     return () => clearTimeout(timer);
-  }, [level1Selections, level2Selections, navigate, connectedHeadsets, location.state]);
+  }, [level1Selections, navigate, connectedHeadsets, location.state]);
 
-  // Import headset color utility
   const getHeadsetColorByIndex = (index: number): string => {
     const colors = [
       'hsl(var(--primary))',
@@ -101,7 +89,7 @@ const Results = () => {
               Selection Complete
             </h1>
             <p className="text-lg text-muted-foreground mb-8">
-              {connectedHeadsets.length} user{connectedHeadsets.length !== 1 ? 's' : ''} completed selections across both levels
+              {connectedHeadsets.length} user{connectedHeadsets.length !== 1 ? 's' : ''} completed selections
             </p>
             
             <div className="flex items-center justify-center gap-4">
@@ -141,54 +129,6 @@ const Results = () => {
                         <img
                           src={image.url}
                           alt={`Level 1 Selection`}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute top-2 left-2">
-                          <div 
-                            className="px-3 py-1 rounded-full backdrop-blur-sm border-2 font-mono text-xs font-bold"
-                            style={{
-                              backgroundColor: `${color}20`,
-                              borderColor: color,
-                              color: color,
-                            }}
-                          >
-                            {headsetId.substring(0, 8)}...
-                          </div>
-                        </div>
-                      </div>
-                      <div className="p-4 bg-card">
-                        <div className="flex flex-wrap gap-2 justify-center">
-                          <span className="px-2 py-1 bg-primary/20 border border-primary/50 rounded text-xs font-mono">
-                            {image.metadata}
-                          </span>
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Level 2 Selections by Headset */}
-            <div>
-              <h2 className="text-2xl font-bold uppercase tracking-wider mb-6 flex items-center gap-3" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-                <span className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold">
-                  2
-                </span>
-                Level 2 Selections
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {Array.from(level2Selections.entries()).map(([headsetId, imageId], index) => {
-                  const image = getImageById(imageId);
-                  if (!image) return null;
-                  const color = getHeadsetColorByIndex(index);
-                  
-                  return (
-                    <Card key={headsetId} className="overflow-hidden border-2" style={{ borderColor: color }}>
-                      <div className="aspect-video relative">
-                        <img
-                          src={image.url}
-                          alt={`Level 2 Selection`}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute top-2 left-2">
