@@ -106,7 +106,7 @@ const ExcitementLevel2 = () => {
       
       // Rotation (yaw/head turn left-right) controls X, Pitch (head tilt up-down) controls Y
       let cursorScreenX = screenCenterX - (smoothRotation / maxAngle) * screenCenterX;
-      let cursorScreenY = screenCenterY + (smoothPitch / maxAngle) * screenCenterY;
+      let cursorScreenY = screenCenterY - (smoothPitch / maxAngle) * screenCenterY;
 
       // Allow cursor to move freely across the screen
       cursorScreenX = Math.max(0, Math.min(window.innerWidth, cursorScreenX));
