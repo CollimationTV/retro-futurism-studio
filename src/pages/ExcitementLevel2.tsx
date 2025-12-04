@@ -116,12 +116,7 @@ const ExcitementLevel2 = () => {
         console.log('Created cursor for headset:', headsetId);
       }
       
-      // SMOOTHING FILTERS for fluid cursor movement like Emotiv Gyro visualizer
-      if (!pitchFilters.current.has(headsetId)) {
-        pitchFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0)); // More smoothing for fluid feel
-        rotationFilters.current.set(headsetId, new OneEuroFilter(1.0, 0.007, 1.0));
-      }
-      
+      // Calculate relative head position from calibrated center
       if (!centerPitch.current.has(headsetId)) {
         centerPitch.current.set(headsetId, motionData.pitch);
         centerRotation.current.set(headsetId, motionData.rotation);
@@ -129,50 +124,56 @@ const ExcitementLevel2 = () => {
       
       const relativePitch = motionData.pitch - (centerPitch.current.get(headsetId) || 0);
       const relativeRotation = motionData.rotation - (centerRotation.current.get(headsetId) || 0);
-      
-      // IMMEDIATE filtering - use performance.now() for high precision
-      const now = performance.now();
-      const smoothPitch = pitchFilters.current.get(headsetId)!.filter(relativePitch, now);
-      const smoothRotation = rotationFilters.current.get(headsetId)!.filter(relativeRotation, now);
-      
-      // DIRECT POSITION MAPPING (not velocity) for instant response
-      const maxAngle = 15; // Lower angle = more sensitive cursor movement
-      const screenCenterX = window.innerWidth / 2;
-      const screenCenterY = window.innerHeight / 2;
-      
-      // Rotation (yaw/head turn left-right) controls X, Pitch (head tilt up-down) controls Y
-      let cursorScreenX = screenCenterX - (smoothRotation / maxAngle) * screenCenterX;
-      let cursorScreenY = screenCenterY - (smoothPitch / maxAngle) * screenCenterY;
 
-      // Allow cursor to move freely across the screen
-      cursorScreenX = Math.max(0, Math.min(window.innerWidth, cursorScreenX));
-      cursorScreenY = Math.max(0, Math.min(window.innerHeight, cursorScreenY));
+      // GRID-BASED NAVIGATION: cursor moves between 8 boxes only (2 rows x 4 cols)
+      const COLS = 4;
+      const ROWS = 2;
+      const TOTAL_BOXES = 8;
       
-      // Store cursor position in ref (no React state update for cursor!)
-      cursorScreenPositions.current.set(headsetId, { x: cursorScreenX, y: cursorScreenY });
-      
-      // Check which image box the cursor is over (only these 8 are selectable)
-      let hoveredImageId: number | undefined;
-      
-      for (const [imageId, element] of imageRefs.current.entries()) {
-        if (!element) continue;
-        const rect = element.getBoundingClientRect();
-        
-        if (
-          cursorScreenX >= rect.left &&
-          cursorScreenX <= rect.right &&
-          cursorScreenY >= rect.top &&
-          cursorScreenY <= rect.bottom
-        ) {
-          hoveredImageId = imageId;
-          break;
-        }
+      // Get or initialize current box index for this headset
+      if (!focusedImagesRef.current.has(headsetId)) {
+        focusedImagesRef.current.set(headsetId, 0); // Start at first box
       }
       
-      // DIRECT DOM MANIPULATION - smooth cursor movement
-      const cursorElement = cursorRefs.current.get(headsetId);
-      if (cursorElement) {
-        cursorElement.style.transform = `translate(${cursorScreenX}px, ${cursorScreenY}px)`;
+      const currentIndex = focusedImagesRef.current.get(headsetId) || 0;
+      const currentRow = Math.floor(currentIndex / COLS);
+      const currentCol = currentIndex % COLS;
+      
+      // Determine movement based on head tilt (with threshold to prevent jitter)
+      const MOVE_THRESHOLD = 3; // degrees of tilt needed to move
+      
+      let newCol = currentCol;
+      let newRow = currentRow;
+      
+      // Horizontal: rotation controls left/right
+      if (relativeRotation < -MOVE_THRESHOLD && currentCol < COLS - 1) {
+        newCol = currentCol + 1; // Tilt right -> move right
+      } else if (relativeRotation > MOVE_THRESHOLD && currentCol > 0) {
+        newCol = currentCol - 1; // Tilt left -> move left
+      }
+      
+      // Vertical: pitch controls up/down
+      if (relativePitch < -MOVE_THRESHOLD && currentRow < ROWS - 1) {
+        newRow = currentRow + 1; // Tilt down -> move down
+      } else if (relativePitch > MOVE_THRESHOLD && currentRow > 0) {
+        newRow = currentRow - 1; // Tilt up -> move up
+      }
+      
+      const newIndex = newRow * COLS + newCol;
+      const hoveredImageId = Math.min(newIndex, TOTAL_BOXES - 1);
+      
+      // Get the target box element and snap cursor to its center
+      const targetElement = imageRefs.current.get(hoveredImageId);
+      if (targetElement) {
+        const rect = targetElement.getBoundingClientRect();
+        const snapX = rect.left + rect.width / 2;
+        const snapY = rect.top + rect.height / 2;
+        
+        // DIRECT DOM MANIPULATION - snap cursor to box center
+        const cursorElement = cursorRefs.current.get(headsetId);
+        if (cursorElement) {
+          cursorElement.style.transform = `translate(${snapX}px, ${snapY}px)`;
+        }
       }
       
       // Only update React state for focus changes (UI feedback only, not cursor position)
