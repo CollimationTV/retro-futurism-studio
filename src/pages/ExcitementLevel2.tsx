@@ -273,6 +273,16 @@ const ExcitementLevel2 = () => {
             <p className="text-lg text-muted-foreground">
               Move your cursor with head tilt • Hold PUSH to select
             </p>
+            <button
+              onClick={() => {
+                // Reset all headset calibrations to current position
+                centerPitch.current.clear();
+                centerRotation.current.clear();
+              }}
+              className="mt-4 px-6 py-2 bg-primary/20 border border-primary/50 rounded-lg text-primary hover:bg-primary/30 transition-colors"
+            >
+              Orient Front
+            </button>
           </div>
 
           <div className="grid grid-cols-4 gap-6 mb-12">
