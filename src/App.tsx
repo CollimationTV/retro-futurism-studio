@@ -12,6 +12,7 @@ import ExcitementLevel2 from "./pages/ExcitementLevel2";
 import ExcitementLevel3 from "./pages/ExcitementLevel3";
 import AudioEmotion from "./pages/AudioEmotion";
 import VideoOutput from "./pages/VideoOutput";
+import VideoPopout from "./pages/VideoPopout";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
@@ -33,6 +34,7 @@ const App = () => (
               <Route path="/excitement-level-3" element={<ExcitementLevel3 />} />
               <Route path="/audio-emotion" element={<AudioEmotion />} />
               <Route path="/video-output" element={<VideoOutput />} />
+              <Route path="/video-popout" element={<VideoPopout />} />
               <Route path="/admin" element={<Admin />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
