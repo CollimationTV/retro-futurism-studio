@@ -47,7 +47,7 @@ export const artworkAudioPairs: ArtworkAudioPair[] = [
   {
     id: 5,
     artworkUrl: artwork03_3,
-    metadata: "03_3",
+    metadata: "Malcolm Williams",
     type: 'video'
   },
   {
