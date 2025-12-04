@@ -34,11 +34,11 @@ const Index = () => {
     setConnectionStatus(status === 'initializing' ? 'connecting' : status as any);
   }, []);
 
-  // Auto-navigate to Level 2 when connection is ready and headsets are connected
+  // Auto-navigate to Level 1 when connection is ready and headsets are connected
   useEffect(() => {
     if (connectionStatus === 'ready' && connectedHeadsets.length > 0) {
       setTimeout(() => {
-        navigate("/excitement-level-2", { state: { connectedHeadsets, mentalCommand, motionEvent } });
+        navigate("/excitement-level-1", { state: { connectedHeadsets, mentalCommand, motionEvent } });
       }, 500);
     }
   }, [connectionStatus, connectedHeadsets.length, navigate, connectedHeadsets, mentalCommand, motionEvent]);
@@ -77,7 +77,7 @@ const Index = () => {
             <div className="p-8 rounded-lg border border-border/50 bg-card/30 backdrop-blur-sm">
               <Brain className="w-16 h-16 mx-auto mb-4 text-primary/60 animate-pulse" />
               <h3 className="text-2xl font-bold mb-2">Launching Experience...</h3>
-              <p className="text-muted-foreground">Navigating to Level 2</p>
+              <p className="text-muted-foreground">Navigating to Level 1</p>
             </div>
           </div>
         </section>
@@ -117,6 +117,12 @@ const Index = () => {
       
       {/* Manual navigation buttons for testing */}
       <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 flex gap-2 bg-background/90 backdrop-blur-sm border border-border rounded-lg p-2">
+        <button
+          onClick={() => navigate("/excitement-level-1", { state: { connectedHeadsets, mentalCommand, motionEvent } })}
+          className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
+        >
+          → Level 1
+        </button>
         <button
           onClick={() => navigate("/excitement-level-2", { state: { connectedHeadsets, mentalCommand, motionEvent } })}
           className="px-4 py-2 bg-primary/20 hover:bg-primary/30 border border-primary/50 rounded text-sm font-mono transition-colors"
