@@ -45,6 +45,7 @@ const ExcitementLevel2 = () => {
   const [focusedImages, setFocusedImages] = useState<Map<string, number>>(new Map());
   const [pushProgress, setPushProgress] = useState<Map<string, number>>(new Map());
   const [isPushing, setIsPushing] = useState<Map<string, boolean>>(new Map());
+  const [lockedSelections, setLockedSelections] = useState<Map<string, number>>(new Map()); // Track locked selections at 10%
   
   const pitchFilters = useRef<Map<string, OneEuroFilter>>(new Map());
   const rotationFilters = useRef<Map<string, OneEuroFilter>>(new Map());
@@ -65,6 +66,9 @@ const ExcitementLevel2 = () => {
   useEffect(() => { selectionsRef.current = selections; }, [selections]);
   useEffect(() => { isPushingRef.current = isPushing; }, [isPushing]);
   useEffect(() => { focusedImagesRef.current = focusedImages; }, [focusedImages]);
+  
+  const lockedSelectionsRef = useRef(lockedSelections);
+  useEffect(() => { lockedSelectionsRef.current = lockedSelections; }, [lockedSelections]);
 
   // ULTRA LOW-LATENCY: Process motion immediately with direct DOM updates
   useEffect(() => {
@@ -74,6 +78,7 @@ const ExcitementLevel2 = () => {
     
       if (selectionsRef.current.has(headsetId)) return;
       if (isPushingRef.current.get(headsetId)) return; // Freeze cursor during push
+      if (lockedSelectionsRef.current.has(headsetId)) return; // Freeze cursor when selection locked
       
       // SMOOTHING FILTERS for fluid cursor movement like Emotiv Gyro visualizer
       if (!pitchFilters.current.has(headsetId)) {
@@ -100,8 +105,8 @@ const ExcitementLevel2 = () => {
       const screenCenterY = window.innerHeight / 2;
       
       // Rotation (yaw/head turn left-right) controls X, Pitch (head tilt up-down) controls Y
-      let cursorScreenX = screenCenterX + (smoothRotation / maxAngle) * screenCenterX;
-      let cursorScreenY = screenCenterY - (smoothPitch / maxAngle) * screenCenterY;
+      let cursorScreenX = screenCenterX - (smoothRotation / maxAngle) * screenCenterX;
+      let cursorScreenY = screenCenterY + (smoothPitch / maxAngle) * screenCenterY;
 
       // Allow cursor to move freely across the screen
       cursorScreenX = Math.max(0, Math.min(window.innerWidth, cursorScreenX));
@@ -157,6 +162,31 @@ const ExcitementLevel2 = () => {
     
       if (selections.has(headsetId)) return;
       
+      // Check if this headset has a locked selection (past 10%)
+      const lockedImageId = lockedSelections.get(headsetId);
+      
+      if (lockedImageId !== undefined) {
+        // Selection is locked - auto-progress to completion
+        const currentProgress = pushProgress.get(headsetId) || 10;
+        const newProgress = Math.min(100, currentProgress + 3); // Auto-increment
+        setPushProgress(prev => new Map(prev).set(headsetId, newProgress));
+        
+        if (newProgress >= 100) {
+          setSelections(prev => new Map(prev).set(headsetId, lockedImageId));
+          setLockedSelections(prev => {
+            const updated = new Map(prev);
+            updated.delete(headsetId);
+            return updated;
+          });
+          setIsPushing(prev => {
+            const updated = new Map(prev);
+            updated.delete(headsetId);
+            return updated;
+          });
+        }
+        return;
+      }
+      
       const focusedImageId = focusedImages.get(headsetId);
       if (focusedImageId === undefined) return;
       
@@ -172,6 +202,11 @@ const ExcitementLevel2 = () => {
         const progress = Math.min(100, (elapsed / PUSH_HOLD_TIME_MS) * 100);
         
         setPushProgress(prev => new Map(prev).set(headsetId, progress));
+        
+        // Lock selection at 10%
+        if (progress >= 10) {
+          setLockedSelections(prev => new Map(prev).set(headsetId, focusedImageId));
+        }
         
         if (elapsed >= PUSH_HOLD_TIME_MS) {
           setSelections(prev => new Map(prev).set(headsetId, focusedImageId));
@@ -193,7 +228,7 @@ const ExcitementLevel2 = () => {
 
     window.addEventListener('mental-command', handleMentalCommand);
     return () => window.removeEventListener('mental-command', handleMentalCommand);
-  }, [focusedImages, selections]);
+  }, [focusedImages, selections, lockedSelections, pushProgress]);
 
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
