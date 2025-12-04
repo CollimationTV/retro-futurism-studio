@@ -4,7 +4,7 @@ import { Header } from "@/components/Header";
 import { Brain3D } from "@/components/Brain3D";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download, Mail } from "lucide-react";
+import { Download, Mail, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -94,6 +94,11 @@ const VideoOutput = () => {
           setRetrievalCode(data.retrieval_code);
           setStatus('revealed');
           clearInterval(pollInterval);
+          
+          // Broadcast to any open popout windows
+          const channel = new BroadcastChannel('bravewave-video');
+          channel.postMessage({ type: 'NEW_VIDEO', videoUrl: data.video_url });
+          channel.close();
         } else if (data.status === 'failed') {
           setError(data.error_message || 'Video generation failed');
           clearInterval(pollInterval);
@@ -129,6 +134,13 @@ const VideoOutput = () => {
       a.download = `${retrievalCode || 'video'}.mp4`;
       a.click();
     }
+  };
+
+  const openPopout = () => {
+    const popoutUrl = videoUrl 
+      ? `/video-popout?url=${encodeURIComponent(videoUrl)}`
+      : `/video-popout?jobId=${videoJobId}`;
+    window.open(popoutUrl, 'bravewave-video', 'width=1280,height=720');
   };
 
   const sendEmail = async () => {
@@ -230,6 +242,11 @@ const VideoOutput = () => {
                 <p className="text-foreground text-sm italic">"{progress.promptUsed || 'Generating prompt...'}"</p>
               </div>
             </div>
+            
+            {/* Pop Out Button */}
+            <Button onClick={openPopout} variant="outline" className="mt-6 gap-2">
+              <ExternalLink className="h-4 w-4" /> Open Video in Separate Window
+            </Button>
           </div>
         </div>
       </div>
@@ -272,6 +289,10 @@ const VideoOutput = () => {
             <div className="bg-background/50 backdrop-blur border border-border rounded-lg p-6 space-y-4">
               <Button onClick={downloadVideo} className="w-full gap-2">
                 <Download className="h-4 w-4" /> Download Video
+              </Button>
+              
+              <Button onClick={openPopout} variant="outline" className="w-full gap-2">
+                <ExternalLink className="h-4 w-4" /> Open in Separate Window
               </Button>
               
               <div className="space-y-2">
