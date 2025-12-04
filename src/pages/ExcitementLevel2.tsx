@@ -303,28 +303,17 @@ const ExcitementLevel2 = () => {
                     }}
                   >
                     <div className="aspect-video relative">
-                      {image.url.endsWith('.mp4') ? (
-                        <video
-                          src={image.url}
-                          className="w-full h-full object-cover"
-                          autoPlay
-                          loop
-                          muted
-                          playsInline
-                          style={{
-                            filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
-                          }}
-                        />
-                      ) : (
-                        <img
-                          src={image.url}
-                          alt={image.metadata}
-                          className="w-full h-full object-cover"
-                          style={{
-                            filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
-                          }}
-                        />
-                      )}
+                      <video
+                        src={image.url}
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        style={{
+                          filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
+                        }}
+                      />
 
                       {focusedByHeadsets.map(headsetId => {
                         const color = getHeadsetColor(headsetId);
