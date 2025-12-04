@@ -308,8 +308,8 @@ const ExcitementLevel2 = () => {
 
           if (error) throw error;
 
-          // Navigate to VideoOutput with the job ID
-          navigate("/video-output", {
+          // Navigate to Level 3 (Emotion Carousel) with the job ID
+          navigate("/excitement-level-3", {
             state: {
               videoJobId: data.jobId,
               metadata: selectedMetadata,
