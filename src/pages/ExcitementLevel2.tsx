@@ -33,8 +33,9 @@ const ExcitementLevel2 = () => {
     motionEvent
   } = location.state || {};
 
-  // Use passed headsets or default to a test headset for debugging
-  const connectedHeadsets = stateHeadsets?.length > 0 ? stateHeadsets : ['test-headset'];
+  // Track active headsets dynamically from motion events
+  const [activeHeadsets, setActiveHeadsets] = useState<string[]>(stateHeadsets || []);
+  const activeHeadsetsRef = useRef<string[]>(stateHeadsets || []);
 
   // Use local imports for proper Vite bundling - now using Level 1 videos
   const level2Images: Level2Image[] = localLevel1Images.map((img, idx) => ({
@@ -75,17 +76,45 @@ const ExcitementLevel2 = () => {
 
   // ULTRA LOW-LATENCY: Process motion immediately with direct DOM updates
   useEffect(() => {
-    console.log('Motion listener registered, connectedHeadsets:', connectedHeadsets);
+    console.log('Motion listener registered, activeHeadsets:', activeHeadsets);
     
     const handleMotion = ((event: CustomEvent<MotionEvent>) => {
       const motionData = event.detail;
       const headsetId = motionData.headsetId;
       
       console.log('Motion event received:', headsetId, motionData.pitch, motionData.rotation);
+      
+      // Dynamically add headset if not already tracked (for cursor rendering)
+      if (!activeHeadsetsRef.current.includes(headsetId)) {
+        activeHeadsetsRef.current = [...activeHeadsetsRef.current, headsetId];
+        setActiveHeadsets([...activeHeadsetsRef.current]);
+      }
     
       if (selectionsRef.current.has(headsetId)) return;
       if (isPushingRef.current.get(headsetId)) return; // Freeze cursor during push
       if (lockedSelectionsRef.current.has(headsetId)) return; // Freeze cursor when selection locked
+
+      // Create cursor element dynamically if it doesn't exist yet
+      if (!cursorRefs.current.has(headsetId)) {
+        const cursorContainer = document.createElement('div');
+        cursorContainer.className = 'fixed pointer-events-none z-50';
+        cursorContainer.style.left = '0';
+        cursorContainer.style.top = '0';
+        cursorContainer.style.willChange = 'transform';
+        cursorContainer.style.transform = 'translate(0px, 0px)';
+        
+        const cursorDot = document.createElement('div');
+        const color = getHeadsetColor(headsetId);
+        cursorDot.className = 'w-8 h-8 -ml-4 -mt-4 rounded-full border-4';
+        cursorDot.style.borderColor = color;
+        cursorDot.style.backgroundColor = `${color}40`;
+        cursorDot.style.boxShadow = `0 0 20px ${color}`;
+        
+        cursorContainer.appendChild(cursorDot);
+        document.body.appendChild(cursorContainer);
+        cursorRefs.current.set(headsetId, cursorContainer);
+        console.log('Created cursor for headset:', headsetId);
+      }
       
       // SMOOTHING FILTERS for fluid cursor movement like Emotiv Gyro visualizer
       if (!pitchFilters.current.has(headsetId)) {
@@ -248,7 +277,7 @@ const ExcitementLevel2 = () => {
 
   // Navigate to VideoOutput once all headsets have selected - trigger Sora generation
   useEffect(() => {
-    if (connectedHeadsets && selections.size === connectedHeadsets.length && selections.size > 0 && !isGenerating) {
+    if (activeHeadsets.length > 0 && selections.size === activeHeadsets.length && selections.size > 0 && !isGenerating) {
       // Aggregate metadata from selections
       const selectedMetadata: string[] = [];
       selections.forEach((imageId) => {
@@ -288,7 +317,7 @@ const ExcitementLevel2 = () => {
             state: {
               videoJobId: data.jobId,
               metadata: selectedMetadata,
-              connectedHeadsets
+              connectedHeadsets: activeHeadsets
             }
           });
         } catch (err: any) {
@@ -304,7 +333,7 @@ const ExcitementLevel2 = () => {
 
       setTimeout(() => generateVideo(), 1500);
     }
-  }, [selections, connectedHeadsets, navigate, level2Images, isGenerating, toast]);
+  }, [selections, activeHeadsets, navigate, level2Images, isGenerating, toast]);
 
   return (
     <div className="min-h-screen relative">
@@ -401,7 +430,7 @@ const ExcitementLevel2 = () => {
       </div>
 
       {/* ULTRA LOW-LATENCY CURSORS - Direct DOM manipulation via refs */}
-      {connectedHeadsets?.map((headsetId: string) => {
+      {activeHeadsets.map((headsetId: string) => {
         if (selections.has(headsetId)) return null;
         const color = getHeadsetColor(headsetId);
         return (
@@ -432,7 +461,7 @@ const ExcitementLevel2 = () => {
       <div className="fixed bottom-0 left-0 right-0 bg-background/90 backdrop-blur-sm border-t border-border p-4 z-40">
         <div className="container mx-auto max-w-7xl">
           <div className="flex items-center gap-6">
-            {connectedHeadsets?.map((headsetId: string) => {
+            {activeHeadsets.map((headsetId: string) => {
               const color = getHeadsetColor(headsetId);
               const progress = pushProgress.get(headsetId) || 0;
               const hasSelected = selections.has(headsetId);
@@ -463,7 +492,7 @@ const ExcitementLevel2 = () => {
       </div>
 
       <RemoteOperatorPanel
-        connectedHeadsets={connectedHeadsets}
+        connectedHeadsets={activeHeadsets}
         currentLevel={2}
         onForceSelection={(headsetId, imageId) => {
           setSelections(prev => new Map(prev).set(headsetId, imageId));
