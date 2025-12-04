@@ -115,14 +115,11 @@ const ExcitementLevel2 = () => {
       // Store cursor position in ref (no React state update for cursor!)
       cursorScreenPositions.current.set(headsetId, { x: cursorScreenX, y: cursorScreenY });
       
-      // DIRECT DOM MANIPULATION - bypass React rendering for zero latency
-      const cursorElement = cursorRefs.current.get(headsetId);
-      if (cursorElement) {
-        cursorElement.style.transform = `translate(${cursorScreenX}px, ${cursorScreenY}px)`;
-      }
-      
       // Check which image the cursor is hovering over
       let hoveredImageId: number | undefined;
+      let snapX = cursorScreenX;
+      let snapY = cursorScreenY;
+      
       for (const [imageId, element] of imageRefs.current.entries()) {
         if (!element) continue;
         const rect = element.getBoundingClientRect();
@@ -134,8 +131,17 @@ const ExcitementLevel2 = () => {
           cursorScreenY <= rect.bottom
         ) {
           hoveredImageId = imageId;
+          // Snap cursor to center of the image
+          snapX = rect.left + rect.width / 2;
+          snapY = rect.top + rect.height / 2;
           break;
         }
+      }
+      
+      // DIRECT DOM MANIPULATION - use snapped position when hovering
+      const cursorElement = cursorRefs.current.get(headsetId);
+      if (cursorElement) {
+        cursorElement.style.transform = `translate(${snapX}px, ${snapY}px)`;
       }
       
       // Only update React state for focus changes (UI feedback only, not cursor position)
