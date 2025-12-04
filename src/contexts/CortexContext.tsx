@@ -53,7 +53,7 @@ export const CortexProvider = ({ children }: CortexProviderProps) => {
     };
 
     newClient.onMotion = (event: MotionEvent) => {
-      // High-frequency log removed for performance
+      console.log('🎯 Motion event:', event.headsetId, 'pitch:', event.pitch?.toFixed(2), 'rotation:', event.rotation?.toFixed(2));
       window.dispatchEvent(new CustomEvent('motion-event', { detail: event }));
     };
 

@@ -28,10 +28,13 @@ const ExcitementLevel2 = () => {
   const navigate = useNavigate();
   
   const { 
-    connectedHeadsets,
+    connectedHeadsets: stateHeadsets,
     mentalCommand,
     motionEvent
   } = location.state || {};
+
+  // Use passed headsets or default to a test headset for debugging
+  const connectedHeadsets = stateHeadsets?.length > 0 ? stateHeadsets : ['test-headset'];
 
   // Use local imports for proper Vite bundling - now using Level 1 videos
   const level2Images: Level2Image[] = localLevel1Images.map((img, idx) => ({
@@ -72,9 +75,13 @@ const ExcitementLevel2 = () => {
 
   // ULTRA LOW-LATENCY: Process motion immediately with direct DOM updates
   useEffect(() => {
+    console.log('Motion listener registered, connectedHeadsets:', connectedHeadsets);
+    
     const handleMotion = ((event: CustomEvent<MotionEvent>) => {
       const motionData = event.detail;
       const headsetId = motionData.headsetId;
+      
+      console.log('Motion event received:', headsetId, motionData.pitch, motionData.rotation);
     
       if (selectionsRef.current.has(headsetId)) return;
       if (isPushingRef.current.get(headsetId)) return; // Freeze cursor during push
