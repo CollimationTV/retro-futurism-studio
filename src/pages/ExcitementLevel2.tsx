@@ -151,28 +151,33 @@ const ExcitementLevel2 = () => {
       // Store cursor position in ref (no React state update for cursor!)
       cursorScreenPositions.current.set(headsetId, { x: cursorScreenX, y: cursorScreenY });
       
-      // Check which image the cursor is hovering over
-      let hoveredImageId: number | undefined;
+      // Find the NEAREST image box and snap to it (cursor only moves between 8 boxes)
+      let nearestImageId: number | undefined;
+      let nearestDistance = Infinity;
       let snapX = cursorScreenX;
       let snapY = cursorScreenY;
       
       for (const [imageId, element] of imageRefs.current.entries()) {
         if (!element) continue;
         const rect = element.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
         
-        if (
-          cursorScreenX >= rect.left &&
-          cursorScreenX <= rect.right &&
-          cursorScreenY >= rect.top &&
-          cursorScreenY <= rect.bottom
-        ) {
-          hoveredImageId = imageId;
-          // Snap cursor to center of the image
-          snapX = rect.left + rect.width / 2;
-          snapY = rect.top + rect.height / 2;
-          break;
+        // Calculate distance from cursor to box center
+        const distance = Math.sqrt(
+          Math.pow(cursorScreenX - centerX, 2) + 
+          Math.pow(cursorScreenY - centerY, 2)
+        );
+        
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestImageId = imageId;
+          snapX = centerX;
+          snapY = centerY;
         }
       }
+      
+      const hoveredImageId = nearestImageId;
       
       // DIRECT DOM MANIPULATION - use snapped position when hovering
       const cursorElement = cursorRefs.current.get(headsetId);
