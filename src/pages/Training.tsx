@@ -92,7 +92,25 @@ const Training = () => {
 
     window.addEventListener('training-event', handleTrainingEvent);
     return () => window.removeEventListener('training-event', handleTrainingEvent);
-  }, [currentStep]);
+  }, [currentStep, pushTrainingRound]);
+
+  // Listen for real-time mental command power during training
+  useEffect(() => {
+    if (!isTraining || currentStep !== 'push') return;
+    
+    const handleMentalCommand = ((event: CustomEvent<{com: string; pow: number; headsetId: string}>) => {
+      const { com, pow } = event.detail;
+      // Update push intensity with real-time power from EEG
+      if (com === 'push' || com === 'neutral') {
+        // Use push power directly, or show low intensity for neutral
+        const intensity = com === 'push' ? pow : pow * 0.1;
+        setPushIntensity(intensity);
+      }
+    }) as EventListener;
+    
+    window.addEventListener('mental-command', handleMentalCommand);
+    return () => window.removeEventListener('mental-command', handleMentalCommand);
+  }, [isTraining, currentStep]);
 
   const stopTrainingTimer = () => {
     if (trainingTimerRef.current) {
@@ -342,33 +360,33 @@ const Training = () => {
                     <TrainingCube 
                       isActive={isTraining}
                       progress={trainingProgress}
-                      pushIntensity={isTraining ? trainingProgress / 100 : 0}
+                      pushIntensity={pushIntensity}
                       pushRound={pushTrainingRound}
                       totalRounds={PUSH_TRAINING_ROUNDS}
                     />
                   </div>
                   
-                  {/* Power Indicator for Push Training */}
+                  {/* Power Indicator for Push Training - Real-time EEG feedback */}
                   {currentStep === 'push' && isTraining && (
                     <div className="mb-6 max-w-xs mx-auto">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-mono text-muted-foreground">PUSH POWER</span>
                         <span className="text-sm font-mono text-primary">
-                          {Math.round(trainingProgress)}%
+                          {Math.round(pushIntensity * 100)}%
                         </span>
                       </div>
                       <div className="h-4 bg-muted/30 rounded-full overflow-hidden border border-border/50">
                         <div 
-                          className="h-full transition-all duration-150 rounded-full"
+                          className="h-full transition-all duration-100 rounded-full"
                           style={{ 
-                            width: `${trainingProgress}%`,
+                            width: `${pushIntensity * 100}%`,
                             background: `linear-gradient(90deg, 
                               hsl(var(--primary)) 0%, 
-                              ${trainingProgress > 50 ? '#22d3ee' : 'hsl(var(--primary))'} 50%,
-                              ${trainingProgress > 80 ? '#22c55e' : 'hsl(var(--primary))'} 100%
+                              ${pushIntensity > 0.5 ? '#22d3ee' : 'hsl(var(--primary))'} 50%,
+                              ${pushIntensity > 0.8 ? '#22c55e' : 'hsl(var(--primary))'} 100%
                             )`,
-                            boxShadow: trainingProgress > 30 
-                              ? `0 0 ${trainingProgress / 5}px hsl(var(--primary)), 0 0 ${trainingProgress / 3}px hsl(var(--primary) / 0.5)` 
+                            boxShadow: pushIntensity > 0.3 
+                              ? `0 0 ${pushIntensity * 20}px hsl(var(--primary)), 0 0 ${pushIntensity * 30}px hsl(var(--primary) / 0.5)` 
                               : 'none'
                           }}
                         />

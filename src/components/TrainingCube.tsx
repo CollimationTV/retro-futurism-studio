@@ -330,7 +330,7 @@ export const TrainingCube = ({
   const transformProgress = pushRound / totalRounds;
   
   return (
-    <div className="w-72 h-72 mx-auto">
+    <div className="w-80 h-80 mx-auto overflow-visible">
       <Canvas camera={{ position: [0, 0, 4], fov: 45 }}>
         <ambientLight intensity={0.4} />
         <directionalLight position={[5, 3, 5]} intensity={0.8} />
