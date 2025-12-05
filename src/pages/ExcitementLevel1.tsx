@@ -20,6 +20,8 @@ interface Level1Image {
 const PUSH_POWER_THRESHOLD = 0.15;
 const PUSH_HOLD_TIME_MS = 5000;
 const DECAY_RATE = 2; // Progress decay per frame when not pushing
+const AUTO_CONTINUE_THRESHOLD = 15; // Once past this %, auto-continue to 100%
+const AUTO_FILL_RATE = 1.5; // Progress increase per frame during auto-fill
 
 const ExcitementLevel1 = () => {
   const location = useLocation();
@@ -186,6 +188,9 @@ const ExcitementLevel1 = () => {
       const focusedImageId = focusedImages.get(headsetId);
       if (focusedImageId === undefined) return;
       
+      // Get current progress
+      const currentProgress = pushProgress.get(headsetId) || 0;
+      
       if (commandData.com === 'push' && commandData.pow >= PUSH_POWER_THRESHOLD) {
         // Active push above threshold - progress increases
         if (!pushStartTimes.current.has(headsetId)) {
@@ -200,7 +205,7 @@ const ExcitementLevel1 = () => {
         
         setPushProgress(prev => new Map(prev).set(headsetId, progress));
         
-        // Selection only completes at 100% with active push
+        // Selection completes at 100%
         if (progress >= 100) {
           setSelections(prev => new Map(prev).set(headsetId, focusedImageId));
           pushStartTimes.current.delete(headsetId);
@@ -211,12 +216,30 @@ const ExcitementLevel1 = () => {
           });
           setPushProgress(prev => new Map(prev).set(headsetId, 0));
         }
+      } else if (currentProgress >= AUTO_CONTINUE_THRESHOLD) {
+        // Auto-continue: past threshold, keep filling even without active push
+        setIsPushing(prev => new Map(prev).set(headsetId, true));
+        
+        const newProgress = Math.min(100, currentProgress + AUTO_FILL_RATE);
+        setPushProgress(prev => new Map(prev).set(headsetId, newProgress));
+        
+        // Selection completes at 100%
+        if (newProgress >= 100) {
+          setSelections(prev => new Map(prev).set(headsetId, focusedImageId));
+          pushStartTimes.current.delete(headsetId);
+          setIsPushing(prev => {
+            const updated = new Map(prev);
+            updated.delete(headsetId);
+            return updated;
+          });
+          setPushProgress(prev => new Map(prev).set(headsetId, 0));
+        }
       } else {
-        // Not pushing or below threshold - progress decays
+        // Not pushing and below threshold - progress decays
         pushStartTimes.current.delete(headsetId);
         setIsPushing(prev => new Map(prev).set(headsetId, false));
         
-        // Decay progress instead of resetting to 0
+        // Decay progress
         setPushProgress(prev => {
           const current = prev.get(headsetId) || 0;
           const decayed = Math.max(0, current - DECAY_RATE);
@@ -227,7 +250,7 @@ const ExcitementLevel1 = () => {
 
     window.addEventListener('mental-command', handleMentalCommand);
     return () => window.removeEventListener('mental-command', handleMentalCommand);
-  }, [focusedImages, selections]);
+  }, [focusedImages, selections, pushProgress]);
 
   // Navigate to Level 2 once all headsets have selected
   useEffect(() => {
