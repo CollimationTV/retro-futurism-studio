@@ -593,9 +593,14 @@ export class MultiHeadsetCortexClient {
       throw new Error('Must be authorized');
     }
 
+    const session = this.sessions.get(headsetId);
+    if (!session) {
+      throw new Error(`No session found for headset ${headsetId}`);
+    }
+
     const result = await this.sendRequest('training', {
       cortexToken: this.authToken,
-      headset: headsetId,
+      session: session.sessionId,
       detection: 'mentalCommand',
       action: action,
       status: 'start'
@@ -612,9 +617,14 @@ export class MultiHeadsetCortexClient {
       throw new Error('Must be authorized');
     }
 
+    const session = this.sessions.get(headsetId);
+    if (!session) {
+      throw new Error(`No session found for headset ${headsetId}`);
+    }
+
     const result = await this.sendRequest('training', {
       cortexToken: this.authToken,
-      headset: headsetId,
+      session: session.sessionId,
       detection: 'mentalCommand',
       action: action,
       status: 'accept'
@@ -631,9 +641,14 @@ export class MultiHeadsetCortexClient {
       throw new Error('Must be authorized');
     }
 
+    const session = this.sessions.get(headsetId);
+    if (!session) {
+      throw new Error(`No session found for headset ${headsetId}`);
+    }
+
     const result = await this.sendRequest('training', {
       cortexToken: this.authToken,
-      headset: headsetId,
+      session: session.sessionId,
       detection: 'mentalCommand',
       action: action,
       status: 'reject'
@@ -650,9 +665,14 @@ export class MultiHeadsetCortexClient {
       throw new Error('Must be authorized');
     }
 
+    const session = this.sessions.get(headsetId);
+    if (!session) {
+      throw new Error(`No session found for headset ${headsetId}`);
+    }
+
     const result = await this.sendRequest('training', {
       cortexToken: this.authToken,
-      headset: headsetId,
+      session: session.sessionId,
       detection: 'mentalCommand',
       action: action,
       status: 'reset'
