@@ -245,16 +245,29 @@ function TransformingEarth({ isActive, pushIntensity, transformProgress }: Earth
         />
       </mesh>
       
-      {/* Outer glow - stronger in utopian */}
-      <mesh scale={1.25}>
+      {/* Outer glow - stronger in utopian and with push intensity */}
+      <mesh scale={1.25 + pushIntensity * 0.15}>
         <sphereGeometry args={[1, 32, 32]} />
         <meshBasicMaterial
-          color={transformProgress > 0.5 ? "#4da6ff" : "#8B4513"}
+          color={transformProgress > 0.5 ? "#4da6ff" : "#ff8844"}
           transparent
-          opacity={0.05 + transformProgress * 0.05}
+          opacity={0.08 + transformProgress * 0.08 + pushIntensity * 0.25}
           side={THREE.BackSide}
         />
       </mesh>
+      
+      {/* Active push glow ring */}
+      {pushIntensity > 0 && (
+        <mesh scale={1.4 + pushIntensity * 0.3}>
+          <sphereGeometry args={[1, 32, 32]} />
+          <meshBasicMaterial
+            color={transformProgress > 0.5 ? "#22d3ee" : "#f97316"}
+            transparent
+            opacity={pushIntensity * 0.35}
+            side={THREE.BackSide}
+          />
+        </mesh>
+      )}
     </group>
   );
 }
