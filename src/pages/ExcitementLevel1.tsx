@@ -17,7 +17,7 @@ interface Level1Image {
   metadata: string;
 }
 
-const PUSH_POWER_THRESHOLD = 0.3;
+const PUSH_POWER_THRESHOLD = 0.15;
 const PUSH_HOLD_TIME_MS = 5000;
 const DECAY_RATE = 2; // Progress decay per frame when not pushing
 
