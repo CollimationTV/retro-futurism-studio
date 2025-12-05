@@ -4,6 +4,7 @@ import { Header } from "@/components/Header";
 import { Brain3D } from "@/components/Brain3D";
 import { artworkAudioPairs } from "@/data/artworkAudioPairs";
 import { PerformanceMetricsEvent } from "@/lib/multiHeadsetCortexClient";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface ArtworkScore {
   artworkId: number;
@@ -15,6 +16,7 @@ interface ArtworkScore {
 const ExcitementLevel3 = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { showDebugPanel } = useSettings();
   const { metadata, videoJobId, connectedHeadsets } = location.state || {};
   
   const [currentArtworkIndex, setCurrentArtworkIndex] = useState(0);
@@ -262,23 +264,25 @@ const ExcitementLevel3 = () => {
           </div>
         </div>
         
-        {/* Debug panel */}
-        <div className="fixed top-20 right-4 z-50 bg-background/90 border border-primary/30 rounded p-4 text-xs font-mono max-w-xs">
-          <div className="text-primary font-bold mb-2">DEBUG: ARTWORK SCORES</div>
-          <div className="space-y-1 text-foreground/70">
-            <div>Current: Artwork {currentArtwork.id}</div>
-            <div>Excitement: {(averageExcitement * 100).toFixed(1)}%</div>
-            <div className="border-t border-primary/20 my-2 pt-2">
-              <div className="font-semibold mb-1">Recorded Scores:</div>
-              {Array.from(artworkScores.entries()).map(([id, score]) => (
-                <div key={id} className="flex justify-between">
-                  <span>Art {id}:</span>
-                  <span className="text-accent">{(score.averageExcitement * 100).toFixed(1)}%</span>
-                </div>
-              ))}
+        {/* Debug panel - controlled by settings */}
+        {showDebugPanel && (
+          <div className="fixed top-20 right-4 z-50 bg-background/90 border border-primary/30 rounded p-4 text-xs font-mono max-w-xs">
+            <div className="text-primary font-bold mb-2">DEBUG: ARTWORK SCORES</div>
+            <div className="space-y-1 text-foreground/70">
+              <div>Current: Artwork {currentArtwork.id}</div>
+              <div>Excitement: {(averageExcitement * 100).toFixed(1)}%</div>
+              <div className="border-t border-primary/20 my-2 pt-2">
+                <div className="font-semibold mb-1">Recorded Scores:</div>
+                {Array.from(artworkScores.entries()).map(([id, score]) => (
+                  <div key={id} className="flex justify-between">
+                    <span>Art {id}:</span>
+                    <span className="text-accent">{(score.averageExcitement * 100).toFixed(1)}%</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
       
       {/* Manual navigation for testing */}

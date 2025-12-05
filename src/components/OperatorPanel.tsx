@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
-import { Settings, Zap, Target } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Settings, Zap, Target, Bug } from "lucide-react";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface OperatorPanelProps {
   sessionId: string;
@@ -27,6 +29,7 @@ export const OperatorPanel = ({
   currentLevel,
   onControlsChange 
 }: OperatorPanelProps) => {
+  const { showDebugPanel, setShowDebugPanel } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const [pushSensitivity, setPushSensitivity] = useState(0.30);
   const [autoCycleSpeed, setAutoCycleSpeed] = useState(6000);
@@ -219,6 +222,23 @@ export const OperatorPanel = ({
               >
                 Force Selection
               </Button>
+            </div>
+
+            {/* Debug Panel Toggle */}
+            <div className="space-y-2 border-t border-border pt-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Bug className="w-4 h-4" />
+                  Show Debug Panel
+                </label>
+                <Switch
+                  checked={showDebugPanel}
+                  onCheckedChange={setShowDebugPanel}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Shows emotion scores on Level 3
+              </p>
             </div>
 
             {/* Status */}
