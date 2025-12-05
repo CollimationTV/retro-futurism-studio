@@ -116,7 +116,16 @@ const Training = () => {
       const profileName = `BraveWave-${currentHeadset.slice(-4)}`;
       
       try {
-        // Try to load existing profile, or create+load a new one
+        // First try to unload any profile loaded by other apps
+        try {
+          await client.unloadProfile(currentHeadset);
+          console.log('Unloaded previous profile');
+        } catch (unloadErr) {
+          // Profile might not be loaded, continue
+          console.log('No profile to unload or unload failed:', unloadErr);
+        }
+        
+        // Now try to load our profile
         const profiles: any[] = await client.queryProfile();
         const existingProfile = profiles.find((p) => {
           const name = typeof p === 'string' ? p : p?.name;
@@ -128,14 +137,14 @@ const Training = () => {
           await client.loadProfile(currentHeadset, name);
           console.log('Loaded existing profile:', name);
         } else {
-          // Create a new profile with headset (saves current loaded profile which is empty)
+          // Save to create a new profile, then load it
           await client.saveProfile(currentHeadset, profileName);
-          // Now load it
           await client.loadProfile(currentHeadset, profileName);
           console.log('Created and loaded new profile:', profileName);
         }
       } catch (profileErr) {
         console.log('Profile setup skipped, training with default:', profileErr);
+        // Continue without profile - training will still work
       }
       
       // Subscribe to sys stream for training events

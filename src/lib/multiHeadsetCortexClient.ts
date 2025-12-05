@@ -433,6 +433,24 @@ export class MultiHeadsetCortexClient {
   }
 
   /**
+   * Unload profile from a specific headset
+   */
+  async unloadProfile(headsetId: string): Promise<void> {
+    if (!this.authToken) {
+      throw new Error('Must be authorized');
+    }
+
+    const result = await this.sendRequest('setupProfile', {
+      cortexToken: this.authToken,
+      headset: headsetId,
+      profile: '',
+      status: 'unload'
+    });
+
+    // console.log(`✅ Profile unloaded for headset ${headsetId}:`, result);
+  }
+
+  /**
    * Get list of trained profiles
    */
   async queryProfile(): Promise<string[]> {
