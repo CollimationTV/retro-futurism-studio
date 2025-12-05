@@ -478,25 +478,6 @@ const ExcitementLevel2 = () => {
           setSelections(prev => new Map(prev).set(headsetId, imageId));
         }}
       />
-
-      {/* Motion Debug Display */}
-      <div className="fixed top-20 left-4 bg-background/90 backdrop-blur-sm border border-border rounded-lg p-3 z-50 font-mono text-xs">
-        <div className="text-muted-foreground mb-2 font-semibold">Motion Debug</div>
-        <div className="text-muted-foreground mb-1">Tilt Threshold: {tiltThreshold}°</div>
-        {Array.from(motionDebug.entries()).map(([headsetId, data]) => {
-          const color = getHeadsetColor(headsetId);
-          const focusedIdx = focusedImages.get(headsetId);
-          return (
-            <div key={headsetId} className="mb-2 border-t border-border/50 pt-1">
-              <div style={{ color }} className="font-semibold">{headsetId.slice(-4)}</div>
-              <div>Pitch: {data.pitch.toFixed(1)}° (rel: {data.relPitch.toFixed(1)}°)</div>
-              <div>Rotation: {data.rotation.toFixed(1)}° (rel: {data.relRotation.toFixed(1)}°)</div>
-              <div>Focused: Box {focusedIdx !== undefined ? focusedIdx + 1 : '-'}</div>
-            </div>
-          );
-        })}
-        {motionDebug.size === 0 && <div className="text-muted-foreground/50">No motion data</div>}
-      </div>
     </div>
   );
 };

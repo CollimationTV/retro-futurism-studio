@@ -1,6 +1,6 @@
 import level3Vid1 from "@/assets/level3-vid1.mp4";
-import level3Img1 from "@/assets/level3-img1.jpg";
-import level3Vid2 from "@/assets/level3-vid2.mp4";
+import loveIsBlind from "@/assets/love-is-blind.mp4";
+import makuLopez from "@/assets/maku-lopez.mp4";
 import level3Vid3 from "@/assets/level3-vid3.mp4";
 import artwork03_3 from "@/assets/artwork-03_3-2.mp4";
 import level3Vid4 from "@/assets/level3-vid4.mp4";
@@ -28,14 +28,14 @@ export const artworkAudioPairs: ArtworkAudioPair[] = [
   },
   {
     id: 2,
-    artworkUrl: level3Img1,
-    metadata: "TYMED",
-    type: 'image'
+    artworkUrl: loveIsBlind,
+    metadata: "Love is Blind",
+    type: 'video'
   },
   {
     id: 3,
-    artworkUrl: level3Vid2,
-    metadata: "visual journey",
+    artworkUrl: makuLopez,
+    metadata: "Maku Lopez",
     type: 'video'
   },
   {
