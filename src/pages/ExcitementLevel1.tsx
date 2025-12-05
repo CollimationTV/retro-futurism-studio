@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { getHeadsetColor } from "@/utils/headsetColors";
 import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
-import { level1NewImages } from "@/data/level1NewImages";
+import { level1Images as localLevel1Images } from "@/data/imageData";
 import { RemoteOperatorPanel } from "@/components/RemoteOperatorPanel";
 
 interface Level1Image {
@@ -30,7 +30,7 @@ const ExcitementLevel1 = () => {
   const [activeHeadsets, setActiveHeadsets] = useState<string[]>(stateHeadsets || []);
   const activeHeadsetsRef = useRef<string[]>(stateHeadsets || []);
 
-  const level1Images: Level1Image[] = level1NewImages.map((img, idx) => ({
+  const level1Images: Level1Image[] = localLevel1Images.map((img, idx) => ({
     id: img.id,
     position: idx,
     url: img.url,
@@ -61,9 +61,13 @@ const ExcitementLevel1 = () => {
   useEffect(() => { lockedSelectionsRef.current = lockedSelections; }, [lockedSelections]);
 
   useEffect(() => {
+    console.log('Level 1 Motion listener registered, activeHeadsets:', activeHeadsets);
+    
     const handleMotion = ((event: CustomEvent<MotionEvent>) => {
       const motionData = event.detail;
       const headsetId = motionData.headsetId;
+      
+      console.log('Level 1 Motion event received:', headsetId, motionData.pitch, motionData.rotation);
       
       if (!activeHeadsetsRef.current.includes(headsetId)) {
         activeHeadsetsRef.current = [...activeHeadsetsRef.current, headsetId];
@@ -265,7 +269,7 @@ const ExcitementLevel1 = () => {
         <div className="container mx-auto max-w-7xl">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold uppercase tracking-wider mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              Level 1: Vision
+              Level 1: Landscapes
             </h1>
             <p className="text-lg text-muted-foreground">
               Move your cursor with head tilt • Hold PUSH to select
@@ -309,10 +313,13 @@ const ExcitementLevel1 = () => {
                     }}
                   >
                     <div className="aspect-video relative">
-                      <img
+                      <video
                         src={image.url}
-                        alt={`Vision ${image.id}`}
                         className="w-full h-full object-cover"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
                         style={{
                           filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
                         }}
