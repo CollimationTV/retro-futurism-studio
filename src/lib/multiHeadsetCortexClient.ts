@@ -58,6 +58,14 @@ export interface HeadsetSession {
   status: 'connecting' | 'ready' | 'error';
 }
 
+export interface TrainingEvent {
+  detection: string;
+  event: string;
+  action: string;
+  message?: string;
+  headsetId: string;
+}
+
 export class MultiHeadsetCortexClient {
   private ws: WebSocket | null = null;
   private config: CortexConfig;
@@ -77,6 +85,7 @@ export class MultiHeadsetCortexClient {
   public onConnectionStatus: ((status: string) => void) | null = null;
   public onHeadsetStatus: ((headsetId: string, status: string) => void) | null = null;
   public onError: ((error: string) => void) | null = null;
+  public onTrainingEvent: ((event: TrainingEvent) => void) | null = null;
 
   constructor(config: CortexConfig) {
     this.config = config;
@@ -213,6 +222,23 @@ export class MultiHeadsetCortexClient {
       
       // High-frequency dispatch log removed
       this.onPerformanceMetrics?.(event);
+    }
+
+    // Handle sys stream events (training events)
+    if (message.sys !== undefined && Array.isArray(message.sys)) {
+      const headsetId = message.sid ? this.getHeadsetIdBySessionId(message.sid) : 'unknown';
+      const [eventType, eventName, ...args] = message.sys;
+      
+      const event: TrainingEvent = {
+        detection: eventType,
+        event: eventName,
+        action: args[0] || '',
+        message: args[1] || '',
+        headsetId
+      };
+      
+      console.log('🎓 Training event:', event);
+      this.onTrainingEvent?.(event);
     }
 
     // Handle warnings and errors
@@ -518,10 +544,8 @@ export class MultiHeadsetCortexClient {
   async disconnectHeadset(headsetId: string): Promise<void> {
     const session = this.sessions.get(headsetId);
     if (session) {
-      // Could add session closing logic here if needed
       this.sessions.delete(headsetId);
       this.onHeadsetStatus?.(headsetId, 'disconnected');
-      // console.log(`🔌 Headset ${headsetId} disconnected`);
     }
   }
 
@@ -535,6 +559,163 @@ export class MultiHeadsetCortexClient {
     }
     this.authToken = null;
     this.sessions.clear();
-    // console.log('🔌 Disconnected from Cortex');
+  }
+
+  // ==================== TRAINING METHODS ====================
+
+  /**
+   * Subscribe to sys stream for training events
+   */
+  async subscribeToSysStream(headsetId: string): Promise<void> {
+    if (!this.authToken) {
+      throw new Error('Must be authorized');
+    }
+
+    const session = this.sessions.get(headsetId);
+    if (!session) {
+      throw new Error(`No session found for headset ${headsetId}`);
+    }
+
+    const result = await this.sendRequest('subscribe', {
+      cortexToken: this.authToken,
+      session: session.sessionId,
+      streams: ['sys']
+    });
+
+    console.log(`✅ Subscribed to sys stream for headset ${headsetId}:`, result);
+  }
+
+  /**
+   * Start mental command training
+   */
+  async startTraining(headsetId: string, action: string): Promise<void> {
+    if (!this.authToken) {
+      throw new Error('Must be authorized');
+    }
+
+    const result = await this.sendRequest('training', {
+      cortexToken: this.authToken,
+      headset: headsetId,
+      detection: 'mentalCommand',
+      action: action,
+      status: 'start'
+    });
+
+    console.log(`🎓 Started training ${action} for headset ${headsetId}:`, result);
+  }
+
+  /**
+   * Accept training result
+   */
+  async acceptTraining(headsetId: string, action: string): Promise<void> {
+    if (!this.authToken) {
+      throw new Error('Must be authorized');
+    }
+
+    const result = await this.sendRequest('training', {
+      cortexToken: this.authToken,
+      headset: headsetId,
+      detection: 'mentalCommand',
+      action: action,
+      status: 'accept'
+    });
+
+    console.log(`✅ Accepted training ${action} for headset ${headsetId}:`, result);
+  }
+
+  /**
+   * Reject training result
+   */
+  async rejectTraining(headsetId: string, action: string): Promise<void> {
+    if (!this.authToken) {
+      throw new Error('Must be authorized');
+    }
+
+    const result = await this.sendRequest('training', {
+      cortexToken: this.authToken,
+      headset: headsetId,
+      detection: 'mentalCommand',
+      action: action,
+      status: 'reject'
+    });
+
+    console.log(`❌ Rejected training ${action} for headset ${headsetId}:`, result);
+  }
+
+  /**
+   * Reset training for an action
+   */
+  async resetTraining(headsetId: string, action: string): Promise<void> {
+    if (!this.authToken) {
+      throw new Error('Must be authorized');
+    }
+
+    const result = await this.sendRequest('training', {
+      cortexToken: this.authToken,
+      headset: headsetId,
+      detection: 'mentalCommand',
+      action: action,
+      status: 'reset'
+    });
+
+    console.log(`🔄 Reset training ${action} for headset ${headsetId}:`, result);
+  }
+
+  /**
+   * Create a new profile
+   */
+  async createProfile(profileName: string): Promise<void> {
+    if (!this.authToken) {
+      throw new Error('Must be authorized');
+    }
+
+    const result = await this.sendRequest('setupProfile', {
+      cortexToken: this.authToken,
+      profile: profileName,
+      status: 'create'
+    });
+
+    console.log(`✅ Created profile ${profileName}:`, result);
+  }
+
+  /**
+   * Save profile to headset
+   */
+  async saveProfile(headsetId: string, profileName: string): Promise<void> {
+    if (!this.authToken) {
+      throw new Error('Must be authorized');
+    }
+
+    const result = await this.sendRequest('setupProfile', {
+      cortexToken: this.authToken,
+      headset: headsetId,
+      profile: profileName,
+      status: 'save'
+    });
+
+    console.log(`💾 Saved profile ${profileName} for headset ${headsetId}:`, result);
+  }
+
+  /**
+   * Get training threshold
+   */
+  async getTrainingThreshold(headsetId: string): Promise<{ currentThreshold: number; lastTrainingScore: number }> {
+    if (!this.authToken) {
+      throw new Error('Must be authorized');
+    }
+
+    const session = this.sessions.get(headsetId);
+    if (!session) {
+      throw new Error(`No session found for headset ${headsetId}`);
+    }
+
+    const result = await this.sendRequest('getDetectionInfo', {
+      detection: 'mentalCommand'
+    });
+
+    return {
+      currentThreshold: result?.threshold || 0,
+      lastTrainingScore: result?.lastTrainingScore || 0
+    };
   }
 }

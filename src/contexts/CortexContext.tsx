@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { MultiHeadsetCortexClient, MentalCommandEvent, MotionEvent, PerformanceMetricsEvent } from '@/lib/multiHeadsetCortexClient';
+import { createContext, useContext, useState, ReactNode } from 'react';
+import { MultiHeadsetCortexClient, MentalCommandEvent, MotionEvent, PerformanceMetricsEvent, TrainingEvent } from '@/lib/multiHeadsetCortexClient';
 
 interface CortexContextType {
   client: MultiHeadsetCortexClient | null;
@@ -60,6 +60,11 @@ export const CortexProvider = ({ children }: CortexProviderProps) => {
     newClient.onPerformanceMetrics = (event: PerformanceMetricsEvent) => {
       // High-frequency log removed for performance
       window.dispatchEvent(new CustomEvent('performance-metrics', { detail: event }));
+    };
+
+    newClient.onTrainingEvent = (event: TrainingEvent) => {
+      console.log('🎓 CortexContext training event:', event);
+      window.dispatchEvent(new CustomEvent('training-event', { detail: event }));
     };
 
     newClient.onHeadsetStatus = (headsetId: string, headsetStatus: string) => {
