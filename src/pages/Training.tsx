@@ -343,6 +343,8 @@ const Training = () => {
                       isActive={isTraining}
                       progress={trainingProgress}
                       pushIntensity={isTraining ? trainingProgress / 100 : 0}
+                      pushRound={pushTrainingRound}
+                      totalRounds={PUSH_TRAINING_ROUNDS}
                     />
                   </div>
                   
