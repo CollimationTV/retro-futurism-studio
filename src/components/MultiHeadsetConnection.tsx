@@ -115,6 +115,7 @@ export const MultiHeadsetConnection = ({ onMentalCommand, onMotion, onPerformanc
       toast({
         title: "Headset Connected",
         description: `Successfully connected to headset ${headsetId.substring(0, 8)}...`,
+        duration: 3000,
       });
     } catch (err) {
       console.error(`Failed to connect headset ${headsetId}:`, err);

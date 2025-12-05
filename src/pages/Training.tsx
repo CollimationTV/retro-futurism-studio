@@ -41,9 +41,11 @@ const Training = () => {
   const [hasExistingProfile, setHasExistingProfile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pushIntensity, setPushIntensity] = useState(0);
+  const [accumulatedPushTime, setAccumulatedPushTime] = useState(0);
   
   const trainingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTickRef = useRef<number>(Date.now());
   
   const currentHeadset = activeHeadsets[currentHeadsetIndex];
   const headsetColor = currentHeadset ? getHeadsetColor(currentHeadset) : 'hsl(var(--primary))';
@@ -94,23 +96,45 @@ const Training = () => {
     return () => window.removeEventListener('training-event', handleTrainingEvent);
   }, [currentStep, pushTrainingRound]);
 
-  // Listen for real-time mental command power during training
+  // Listen for real-time mental command power during training - progress only when push signal detected
   useEffect(() => {
     if (!isTraining || currentStep !== 'push') return;
     
+    const PUSH_THRESHOLD = 0.1; // Minimum push intensity to count as active
+    
     const handleMentalCommand = ((event: CustomEvent<{com: string; pow: number; headsetId: string}>) => {
       const { com, pow } = event.detail;
+      const now = Date.now();
+      const deltaMs = now - lastTickRef.current;
+      lastTickRef.current = now;
+      
       // Update push intensity with real-time power from EEG
-      if (com === 'push' || com === 'neutral') {
-        // Use push power directly, or show low intensity for neutral
-        const intensity = com === 'push' ? pow : pow * 0.1;
-        setPushIntensity(intensity);
+      if (com === 'push') {
+        setPushIntensity(pow);
+        // Only accumulate time when push signal is active above threshold
+        if (pow >= PUSH_THRESHOLD) {
+          setAccumulatedPushTime(prev => {
+            const newTime = prev + deltaMs;
+            const progress = Math.min(100, (newTime / TRAINING_DURATION_MS) * 100);
+            setTrainingProgress(progress);
+            
+            // Check if training complete
+            if (newTime >= TRAINING_DURATION_MS && !trainingResult) {
+              setTrainingResult('success');
+              stopTrainingTimer();
+            }
+            return newTime;
+          });
+        }
+      } else {
+        // Show low intensity for non-push commands
+        setPushIntensity(pow * 0.1);
       }
     }) as EventListener;
     
     window.addEventListener('mental-command', handleMentalCommand);
     return () => window.removeEventListener('mental-command', handleMentalCommand);
-  }, [isTraining, currentStep]);
+  }, [isTraining, currentStep, trainingResult]);
 
   const stopTrainingTimer = () => {
     if (trainingTimerRef.current) {
@@ -134,10 +158,11 @@ const Training = () => {
     setTrainingProgress(0);
     setTrainingResult(null);
     setError(null);
+    setAccumulatedPushTime(0);
+    lastTickRef.current = Date.now();
 
     try {
       // Skip profile management - training works with default profile
-      // Profile was likely loaded by Emotiv Launcher which blocks our access
       console.log('Starting training with current profile state...');
       
       // Subscribe to sys stream for training events
@@ -146,26 +171,33 @@ const Training = () => {
       // Start the training
       await client.startTraining(currentHeadset, action);
       
-      // Progress timer
-      const startTime = Date.now();
-      progressIntervalRef.current = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(100, (elapsed / TRAINING_DURATION_MS) * 100);
-        setTrainingProgress(progress);
-        
-        if (progress >= 100) {
-          stopTrainingTimer();
-        }
-      }, 100);
+      // For neutral training, use time-based progress
+      if (action === 'neutral') {
+        const startTime = Date.now();
+        progressIntervalRef.current = setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          const progress = Math.min(100, (elapsed / TRAINING_DURATION_MS) * 100);
+          setTrainingProgress(progress);
+          
+          if (progress >= 100) {
+            stopTrainingTimer();
+            if (!trainingResult) {
+              setTrainingResult('success');
+            }
+          }
+        }, 100);
+      }
+      // For push training, progress is driven by mental-command events (see useEffect above)
       
-      // Auto-timeout after duration
-      trainingTimerRef.current = setTimeout(() => {
-        stopTrainingTimer();
-        // If no result received, simulate success for now
-        if (!trainingResult) {
-          setTrainingResult('success');
-        }
-      }, TRAINING_DURATION_MS + 1000);
+      // Timeout for push training if no progress made
+      if (action === 'push') {
+        trainingTimerRef.current = setTimeout(() => {
+          if (trainingProgress < 100) {
+            setError('No push signal detected. Make sure mental commands are enabled in Emotiv Launcher.');
+          }
+          stopTrainingTimer();
+        }, TRAINING_DURATION_MS * 3); // Give extra time since it's signal-based
+      }
       
     } catch (err: any) {
       console.error('Training error:', err);
