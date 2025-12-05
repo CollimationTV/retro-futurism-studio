@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCortex } from "@/contexts/CortexContext";
 import { getHeadsetColor } from "@/utils/headsetColors";
-import { Brain, Play, RotateCcw, SkipForward, Check, AlertCircle, Loader2 } from "lucide-react";
+import { Brain, Play, RotateCcw, SkipForward, Check, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface TrainingEvent {
@@ -25,7 +25,7 @@ const PUSH_TRAINING_ROUNDS = 4;
 const Training = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { client, connectedHeadsets, connect, status } = useCortex();
+  const { client, connectedHeadsets } = useCortex();
   
   const { connectedHeadsets: stateHeadsets } = location.state || {};
   const activeHeadsets = stateHeadsets || connectedHeadsets || [];
@@ -41,11 +41,9 @@ const Training = () => {
   const [hasExistingProfile, setHasExistingProfile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pushIntensity, setPushIntensity] = useState(0);
-  const [isInitializing, setIsInitializing] = useState(false);
   
   const trainingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const maxPushDetectedRef = useRef<number>(0); // Track max push power during training
   
   const currentHeadset = activeHeadsets[currentHeadsetIndex];
   const headsetColor = currentHeadset ? getHeadsetColor(currentHeadset) : 'hsl(var(--primary))';
@@ -107,10 +105,6 @@ const Training = () => {
         // Use push power directly, or show low intensity for neutral
         const intensity = com === 'push' ? pow : pow * 0.1;
         setPushIntensity(intensity);
-        // Track max push power detected
-        if (com === 'push' && pow > maxPushDetectedRef.current) {
-          maxPushDetectedRef.current = pow;
-        }
       }
     }) as EventListener;
     
@@ -140,7 +134,6 @@ const Training = () => {
     setTrainingProgress(0);
     setTrainingResult(null);
     setError(null);
-    maxPushDetectedRef.current = 0; // Reset max push tracking
 
     try {
       // Skip profile management - training works with default profile
@@ -168,11 +161,8 @@ const Training = () => {
       // Auto-timeout after duration
       trainingTimerRef.current = setTimeout(() => {
         stopTrainingTimer();
-        // For push training, fail if no push power was detected
-        if (action === 'push' && maxPushDetectedRef.current < 0.1) {
-          setTrainingResult('failed');
-          setError('No push power detected. Focus on pushing with your mind.');
-        } else {
+        // If no result received, simulate success for now
+        if (!trainingResult) {
           setTrainingResult('success');
         }
       }, TRAINING_DURATION_MS + 1000);
@@ -244,53 +234,6 @@ const Training = () => {
     navigate("/excitement-level-1", { 
       state: { connectedHeadsets: activeHeadsets } 
     });
-  };
-
-  // Auto-connect to Cortex and start training
-  const handleStartWithAutoConnect = async () => {
-    setError(null);
-    
-    // If already connected, just proceed to neutral training
-    if (client && status === 'ready' && activeHeadsets.length > 0) {
-      setCurrentStep('neutral');
-      return;
-    }
-    
-    // Try to connect
-    setIsInitializing(true);
-    try {
-      // Get stored credentials from localStorage
-      const storedClientId = localStorage.getItem('emotiv_client_id');
-      const storedClientSecret = localStorage.getItem('emotiv_client_secret');
-      
-      if (!storedClientId || !storedClientSecret) {
-        setError('Emotiv credentials not found. Please configure them on the home page first.');
-        setIsInitializing(false);
-        return;
-      }
-      
-      const newClient = await connect(storedClientId, storedClientSecret);
-      
-      // Wait for headset connection
-      const headsets = await newClient.queryHeadsets();
-      if (headsets.length === 0) {
-        setError('No headsets found. Please connect your Emotiv headset.');
-        setIsInitializing(false);
-        return;
-      }
-      
-      // Connect to first headset
-      await newClient.connectHeadset(headsets[0].id);
-      await newClient.createSession(headsets[0].id);
-      await newClient.subscribeMentalCommands(headsets[0].id);
-      
-      setIsInitializing(false);
-      setCurrentStep('neutral');
-    } catch (err: any) {
-      console.error('Auto-connect error:', err);
-      setError(err.message || 'Failed to connect to Cortex');
-      setIsInitializing(false);
-    }
   };
 
   const startExperience = () => {
@@ -374,28 +317,17 @@ const Training = () => {
                   <div className="flex justify-center gap-4">
                     <Button
                       size="lg"
-                      onClick={handleStartWithAutoConnect}
-                      disabled={isInitializing}
+                      onClick={() => setCurrentStep('neutral')}
                       className="gap-2"
                     >
-                      {isInitializing ? (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          Connecting...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-5 h-5" />
-                          Start Training
-                        </>
-                      )}
+                      <Play className="w-5 h-5" />
+                      Start Training
                     </Button>
                     {hasExistingProfile && (
                       <Button
                         size="lg"
                         variant="outline"
                         onClick={skipTraining}
-                        disabled={isInitializing}
                         className="gap-2"
                       >
                         <SkipForward className="w-5 h-5" />
@@ -403,13 +335,6 @@ const Training = () => {
                       </Button>
                     )}
                   </div>
-                  
-                  {error && (
-                    <div className="mt-4 p-4 bg-destructive/10 border border-destructive/50 rounded-lg text-destructive text-sm flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5" />
-                      {error}
-                    </div>
-                  )}
                 </motion.div>
               )}
 
