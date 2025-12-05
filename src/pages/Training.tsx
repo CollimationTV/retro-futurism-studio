@@ -348,6 +348,38 @@ const Training = () => {
                     />
                   </div>
                   
+                  {/* Power Indicator for Push Training */}
+                  {currentStep === 'push' && isTraining && (
+                    <div className="mb-6 max-w-xs mx-auto">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-mono text-muted-foreground">PUSH POWER</span>
+                        <span className="text-sm font-mono text-primary">
+                          {Math.round(trainingProgress)}%
+                        </span>
+                      </div>
+                      <div className="h-4 bg-muted/30 rounded-full overflow-hidden border border-border/50">
+                        <div 
+                          className="h-full transition-all duration-150 rounded-full"
+                          style={{ 
+                            width: `${trainingProgress}%`,
+                            background: `linear-gradient(90deg, 
+                              hsl(var(--primary)) 0%, 
+                              ${trainingProgress > 50 ? '#22d3ee' : 'hsl(var(--primary))'} 50%,
+                              ${trainingProgress > 80 ? '#22c55e' : 'hsl(var(--primary))'} 100%
+                            )`,
+                            boxShadow: trainingProgress > 30 
+                              ? `0 0 ${trainingProgress / 5}px hsl(var(--primary)), 0 0 ${trainingProgress / 3}px hsl(var(--primary) / 0.5)` 
+                              : 'none'
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span className="text-xs text-muted-foreground/60">Low</span>
+                        <span className="text-xs text-muted-foreground/60">High</span>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="mb-8">
                     <TrainingProgress
                       currentStep={currentStep}
