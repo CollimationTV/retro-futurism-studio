@@ -8,6 +8,8 @@ interface TrainingProgressProps {
   pushTrained: boolean;
   trainingProgress: number;
   isTraining: boolean;
+  pushTrainingRound?: number;
+  totalPushRounds?: number;
 }
 
 export const TrainingProgress = ({
@@ -15,7 +17,9 @@ export const TrainingProgress = ({
   neutralTrained,
   pushTrained,
   trainingProgress,
-  isTraining
+  isTraining,
+  pushTrainingRound = 0,
+  totalPushRounds = 4
 }: TrainingProgressProps) => {
   return (
     <div className="w-full max-w-md mx-auto">
@@ -48,9 +52,23 @@ export const TrainingProgress = ({
               <span className="text-sm font-bold">2</span>
             )}
           </div>
-          <span className={`text-sm font-medium ${currentStep === 'push' ? 'text-primary' : 'text-muted-foreground'}`}>
-            Push
-          </span>
+          <div className="flex flex-col">
+            <span className={`text-sm font-medium ${currentStep === 'push' ? 'text-primary' : 'text-muted-foreground'}`}>
+              Push
+            </span>
+            {currentStep === 'push' && !pushTrained && (
+              <div className="flex gap-1 mt-1">
+                {Array.from({ length: totalPushRounds }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-2 h-2 rounded-full ${
+                      i < pushTrainingRound ? 'bg-primary' : i === pushTrainingRound ? 'bg-primary/50 animate-pulse' : 'bg-muted'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="w-12 h-px bg-border" />
