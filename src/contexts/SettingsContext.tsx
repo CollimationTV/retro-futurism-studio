@@ -9,6 +9,8 @@ interface SettingsContextType {
   setDecaySpeed: (value: number) => void;
   manualSelectionMode: boolean;
   setManualSelectionMode: (value: boolean) => void;
+  showDebugPanel: boolean;
+  setShowDebugPanel: (value: boolean) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
@@ -18,6 +20,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const [framesToTrigger, setFramesToTrigger] = useState(21);
   const [decaySpeed, setDecaySpeed] = useState(75);
   const [manualSelectionMode, setManualSelectionMode] = useState(false);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   return (
     <SettingsContext.Provider
@@ -30,6 +33,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         setDecaySpeed,
         manualSelectionMode,
         setManualSelectionMode,
+        showDebugPanel,
+        setShowDebugPanel,
       }}
     >
       {children}
