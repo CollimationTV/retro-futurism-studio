@@ -75,7 +75,7 @@ export const PerHeadsetImageGrid = ({
     pushProgressRef.current = pushProgress;
   }, [pushProgress]);
 
-  const PUSH_POWER_THRESHOLD = 0.3;
+  const PUSH_POWER_THRESHOLD = 0.15;
   const PUSH_HOLD_TIME_MS = 3000;
   const AUTO_CYCLE_INTERVAL_MS = 6000;
   const POST_PUSH_DELAY_MS = 3000;

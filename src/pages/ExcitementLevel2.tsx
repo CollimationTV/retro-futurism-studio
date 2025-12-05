@@ -19,7 +19,7 @@ interface Level2Image {
   metadata: string;
 }
 
-const PUSH_POWER_THRESHOLD = 0.3;
+const PUSH_POWER_THRESHOLD = 0.15;
 const PUSH_HOLD_TIME_MS = 5000;
 const DECAY_RATE = 2;
 
