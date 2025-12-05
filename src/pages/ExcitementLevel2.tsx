@@ -3,12 +3,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Target } from "lucide-react";
 import { getHeadsetColor } from "@/utils/headsetColors";
 import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexClient";
 import { Brain3D } from "@/components/Brain3D";
-import { OneEuroFilter, applySensitivityCurve } from "@/utils/OneEuroFilter";
-import { level1Images as localLevel1Images } from "@/data/imageData";
+import { level1NewImages } from "@/data/level1NewImages";
 import { RemoteOperatorPanel } from "@/components/RemoteOperatorPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -38,8 +36,8 @@ const ExcitementLevel2 = () => {
   const [activeHeadsets, setActiveHeadsets] = useState<string[]>(stateHeadsets || []);
   const activeHeadsetsRef = useRef<string[]>(stateHeadsets || []);
 
-  // Use local imports for proper Vite bundling - now using Level 1 videos
-  const level2Images: Level2Image[] = localLevel1Images.map((img, idx) => ({
+  // Use new images (static images: sky-bar, hologram, etc.)
+  const level2Images: Level2Image[] = level1NewImages.map((img, idx) => ({
     id: img.id,
     position: idx,
     url: img.url,
@@ -50,18 +48,13 @@ const ExcitementLevel2 = () => {
   const [focusedImages, setFocusedImages] = useState<Map<string, number>>(new Map());
   const [pushProgress, setPushProgress] = useState<Map<string, number>>(new Map());
   const [isPushing, setIsPushing] = useState<Map<string, boolean>>(new Map());
-  const [lockedSelections, setLockedSelections] = useState<Map<string, number>>(new Map()); // Track locked selections at 10%
+  const [lockedSelections, setLockedSelections] = useState<Map<string, number>>(new Map());
   
-  const pitchFilters = useRef<Map<string, OneEuroFilter>>(new Map());
-  const rotationFilters = useRef<Map<string, OneEuroFilter>>(new Map());
   const pushStartTimes = useRef<Map<string, number>>(new Map());
   const centerPitch = useRef<Map<string, number>>(new Map());
   const centerRotation = useRef<Map<string, number>>(new Map());
   const imageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const cursorRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  
-  // ULTRA LOW-LATENCY: Direct cursor position storage (no React state for cursor updates)
-  const cursorScreenPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   // Store state in refs to avoid useEffect re-creation
   const selectionsRef = useRef(selections);
@@ -303,6 +296,9 @@ const ExcitementLevel2 = () => {
         }
 
         try {
+          // Auto-open popout window before generation starts
+          const popoutWindow = window.open('/video-popout', 'bravewave-video', 'width=1280,height=720');
+          
           const { data, error } = await supabase.functions.invoke('generate-sora-video', {
             body: { 
               metadata: allMetadata,
@@ -311,6 +307,11 @@ const ExcitementLevel2 = () => {
           });
 
           if (error) throw error;
+
+          // Update popout with jobId for polling
+          if (popoutWindow) {
+            popoutWindow.location.href = `/video-popout?jobId=${data.jobId}`;
+          }
 
           // Navigate to Level 3 (Emotion Carousel) with the job ID
           navigate("/excitement-level-3", {
@@ -344,7 +345,7 @@ const ExcitementLevel2 = () => {
         <div className="container mx-auto max-w-7xl">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold uppercase tracking-wider mb-4" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-              Level 2: Landscapes
+              Level 2: Vision
             </h1>
             <p className="text-lg text-muted-foreground">
               Move your cursor with head tilt • Hold PUSH to select
@@ -389,13 +390,10 @@ const ExcitementLevel2 = () => {
                     }}
                   >
                     <div className="aspect-video relative">
-                      <video
+                      <img
                         src={image.url}
+                        alt={`Vision ${image.id}`}
                         className="w-full h-full object-cover"
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
                         style={{
                           filter: isFocused ? 'brightness(1.2)' : 'brightness(1)'
                         }}
