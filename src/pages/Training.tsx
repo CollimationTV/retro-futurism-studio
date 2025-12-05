@@ -112,6 +112,32 @@ const Training = () => {
     setError(null);
 
     try {
+      // First, ensure a profile is loaded for this headset
+      const profileName = `BraveWave-${currentHeadset.slice(-4)}`;
+      
+      try {
+        // Try to load existing profile, or create+load a new one
+        const profiles: any[] = await client.queryProfile();
+        const existingProfile = profiles.find((p) => {
+          const name = typeof p === 'string' ? p : p?.name;
+          return name && name.includes('BraveWave');
+        });
+        
+        if (existingProfile) {
+          const name = typeof existingProfile === 'string' ? existingProfile : existingProfile.name;
+          await client.loadProfile(currentHeadset, name);
+          console.log('Loaded existing profile:', name);
+        } else {
+          // Create a new profile with headset (saves current loaded profile which is empty)
+          await client.saveProfile(currentHeadset, profileName);
+          // Now load it
+          await client.loadProfile(currentHeadset, profileName);
+          console.log('Created and loaded new profile:', profileName);
+        }
+      } catch (profileErr) {
+        console.log('Profile setup skipped, training with default:', profileErr);
+      }
+      
       // Subscribe to sys stream for training events
       await client.subscribeToSysStream(currentHeadset);
       
@@ -188,7 +214,7 @@ const Training = () => {
     
     try {
       const profileName = `BraveWave-${currentHeadset.slice(-4)}`;
-      await client.createProfile(profileName);
+      // saveProfile will auto-create if profile doesn't exist
       await client.saveProfile(currentHeadset, profileName);
       console.log('Profile saved:', profileName);
     } catch (err) {
