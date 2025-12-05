@@ -8,6 +8,7 @@ import type { MentalCommandEvent, MotionEvent } from "@/lib/multiHeadsetCortexCl
 import { Brain3D } from "@/components/Brain3D";
 import { level1Images as localLevel1Images } from "@/data/imageData";
 import { RemoteOperatorPanel } from "@/components/RemoteOperatorPanel";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface Level1Image {
   id: number;
@@ -16,12 +17,14 @@ interface Level1Image {
   metadata: string;
 }
 
-const PUSH_POWER_THRESHOLD = 0.12;
-const PUSH_HOLD_TIME_MS = 3000;
+const PUSH_POWER_THRESHOLD = 0.3;
+const PUSH_HOLD_TIME_MS = 5000;
+const DECAY_RATE = 2; // Progress decay per frame when not pushing
 
 const ExcitementLevel1 = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { tiltThreshold } = useSettings();
   
   const { 
     connectedHeadsets: stateHeadsets,
@@ -41,7 +44,7 @@ const ExcitementLevel1 = () => {
   const [focusedImages, setFocusedImages] = useState<Map<string, number>>(new Map());
   const [pushProgress, setPushProgress] = useState<Map<string, number>>(new Map());
   const [isPushing, setIsPushing] = useState<Map<string, boolean>>(new Map());
-  const [lockedSelections, setLockedSelections] = useState<Map<string, number>>(new Map());
+  const [motionDebug, setMotionDebug] = useState<Map<string, { pitch: number; rotation: number; relPitch: number; relRotation: number }>>(new Map());
   
   const pushStartTimes = useRef<Map<string, number>>(new Map());
   const centerPitch = useRef<Map<string, number>>(new Map());
@@ -52,13 +55,12 @@ const ExcitementLevel1 = () => {
   const selectionsRef = useRef(selections);
   const isPushingRef = useRef(isPushing);
   const focusedImagesRef = useRef(focusedImages);
+  const tiltThresholdRef = useRef(tiltThreshold);
   
   useEffect(() => { selectionsRef.current = selections; }, [selections]);
   useEffect(() => { isPushingRef.current = isPushing; }, [isPushing]);
   useEffect(() => { focusedImagesRef.current = focusedImages; }, [focusedImages]);
-  
-  const lockedSelectionsRef = useRef(lockedSelections);
-  useEffect(() => { lockedSelectionsRef.current = lockedSelections; }, [lockedSelections]);
+  useEffect(() => { tiltThresholdRef.current = tiltThreshold; }, [tiltThreshold]);
 
   useEffect(() => {
     console.log('Level 1 Motion listener registered, activeHeadsets:', activeHeadsets);
@@ -76,7 +78,6 @@ const ExcitementLevel1 = () => {
     
       if (selectionsRef.current.has(headsetId)) return;
       if (isPushingRef.current.get(headsetId)) return;
-      if (lockedSelectionsRef.current.has(headsetId)) return;
 
       if (!cursorRefs.current.has(headsetId)) {
         const cursorContainer = document.createElement('div');
@@ -106,6 +107,14 @@ const ExcitementLevel1 = () => {
       const relativePitch = motionData.pitch - (centerPitch.current.get(headsetId) || 0);
       const relativeRotation = motionData.rotation - (centerRotation.current.get(headsetId) || 0);
 
+      // Update motion debug display
+      setMotionDebug(prev => new Map(prev).set(headsetId, {
+        pitch: motionData.pitch,
+        rotation: motionData.rotation,
+        relPitch: relativePitch,
+        relRotation: relativeRotation
+      }));
+
       const COLS = 4;
       const ROWS = 2;
       const TOTAL_BOXES = 8;
@@ -118,7 +127,8 @@ const ExcitementLevel1 = () => {
       const currentRow = Math.floor(currentIndex / COLS);
       const currentCol = currentIndex % COLS;
       
-      const MOVE_THRESHOLD = 3;
+      // Use settings threshold for movement
+      const MOVE_THRESHOLD = tiltThresholdRef.current;
       
       let newCol = currentCol;
       let newRow = currentRow;
@@ -173,33 +183,11 @@ const ExcitementLevel1 = () => {
     
       if (selections.has(headsetId)) return;
       
-      const lockedImageId = lockedSelections.get(headsetId);
-      
-      if (lockedImageId !== undefined) {
-        const currentProgress = pushProgress.get(headsetId) || 10;
-        const newProgress = Math.min(100, currentProgress + 3);
-        setPushProgress(prev => new Map(prev).set(headsetId, newProgress));
-        
-        if (newProgress >= 100) {
-          setSelections(prev => new Map(prev).set(headsetId, lockedImageId));
-          setLockedSelections(prev => {
-            const updated = new Map(prev);
-            updated.delete(headsetId);
-            return updated;
-          });
-          setIsPushing(prev => {
-            const updated = new Map(prev);
-            updated.delete(headsetId);
-            return updated;
-          });
-        }
-        return;
-      }
-      
       const focusedImageId = focusedImages.get(headsetId);
       if (focusedImageId === undefined) return;
       
       if (commandData.com === 'push' && commandData.pow >= PUSH_POWER_THRESHOLD) {
+        // Active push above threshold - progress increases
         if (!pushStartTimes.current.has(headsetId)) {
           pushStartTimes.current.set(headsetId, Date.now());
         }
@@ -212,11 +200,8 @@ const ExcitementLevel1 = () => {
         
         setPushProgress(prev => new Map(prev).set(headsetId, progress));
         
-        if (progress >= 10) {
-          setLockedSelections(prev => new Map(prev).set(headsetId, focusedImageId));
-        }
-        
-        if (elapsed >= PUSH_HOLD_TIME_MS) {
+        // Selection only completes at 100% with active push
+        if (progress >= 100) {
           setSelections(prev => new Map(prev).set(headsetId, focusedImageId));
           pushStartTimes.current.delete(headsetId);
           setIsPushing(prev => {
@@ -224,19 +209,25 @@ const ExcitementLevel1 = () => {
             updated.delete(headsetId);
             return updated;
           });
+          setPushProgress(prev => new Map(prev).set(headsetId, 0));
         }
       } else {
-        if (pushStartTimes.current.has(headsetId)) {
-          pushStartTimes.current.delete(headsetId);
-        }
+        // Not pushing or below threshold - progress decays
+        pushStartTimes.current.delete(headsetId);
         setIsPushing(prev => new Map(prev).set(headsetId, false));
-        setPushProgress(prev => new Map(prev).set(headsetId, 0));
+        
+        // Decay progress instead of resetting to 0
+        setPushProgress(prev => {
+          const current = prev.get(headsetId) || 0;
+          const decayed = Math.max(0, current - DECAY_RATE);
+          return new Map(prev).set(headsetId, decayed);
+        });
       }
     }) as EventListener;
 
     window.addEventListener('mental-command', handleMentalCommand);
     return () => window.removeEventListener('mental-command', handleMentalCommand);
-  }, [focusedImages, selections, lockedSelections, pushProgress]);
+  }, [focusedImages, selections]);
 
   // Navigate to Level 2 once all headsets have selected
   useEffect(() => {
@@ -420,6 +411,25 @@ const ExcitementLevel1 = () => {
           setSelections(prev => new Map(prev).set(headsetId, imageId));
         }}
       />
+
+      {/* Motion Debug Display */}
+      <div className="fixed top-20 left-4 bg-background/90 backdrop-blur-sm border border-border rounded-lg p-3 z-50 font-mono text-xs">
+        <div className="text-muted-foreground mb-2 font-semibold">Motion Debug</div>
+        <div className="text-muted-foreground mb-1">Tilt Threshold: {tiltThreshold}°</div>
+        {Array.from(motionDebug.entries()).map(([headsetId, data]) => {
+          const color = getHeadsetColor(headsetId);
+          const focusedIdx = focusedImages.get(headsetId);
+          return (
+            <div key={headsetId} className="mb-2 border-t border-border/50 pt-1">
+              <div style={{ color }} className="font-semibold">{headsetId.slice(-4)}</div>
+              <div>Pitch: {data.pitch.toFixed(1)}° (rel: {data.relPitch.toFixed(1)}°)</div>
+              <div>Rotation: {data.rotation.toFixed(1)}° (rel: {data.relRotation.toFixed(1)}°)</div>
+              <div>Focused: Box {focusedIdx !== undefined ? focusedIdx + 1 : '-'}</div>
+            </div>
+          );
+        })}
+        {motionDebug.size === 0 && <div className="text-muted-foreground/50">No motion data</div>}
+      </div>
     </div>
   );
 };
