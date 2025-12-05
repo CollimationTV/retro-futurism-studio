@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Brain3D } from "@/components/Brain3D";
-import { TrainingVisual } from "@/components/TrainingVisual";
+import { TrainingCube } from "@/components/TrainingCube";
 import { TrainingProgress } from "@/components/TrainingProgress";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ interface TrainingEvent {
 }
 
 const TRAINING_DURATION_MS = 8000;
+const PUSH_TRAINING_ROUNDS = 4;
 
 const Training = () => {
   const navigate = useNavigate();
@@ -34,10 +35,12 @@ const Training = () => {
   const [isTraining, setIsTraining] = useState(false);
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [neutralTrained, setNeutralTrained] = useState(false);
+  const [pushTrainingRound, setPushTrainingRound] = useState(0); // 0-3 for 4 rounds
   const [pushTrained, setPushTrained] = useState(false);
   const [trainingResult, setTrainingResult] = useState<'success' | 'failed' | null>(null);
   const [hasExistingProfile, setHasExistingProfile] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pushIntensity, setPushIntensity] = useState(0);
   
   const trainingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -79,7 +82,10 @@ const Training = () => {
         if (currentStep === 'neutral') {
           setNeutralTrained(true);
         } else if (currentStep === 'push') {
-          setPushTrained(true);
+          // Only mark push as complete after all rounds
+          if (pushTrainingRound >= PUSH_TRAINING_ROUNDS - 1) {
+            setPushTrained(true);
+          }
         }
       }
     }) as EventListener;
@@ -160,14 +166,20 @@ const Training = () => {
       if (currentStep === 'neutral') {
         setNeutralTrained(true);
         setCurrentStep('push');
+        setPushTrainingRound(0);
       } else if (currentStep === 'push') {
-        setPushTrained(true);
-        // Skip profile save - profile is managed by Emotiv Launcher
-        setCurrentStep('complete');
+        // Check if we need more rounds
+        if (pushTrainingRound < PUSH_TRAINING_ROUNDS - 1) {
+          setPushTrainingRound(prev => prev + 1);
+        } else {
+          setPushTrained(true);
+          setCurrentStep('complete');
+        }
       }
       
       setTrainingResult(null);
       setTrainingProgress(0);
+      setPushIntensity(0);
     } catch (err: any) {
       setError(err.message || 'Failed to accept training');
     }
@@ -318,19 +330,19 @@ const Training = () => {
                   className="text-center"
                 >
                   <h2 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>
-                    Train: {currentStep === 'neutral' ? 'Neutral State' : 'Push Command'}
+                    Train: {currentStep === 'neutral' ? 'Neutral State' : `Push Command (${pushTrainingRound + 1}/${PUSH_TRAINING_ROUNDS})`}
                   </h2>
                   <p className="text-muted-foreground mb-8">
                     {currentStep === 'neutral' 
                       ? 'Clear your mind and relax. Think of nothing in particular.'
-                      : 'Imagine pushing a heavy object away from you with your mind.'}
+                      : 'Imagine pushing the cube away from you with your mind.'}
                   </p>
                   
                   <div className="mb-8">
-                    <TrainingVisual 
-                      action={currentStep} 
+                    <TrainingCube 
                       isActive={isTraining}
                       progress={trainingProgress}
+                      pushIntensity={isTraining ? trainingProgress / 100 : 0}
                     />
                   </div>
                   
@@ -341,6 +353,8 @@ const Training = () => {
                       pushTrained={pushTrained}
                       trainingProgress={trainingProgress}
                       isTraining={isTraining}
+                      pushTrainingRound={pushTrainingRound}
+                      totalPushRounds={PUSH_TRAINING_ROUNDS}
                     />
                   </div>
                   
