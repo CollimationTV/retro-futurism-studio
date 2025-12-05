@@ -8,6 +8,7 @@ import { SettingsProvider } from "./contexts/SettingsContext";
 import { FullscreenButton } from "./components/FullscreenButton";
 import Index from "./pages/Index";
 import Results from "./pages/Results";
+import Training from "./pages/Training";
 import ExcitementLevel1 from "./pages/ExcitementLevel1";
 import ExcitementLevel2 from "./pages/ExcitementLevel2";
 import ExcitementLevel3 from "./pages/ExcitementLevel3";
@@ -30,6 +31,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/training" element={<Training />} />
               <Route path="/excitement-level-1" element={<ExcitementLevel1 />} />
               <Route path="/excitement-level-2" element={<ExcitementLevel2 />} />
               <Route path="/results" element={<Results />} />
