@@ -66,6 +66,15 @@ export interface TrainingEvent {
   headsetId: string;
 }
 
+export interface DeviceInfoEvent {
+  battery: number;           // Battery level 0-4
+  batteryPercent: number;    // Battery percentage 0-100
+  signal: number;            // Wireless signal strength 0-5
+  contactQuality: Record<string, number>; // Sensor name → quality 0-4
+  overallQuality: number;    // Overall contact quality 0-100
+  headsetId: string;
+}
+
 export class MultiHeadsetCortexClient {
   private ws: WebSocket | null = null;
   private config: CortexConfig;
@@ -82,10 +91,14 @@ export class MultiHeadsetCortexClient {
   public onMentalCommand: ((event: MentalCommandEvent) => void) | null = null;
   public onMotion: ((event: MotionEvent) => void) | null = null;
   public onPerformanceMetrics: ((event: PerformanceMetricsEvent) => void) | null = null;
+  public onDeviceInfo: ((event: DeviceInfoEvent) => void) | null = null;
   public onConnectionStatus: ((status: string) => void) | null = null;
   public onHeadsetStatus: ((headsetId: string, status: string) => void) | null = null;
   public onError: ((error: string) => void) | null = null;
   public onTrainingEvent: ((event: TrainingEvent) => void) | null = null;
+  
+  // Store the dev columns schema from subscription response
+  private devCols: string[] = [];
 
   constructor(config: CortexConfig) {
     this.config = config;
@@ -222,6 +235,56 @@ export class MultiHeadsetCortexClient {
       
       // High-frequency dispatch log removed
       this.onPerformanceMetrics?.(event);
+    }
+
+    // Handle device info stream (battery, signal, contact quality)
+    if (message.dev !== undefined && Array.isArray(message.dev)) {
+      const headsetId = message.sid ? this.getHeadsetIdBySessionId(message.sid) : 'unknown';
+      
+      // Parse dev array using the cols schema
+      // Typical format: [battery, signal, AF3, T7, Pz, T8, AF4, ...sensor qualities]
+      const devMap: Record<string, any> = {};
+      
+      if (this.devCols.length > 0) {
+        this.devCols.forEach((colName, index) => {
+          devMap[colName] = message.dev[index];
+        });
+      }
+      
+      // Extract battery and signal
+      const battery = devMap['Battery'] ?? devMap['battery'] ?? 0;
+      const signal = devMap['Signal'] ?? devMap['signal'] ?? 0;
+      
+      // Extract sensor contact qualities (all other columns are sensors)
+      const sensorNames = ['AF3', 'F7', 'F3', 'FC5', 'T7', 'P7', 'O1', 'O2', 'P8', 'T8', 'FC6', 'F4', 'F8', 'AF4', 'Pz', 'CMS', 'DRL'];
+      const contactQuality: Record<string, number> = {};
+      let totalQuality = 0;
+      let sensorCount = 0;
+      
+      for (const sensor of sensorNames) {
+        if (devMap[sensor] !== undefined) {
+          contactQuality[sensor] = devMap[sensor];
+          totalQuality += devMap[sensor];
+          sensorCount++;
+        }
+      }
+      
+      // Calculate overall quality as percentage (each sensor max is 4)
+      const overallQuality = sensorCount > 0 ? Math.round((totalQuality / (sensorCount * 4)) * 100) : 0;
+      
+      // Map battery level to percentage (0-4 scale typically, or direct percentage)
+      const batteryPercent = battery <= 4 ? battery * 25 : battery;
+      
+      const event: DeviceInfoEvent = {
+        battery,
+        batteryPercent,
+        signal,
+        contactQuality,
+        overallQuality,
+        headsetId
+      };
+      
+      this.onDeviceInfo?.(event);
     }
 
     // Handle sys stream events (training events)
@@ -397,17 +460,23 @@ export class MultiHeadsetCortexClient {
     const result = await this.sendRequest('subscribe', {
       cortexToken: this.authToken,
       session: session.sessionId,
-      streams: ['com', 'mot', 'met'] // Mental commands + motion sensors + performance metrics
+      streams: ['com', 'mot', 'met', 'dev'] // Mental commands + motion sensors + performance metrics + device info
     });
 
     // console.log(`✅ Subscribed to streams for headset ${headsetId}:`, JSON.stringify(result, null, 2));
     
-    // Extract and store the 'met' columns schema from subscription response
+    // Extract and store columns schemas from subscription response
     if (result.success && Array.isArray(result.success)) {
       const metStream = result.success.find((s: any) => s.streamName === 'met');
       if (metStream && metStream.cols) {
         this.metricsCols = metStream.cols;
         // console.log(`📋 Stored 'met' columns schema:`, this.metricsCols);
+      }
+      
+      const devStream = result.success.find((s: any) => s.streamName === 'dev');
+      if (devStream && devStream.cols) {
+        this.devCols = devStream.cols;
+        // console.log(`📋 Stored 'dev' columns schema:`, this.devCols);
       }
     }
     

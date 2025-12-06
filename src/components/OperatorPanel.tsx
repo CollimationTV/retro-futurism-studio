@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Zap, Target, Bug, FileText } from "lucide-react";
+import { Settings, Zap, Target, Bug, FileText, Activity } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
+import { ContactQualityMap } from "./ContactQualityMap";
 
 interface OperatorPanelProps {
   sessionId: string;
@@ -29,7 +30,7 @@ export const OperatorPanel = ({
   currentLevel,
   onControlsChange 
 }: OperatorPanelProps) => {
-  const { showDebugPanel, setShowDebugPanel } = useSettings();
+  const { showDebugPanel, setShowDebugPanel, showContactQuality, setShowContactQuality } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const [pushSensitivity, setPushSensitivity] = useState(0.30);
   const [autoCycleSpeed, setAutoCycleSpeed] = useState(6000);
@@ -224,6 +225,27 @@ export const OperatorPanel = ({
               </Button>
             </div>
 
+            {/* EEG Contact Quality */}
+            <div className="space-y-2 border-t border-border pt-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Activity className="w-4 h-4" />
+                  EEG Contact Quality
+                </label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowContactQuality(true)}
+                  disabled={connectedHeadsets.length === 0}
+                >
+                  View
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sensor placement & signal strength
+              </p>
+            </div>
+
             {/* Debug Panel Toggle */}
             <div className="space-y-2 border-t border-border pt-4">
               <div className="flex items-center justify-between">
@@ -262,6 +284,14 @@ export const OperatorPanel = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Contact Quality Map Modal */}
+      {showContactQuality && (
+        <ContactQualityMap
+          connectedHeadsets={connectedHeadsets}
+          onClose={() => setShowContactQuality(false)}
+        />
       )}
     </>
   );
