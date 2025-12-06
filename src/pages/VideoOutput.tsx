@@ -172,7 +172,7 @@ const VideoOutput = () => {
                 Please start from the beginning and complete all selection levels to generate your video.
               </p>
             )}
-            <Button onClick={() => navigate('/')} variant="outline">
+            <Button onClick={() => window.location.href = '/'} variant="outline">
               Start New Experience
             </Button>
           </div>
@@ -312,9 +312,8 @@ const VideoOutput = () => {
           <div className="text-center mt-12">
             <Button 
               onClick={() => {
-                // Clear local state and navigate to initialize screen
-                // Sora job continues in background
-                navigate('/');
+                // Full reset: reload the entire application
+                window.location.href = '/';
               }} 
               size="lg"
             >
