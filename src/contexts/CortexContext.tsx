@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
-import { MultiHeadsetCortexClient, MentalCommandEvent, MotionEvent, PerformanceMetricsEvent, TrainingEvent } from '@/lib/multiHeadsetCortexClient';
+import { MultiHeadsetCortexClient, MentalCommandEvent, MotionEvent, PerformanceMetricsEvent, TrainingEvent, DeviceInfoEvent } from '@/lib/multiHeadsetCortexClient';
 
 interface CortexContextType {
   client: MultiHeadsetCortexClient | null;
@@ -53,13 +53,18 @@ export const CortexProvider = ({ children }: CortexProviderProps) => {
     };
 
     newClient.onMotion = (event: MotionEvent) => {
-      console.log('🎯 Motion event:', event.headsetId, 'pitch:', event.pitch?.toFixed(2), 'rotation:', event.rotation?.toFixed(2));
+      // High-frequency log removed for performance
       window.dispatchEvent(new CustomEvent('motion-event', { detail: event }));
     };
 
     newClient.onPerformanceMetrics = (event: PerformanceMetricsEvent) => {
       // High-frequency log removed for performance
       window.dispatchEvent(new CustomEvent('performance-metrics', { detail: event }));
+    };
+
+    newClient.onDeviceInfo = (event: DeviceInfoEvent) => {
+      // Dispatch device info for contact quality visualization
+      window.dispatchEvent(new CustomEvent('device-info', { detail: event }));
     };
 
     newClient.onTrainingEvent = (event: TrainingEvent) => {

@@ -11,6 +11,8 @@ interface SettingsContextType {
   setManualSelectionMode: (value: boolean) => void;
   showDebugPanel: boolean;
   setShowDebugPanel: (value: boolean) => void;
+  showContactQuality: boolean;
+  setShowContactQuality: (value: boolean) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
@@ -21,6 +23,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const [decaySpeed, setDecaySpeed] = useState(75);
   const [manualSelectionMode, setManualSelectionMode] = useState(false);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [showContactQuality, setShowContactQuality] = useState(false);
 
   return (
     <SettingsContext.Provider
@@ -35,6 +38,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         setManualSelectionMode,
         showDebugPanel,
         setShowDebugPanel,
+        showContactQuality,
+        setShowContactQuality,
       }}
     >
       {children}
