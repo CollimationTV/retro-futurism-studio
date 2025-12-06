@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCortex } from "@/contexts/CortexContext";
 import { getHeadsetColor } from "@/utils/headsetColors";
+import { ContactQualityButton } from "@/components/ContactQualityButton";
 import { Brain, Play, RotateCcw, SkipForward, Check, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -289,7 +290,7 @@ const Training = () => {
     <div className="min-h-screen relative">
       <Brain3D excitement={0.5} className="opacity-20 z-0" />
       <Header />
-      
+      <ContactQualityButton connectedHeadsets={activeHeadsets} />
       <div className="py-12 px-6">
         <div className="container mx-auto max-w-3xl">
           {/* Headset indicator */}

@@ -11,6 +11,7 @@ import { RemoteOperatorPanel } from "@/components/RemoteOperatorPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/contexts/SettingsContext";
+import { ContactQualityButton } from "@/components/ContactQualityButton";
 
 interface Level2Image {
   id: number;
@@ -345,6 +346,7 @@ const ExcitementLevel2 = () => {
     <div className="min-h-screen relative">
       <Brain3D excitement={0.5} className="opacity-20 z-0" />
       <Header />
+      <ContactQualityButton connectedHeadsets={activeHeadsets} />
       
       <div className="py-12 px-6">
         <div className="container mx-auto max-w-7xl">

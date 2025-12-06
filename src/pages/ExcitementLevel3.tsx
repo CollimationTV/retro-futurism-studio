@@ -5,6 +5,7 @@ import { Brain3D } from "@/components/Brain3D";
 import { artworkAudioPairs } from "@/data/artworkAudioPairs";
 import { PerformanceMetricsEvent } from "@/lib/multiHeadsetCortexClient";
 import { useSettings } from "@/contexts/SettingsContext";
+import { ContactQualityButton } from "@/components/ContactQualityButton";
 
 interface ArtworkScore {
   artworkId: number;
@@ -138,6 +139,7 @@ const ExcitementLevel3 = () => {
       <Brain3D excitement={averageExcitement} className="opacity-15 z-0" />
       
       <Header />
+      <ContactQualityButton connectedHeadsets={connectedHeadsets || []} />
       
       {/* Winner Display Overlay */}
       {showingWinner && winnerArtwork && (
