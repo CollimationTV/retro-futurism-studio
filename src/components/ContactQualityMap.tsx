@@ -29,13 +29,13 @@ const EPOC_SENSORS: Record<string, { x: number; y: number; label: string }> = {
   DRL: { x: 50, y: 65, label: 'DRL' },
 };
 
-// INSIGHT sensors (5 sensors)
+// INSIGHT sensors (5 sensors) - positions match Emotiv Launcher layout
 const INSIGHT_SENSORS: Record<string, { x: number; y: number; label: string }> = {
-  AF3: { x: 30, y: 25, label: 'AF3' },
-  AF4: { x: 70, y: 25, label: 'AF4' },
-  T7: { x: 15, y: 55, label: 'T7' },
-  T8: { x: 85, y: 55, label: 'T8' },
-  Pz: { x: 50, y: 75, label: 'Pz' },
+  AF3: { x: 32, y: 28, label: 'AF3' },   // Left forehead
+  AF4: { x: 68, y: 28, label: 'AF4' },   // Right forehead
+  T7: { x: 8, y: 50, label: 'T7' },      // Left temporal (ear)
+  T8: { x: 92, y: 50, label: 'T8' },     // Right temporal (ear)
+  Pz: { x: 50, y: 72, label: 'Pz' },     // Parietal (back center)
 };
 
 const getQualityColor = (quality: number): string => {
@@ -93,10 +93,13 @@ export const ContactQualityMap = ({ connectedHeadsets, onClose }: ContactQuality
   const currentDeviceInfo = deviceInfoMap[selectedHeadset];
   const headsetColor = getHeadsetColor(selectedHeadset);
   
-  // Determine which sensor layout to use based on available sensors
-  const sensors = currentDeviceInfo?.contactQuality 
-    ? (Object.keys(currentDeviceInfo.contactQuality).includes('Pz') ? INSIGHT_SENSORS : EPOC_SENSORS)
-    : EPOC_SENSORS;
+  // Detect INSIGHT headset from ID or sensor data (INSIGHT has Pz, EPOC has O1/O2)
+  const isInsightHeadset = selectedHeadset.toLowerCase().includes('insight') || 
+    (currentDeviceInfo?.contactQuality && Object.keys(currentDeviceInfo.contactQuality).includes('Pz') && 
+     !Object.keys(currentDeviceInfo.contactQuality).includes('O1'));
+  
+  const sensors = isInsightHeadset ? INSIGHT_SENSORS : EPOC_SENSORS;
+  const sensorCount = Object.keys(sensors).length;
 
   return (
     <AnimatePresence>
@@ -231,48 +234,57 @@ export const ContactQualityMap = ({ connectedHeadsets, onClose }: ContactQuality
               </text>
             </svg>
 
-            {/* Sensor nodes */}
+            {/* Sensor nodes - larger for INSIGHT (5 sensors) */}
             {Object.entries(sensors).map(([sensorName, position]) => {
               const quality = currentDeviceInfo?.contactQuality[sensorName] ?? 0;
               const color = getQualityColor(quality);
               const glow = getQualityGlow(quality);
+              const dotSize = sensorCount <= 5 ? 'w-10 h-10' : 'w-7 h-7';
+              const labelSize = sensorCount <= 5 ? 'text-[10px]' : 'text-[8px]';
               
               return (
                 <motion.div
                   key={sensorName}
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  transition={{ delay: 0.1 * Object.keys(sensors).indexOf(sensorName) / Object.keys(sensors).length }}
+                  transition={{ delay: 0.05 * Object.keys(sensors).indexOf(sensorName) }}
                   className="absolute transform -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
                   style={{
                     left: `${position.x}%`,
                     top: `${position.y}%`,
                   }}
                 >
-                  {/* Sensor dot */}
+                  {/* Sensor dot with label inside */}
                   <div
-                    className="w-7 h-7 rounded-full border-2 transition-all duration-300 hover:scale-125 flex items-center justify-center"
+                    className={`${dotSize} rounded-full border-2 transition-all duration-300 hover:scale-110 flex items-center justify-center relative`}
                     style={{
                       backgroundColor: color,
-                      borderColor: quality >= 3 ? 'hsl(var(--primary) / 0.8)' : 'hsl(var(--border))',
+                      borderColor: quality >= 3 ? 'hsl(var(--foreground) / 0.6)' : 'hsl(var(--border))',
                       boxShadow: glow,
                     }}
                   >
+                    {/* Label inside dot */}
+                    <span 
+                      className={`${labelSize} font-bold font-mono text-background select-none`}
+                      style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+                    >
+                      {position.label}
+                    </span>
+                    
                     {quality >= 4 && (
                       <motion.div
                         className="absolute inset-0 rounded-full"
                         style={{ backgroundColor: color }}
-                        animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
+                        animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0, 0.4] }}
                         transition={{ duration: 2, repeat: Infinity }}
                       />
                     )}
                   </div>
                   
-                  {/* Tooltip */}
+                  {/* Tooltip on hover */}
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 glass-panel rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                    <div className="font-bold text-foreground font-mono">{position.label}</div>
                     <div 
-                      className="font-mono"
+                      className="font-mono font-bold"
                       style={{ color }}
                     >
                       {getQualityLabel(quality)}
