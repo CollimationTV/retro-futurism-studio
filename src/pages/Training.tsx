@@ -8,8 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCortex } from "@/contexts/CortexContext";
 import { getHeadsetColor } from "@/utils/headsetColors";
-import { ContactQualityButton } from "@/components/ContactQualityButton";
-import { Brain, Play, RotateCcw, SkipForward, Check, AlertCircle } from "lucide-react";
+import { Brain, Play, RotateCcw, SkipForward, Check, AlertCircle, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface TrainingEvent {
@@ -304,7 +303,16 @@ const Training = () => {
     <div className="min-h-screen relative">
       <Brain3D excitement={0.5} className="opacity-20 z-0" />
       <Header />
-      <ContactQualityButton connectedHeadsets={activeHeadsets} />
+      
+      {/* Subtle Force Restart button */}
+      <button
+        onClick={() => { window.location.href = '/'; }}
+        className="fixed top-4 right-4 z-50 p-2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+        title="Force Restart"
+      >
+        <RefreshCw className="w-4 h-4" />
+      </button>
+      
       <div className="py-12 px-6">
         <div className="container mx-auto max-w-3xl">
           {/* Headset indicator */}
@@ -532,15 +540,6 @@ const Training = () => {
                       Skip Training
                     </Button>
                     
-                    <Button
-                      size="lg"
-                      variant="destructive"
-                      onClick={() => { window.location.href = '/'; }}
-                      className="gap-2"
-                    >
-                      <RotateCcw className="w-5 h-5" />
-                      Force Restart
-                    </Button>
                   </div>
                 </motion.div>
               )}
