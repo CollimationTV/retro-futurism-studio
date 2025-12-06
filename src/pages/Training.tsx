@@ -239,14 +239,20 @@ const Training = () => {
   const retryTraining = async () => {
     if (!client || !currentHeadset) return;
     
-    try {
+    // Reset state first
+    setTrainingResult(null);
+    setTrainingProgress(0);
+    setError(null);
+    setPushIntensity(0);
+    setAccumulatedPushTime(0);
+    
+    // Wait a moment then restart training directly
+    // Note: rejectTraining only works for MC_Completed, not MC_Failed
+    // For failed training, we just restart directly
+    setTimeout(() => {
       const action = currentStep === 'neutral' ? 'neutral' : 'push';
-      await client.rejectTraining(currentHeadset, action);
-      setTrainingResult(null);
-      setTrainingProgress(0);
-    } catch (err) {
-      console.error('Retry error:', err);
-    }
+      startTraining(action);
+    }, 500);
   };
 
   const saveProfile = async () => {
@@ -516,6 +522,16 @@ const Training = () => {
                       onClick={skipTraining}
                     >
                       Skip Training
+                    </Button>
+                    
+                    <Button
+                      size="lg"
+                      variant="destructive"
+                      onClick={() => { window.location.href = '/'; }}
+                      className="gap-2"
+                    >
+                      <RotateCcw className="w-5 h-5" />
+                      Force Restart
                     </Button>
                   </div>
                 </motion.div>
