@@ -9,6 +9,7 @@ import { Brain3D } from "@/components/Brain3D";
 import { level1Images as localLevel1Images } from "@/data/imageData";
 import { RemoteOperatorPanel } from "@/components/RemoteOperatorPanel";
 import { useSettings } from "@/contexts/SettingsContext";
+import { ContactQualityButton } from "@/components/ContactQualityButton";
 
 interface Level1Image {
   id: number;
@@ -278,7 +279,7 @@ const ExcitementLevel1 = () => {
     <div className="min-h-screen relative">
       <Brain3D excitement={0.5} className="opacity-20 z-0" />
       <Header />
-      
+      <ContactQualityButton connectedHeadsets={activeHeadsets} />
       <div className="py-12 px-6">
         <div className="container mx-auto max-w-7xl">
           <div className="text-center mb-8">
