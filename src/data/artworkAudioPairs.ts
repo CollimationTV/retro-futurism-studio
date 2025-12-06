@@ -23,13 +23,13 @@ export const artworkAudioPairs: ArtworkAudioPair[] = [
   {
     id: 1,
     artworkUrl: level3Vid1,
-    metadata: "Dan Lish, Bootsy Collins, Collimation",
+    metadata: "Dan Lish, Bootsy Collins, Collimation - $6K",
     type: 'video'
   },
   {
     id: 2,
     artworkUrl: loveIsBlind,
-    metadata: "Love is Blind",
+    metadata: "Love is Blind - Tyme",
     type: 'video'
   },
   {
@@ -53,7 +53,7 @@ export const artworkAudioPairs: ArtworkAudioPair[] = [
   {
     id: 6,
     artworkUrl: level3Vid4,
-    metadata: "Renata Whedbee - Reverence in Red",
+    metadata: "Renata Whedbee - Reverence in Red - $2K",
     type: 'video'
   }
 ];

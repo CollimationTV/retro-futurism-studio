@@ -215,20 +215,18 @@ const ExcitementLevel3 = () => {
           </div>
         </div>
         
-        {/* Artwork display - preserves original aspect ratio */}
-        <div className="relative w-full max-w-6xl mx-auto min-h-[60vh] rounded-lg overflow-hidden border-2 border-primary/30 shadow-2xl bg-black flex items-center justify-center">
+        {/* Artwork display - fixed aspect ratio container */}
+        <div className="relative w-full max-w-6xl mx-auto aspect-video rounded-lg overflow-hidden border-2 border-primary/30 shadow-2xl bg-black">
           {currentArtwork.type === 'video' ? (
             <video
               src={currentArtwork.artworkUrl}
               autoPlay
               muted={false}
               playsInline
-              className="max-w-full max-h-[80vh] object-contain animate-fade-in"
+              className="w-full h-full object-contain animate-fade-in"
               key={currentArtwork.id}
               onLoadedMetadata={(e) => {
                 const video = e.currentTarget;
-                // If video is longer than 20s, it will auto-advance via timer
-                // If shorter than 20s, don't loop - just play once
                 video.loop = false;
               }}
             />
@@ -237,7 +235,7 @@ const ExcitementLevel3 = () => {
               <img
                 src={currentArtwork.artworkUrl}
                 alt={`Artwork ${currentArtwork.id}`}
-                className="max-w-full max-h-[80vh] object-contain animate-fade-in"
+                className="w-full h-full object-contain animate-fade-in"
                 key={currentArtwork.id}
               />
               {currentArtwork.audioUrl && (
@@ -246,10 +244,10 @@ const ExcitementLevel3 = () => {
             </>
           )}
           
-          {/* Metadata overlay */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background/95 to-transparent p-6">
+          {/* Metadata overlay - positioned higher */}
+          <div className="absolute bottom-12 left-0 right-0 px-6">
             <div className="flex gap-3">
-              <span className="px-3 py-1 bg-primary/20 border border-primary/50 rounded text-sm font-mono">
+              <span className="px-4 py-2 bg-background/80 backdrop-blur-sm border border-primary/50 rounded-lg text-base font-mono text-foreground">
                 {currentArtwork.metadata}
               </span>
             </div>

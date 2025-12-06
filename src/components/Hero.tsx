@@ -40,15 +40,6 @@ export const Hero = () => {
             </span>
             <div className="absolute inset-0 bg-gradient-to-r from-primary to-accent opacity-0 group-hover:opacity-100 transition-opacity" />
           </Button>
-          
-          <Button 
-            size="lg" 
-            variant="outline"
-            className="border-primary/50 hover:bg-primary/10 font-bold uppercase tracking-wider"
-            onClick={() => window.open('/USER_GUIDE.md', '_blank')}
-          >
-            View Documentation
-          </Button>
         </div>
         
         <div className="mt-20 grid grid-cols-3 gap-8 max-w-3xl mx-auto">

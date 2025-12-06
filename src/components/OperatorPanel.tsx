@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Zap, Target, Bug } from "lucide-react";
+import { Settings, Zap, Target, Bug, FileText } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
 
 interface OperatorPanelProps {
@@ -239,6 +239,19 @@ export const OperatorPanel = ({
               <p className="text-xs text-muted-foreground">
                 Shows emotion scores on Level 3
               </p>
+            </div>
+
+            {/* Documentation Link */}
+            <div className="space-y-2 border-t border-border pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2"
+                onClick={() => window.open('/USER_GUIDE.md', '_blank')}
+              >
+                <FileText className="w-4 h-4" />
+                View Documentation
+              </Button>
             </div>
 
             {/* Status */}
