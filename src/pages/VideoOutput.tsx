@@ -310,8 +310,15 @@ const VideoOutput = () => {
           </div>
           
           <div className="text-center mt-12">
-            <Button onClick={() => navigate('/')} size="lg">
-              Create Another Experience
+            <Button 
+              onClick={() => {
+                // Clear local state and navigate to initialize screen
+                // Sora job continues in background
+                navigate('/');
+              }} 
+              size="lg"
+            >
+              Start New Experience
             </Button>
           </div>
         </div>
