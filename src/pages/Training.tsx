@@ -239,18 +239,26 @@ const Training = () => {
   const retryTraining = async () => {
     if (!client || !currentHeadset) return;
     
-    // Reset state first
+    const action = currentStep === 'neutral' ? 'neutral' : 'push';
+    
+    // Reset state
     setTrainingResult(null);
     setTrainingProgress(0);
     setError(null);
     setPushIntensity(0);
     setAccumulatedPushTime(0);
+    setIsTraining(false);
     
-    // Wait a moment then restart training directly
-    // Note: rejectTraining only works for MC_Completed, not MC_Failed
-    // For failed training, we just restart directly
+    try {
+      // Cancel any active training first using "reset" status
+      await client.resetTraining(currentHeadset, action);
+    } catch (err) {
+      // Ignore reset errors - training may not be active
+      console.log('Reset training (may be expected):', err);
+    }
+    
+    // Wait a moment then restart training
     setTimeout(() => {
-      const action = currentStep === 'neutral' ? 'neutral' : 'push';
       startTraining(action);
     }, 500);
   };
