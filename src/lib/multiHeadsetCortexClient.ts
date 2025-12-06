@@ -255,16 +255,24 @@ export class MultiHeadsetCortexClient {
       const battery = devMap['Battery'] ?? devMap['battery'] ?? 0;
       const signal = devMap['Signal'] ?? devMap['signal'] ?? 0;
       
-      // Extract sensor contact qualities (all other columns are sensors)
-      const sensorNames = ['AF3', 'F7', 'F3', 'FC5', 'T7', 'P7', 'O1', 'O2', 'P8', 'T8', 'FC6', 'F4', 'F8', 'AF4', 'Pz', 'CMS', 'DRL'];
+      // Extract sensor contact qualities from devCols (excludes Battery/Signal columns)
+      // Use actual column names from subscription response instead of hardcoded list
       const contactQuality: Record<string, number> = {};
       let totalQuality = 0;
       let sensorCount = 0;
       
-      for (const sensor of sensorNames) {
-        if (devMap[sensor] !== undefined) {
-          contactQuality[sensor] = devMap[sensor];
-          totalQuality += devMap[sensor];
+      // Known sensor patterns to match (covers EPOC, INSIGHT, etc.)
+      const knownSensorPatterns = ['AF3', 'AF4', 'F7', 'F3', 'F4', 'F8', 'FC5', 'FC6', 'T7', 'T8', 'P7', 'P8', 'O1', 'O2', 'Pz', 'CMS', 'DRL'];
+      
+      for (const colName of this.devCols) {
+        // Skip non-sensor columns
+        if (colName === 'Battery' || colName === 'battery' || colName === 'Signal' || colName === 'signal') {
+          continue;
+        }
+        // Check if this column matches a known sensor name
+        if (knownSensorPatterns.includes(colName) && devMap[colName] !== undefined) {
+          contactQuality[colName] = devMap[colName];
+          totalQuality += devMap[colName];
           sensorCount++;
         }
       }
@@ -283,6 +291,11 @@ export class MultiHeadsetCortexClient {
         overallQuality,
         headsetId
       };
+      
+      // Debug log for contact quality (temporary)
+      if (sensorCount > 0) {
+        console.log('📡 Contact quality:', contactQuality, 'sensors:', sensorCount, 'devCols:', this.devCols);
+      }
       
       this.onDeviceInfo?.(event);
     }
